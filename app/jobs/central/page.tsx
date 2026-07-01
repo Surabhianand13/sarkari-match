@@ -2,10 +2,12 @@ import Link from "next/link";
 import { ArrowRight, Landmark, SearchCheck } from "lucide-react";
 import { JobCard } from "@/components/job-card";
 import { ButtonLink, EmptyState, SearchCommandBar, SectionHeading } from "@/components/design-system";
-import { demoJobs, departmentLabels, departments } from "@/lib/data/catalog";
+import { departmentLabels, departments } from "@/lib/data/catalog";
+import { getJobs } from "@/lib/data/jobs";
 
-export default function CentralGovtJobsPage() {
-  const centralJobs = demoJobs.filter((job) => job.state.toLowerCase() === "central government");
+export default async function CentralGovtJobsPage() {
+  const jobs = await getJobs();
+  const centralJobs = jobs.filter((job) => job.state.toLowerCase() === "central government");
 
   return (
     <div className="bg-surface">

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { buildDeadlineEvents, toIcs } from "@/lib/calendar/events";
-import { demoJobs } from "@/lib/data/catalog";
+import { getJobs } from "@/lib/data/jobs";
 
-export function GET() {
-  const ics = toIcs(demoJobs.flatMap(buildDeadlineEvents));
+export async function GET() {
+  const jobs = await getJobs();
+  const ics = toIcs(jobs.flatMap(buildDeadlineEvents));
   return new NextResponse(ics, {
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",

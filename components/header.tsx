@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, Search, UserRound } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { ButtonLink } from "@/components/design-system";
+import { HeaderAuthActions } from "@/components/auth/header-auth-actions";
 import { HeaderNav } from "@/components/header-nav";
 
 export function Header() {
@@ -23,12 +24,7 @@ export function Header() {
           <Link href="/jobs" className="inline-flex size-11 items-center justify-center rounded-md text-primary hover:bg-background lg:hidden" aria-label="Search govt job notifications">
             <Search size={20} aria-hidden="true" />
           </Link>
-          <Link href="/login" className="inline-flex size-11 items-center justify-center rounded-md text-primary hover:bg-background lg:hidden" aria-label="Sign in">
-            <UserRound size={20} aria-hidden="true" />
-          </Link>
-          <Link href="/login" className="hidden rounded-full px-3 py-2 text-sm font-black text-primary hover:bg-mint sm:inline-flex">
-            Sign In
-          </Link>
+          <HeaderAuthActions />
           <ButtonLink href="/eligibility" className="hidden sm:inline-flex">Find My Matches</ButtonLink>
           <Link href="/menu" className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-white text-primary shadow-soft lg:hidden" aria-label="Open menu">
             <Menu size={20} aria-hidden="true" />

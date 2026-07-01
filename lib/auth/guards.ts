@@ -12,6 +12,13 @@ export async function requireUser() {
   return data.user;
 }
 
+export async function getOptionalUser() {
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getUser();
+  return data.user ?? null;
+}
+
 export async function requireAdmin() {
   const user = await requireUser();
   const roles = (user.app_metadata?.roles ?? []) as string[];

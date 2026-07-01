@@ -1,13 +1,14 @@
 import { BarChart3 } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/guards";
-import { demoJobs } from "@/lib/data/catalog";
+import { getJobs } from "@/lib/data/jobs";
 import { summarizeAdminReports } from "@/lib/reports/admin";
 
 export const metadata = { robots: { index: false, follow: false } };
 
 export default async function AdvancedAdminReportsPage() {
   await requireAdmin();
-  const summary = summarizeAdminReports({ jobs: demoJobs });
+  const jobs = await getJobs();
+  const summary = summarizeAdminReports({ jobs });
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <p className="text-sm font-black uppercase tracking-[0.18em] text-success">Admin</p>

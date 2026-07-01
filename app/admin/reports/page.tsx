@@ -1,12 +1,13 @@
 import { requireAdmin } from "@/lib/auth/guards";
-import { demoJobs } from "@/lib/data/catalog";
+import { getJobs } from "@/lib/data/jobs";
 import { summarizeAdminReports } from "@/lib/reports/admin";
 
 export const metadata = { robots: { index: false, follow: false } };
 
 export default async function AdminReportsPage() {
   await requireAdmin();
-  const summary = summarizeAdminReports({ jobs: demoJobs, reportedErrors: 0, savedJobs: 0, trackedApplications: 0 });
+  const jobs = await getJobs();
+  const summary = summarizeAdminReports({ jobs, reportedErrors: 0, savedJobs: 0, trackedApplications: 0 });
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <p className="text-sm font-black uppercase tracking-[0.18em] text-success">Admin</p>

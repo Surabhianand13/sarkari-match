@@ -7,6 +7,6 @@ describe("entitlements", () => {
   });
 
   it("grants founding pro explanations", () => {
-    expect(hasFeature("founding_pro_3y", "full_match_explanation")).toBe(true);
+    expect(hasFeature("founding_pro_3m", "full_match_explanation")).toBe(true);
   });
 });

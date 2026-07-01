@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "sarkarimatch-dev",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-lc",
+        "export NVM_DIR=\"$HOME/.nvm\"; . \"$NVM_DIR/nvm.sh\"; nvm use v24.11.1 >/dev/null; pnpm dev"
+      ],
+      "port": 3000
+    }
+  ]
+}

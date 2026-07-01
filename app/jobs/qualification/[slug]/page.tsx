@@ -1,11 +1,13 @@
 import { JobCard } from "@/components/job-card";
-import { demoJobs, qualificationLabels } from "@/lib/data/catalog";
+import { qualificationLabels } from "@/lib/data/catalog";
+import { getJobs } from "@/lib/data/jobs";
 import { EmptyState, SectionHeading } from "@/components/design-system";
 
 export default async function QualificationPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const title = qualificationLabels[slug] ?? slug;
-  const jobs = demoJobs.filter((job) => job.qualification.toLowerCase() === title.toLowerCase() || job.qualification.toLowerCase().replaceAll(".", "").replaceAll("/", "") === slug);
+  const allJobs = await getJobs();
+  const jobs = allJobs.filter((job) => job.qualification.toLowerCase() === title.toLowerCase() || job.qualification.toLowerCase().replaceAll(".", "").replaceAll("/", "") === slug);
 
   return (
     <div className="bg-surface">

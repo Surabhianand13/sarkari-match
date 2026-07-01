@@ -1,6 +1,6 @@
 insert into public.plans(code, name) values
   ('free', 'Free'),
-  ('founding_pro_3y', 'Founding Pro Pass'),
+  ('founding_pro_3m', 'Founding Pro Pass'),
   ('pro_monthly', 'Pro Monthly'),
   ('pro_annual', 'Pro Annual'),
   ('pro_plus_monthly', 'Pro Plus Monthly'),

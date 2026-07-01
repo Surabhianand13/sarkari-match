@@ -3,12 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, Bookmark, BriefcaseBusiness, CalendarClock, ExternalLink, GraduationCap, MapPin } from "lucide-react";
 import { ButtonLink, DeadlineBadge, MatchStatusBadge, VerificationBadge } from "@/components/design-system";
-import { getJobBySlug } from "@/lib/data/catalog";
+import { getJobBySlug } from "@/lib/data/jobs";
 import { formatDate } from "@/lib/utils/format";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const job = getJobBySlug(slug);
+  const job = await getJobBySlug(slug);
   if (!job) return {};
   return {
     title: `${job.title}: Govt Job Notification, Eligibility, Age Limit and Apply Online`,
@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function JobDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const job = getJobBySlug(slug);
+  const job = await getJobBySlug(slug);
   if (!job) notFound();
   const isOpen = job.applicationStatus === "open";
 

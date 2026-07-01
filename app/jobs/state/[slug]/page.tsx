@@ -1,11 +1,13 @@
 import { JobCard } from "@/components/job-card";
-import { demoJobs, stateLabels } from "@/lib/data/catalog";
+import { stateLabels } from "@/lib/data/catalog";
+import { getJobs } from "@/lib/data/jobs";
 import { EmptyState, SectionHeading } from "@/components/design-system";
 
 export default async function StatePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const title = stateLabels[slug] ?? slug;
-  const jobs = demoJobs.filter((job) => job.state.toLowerCase().replaceAll(" ", "-") === slug);
+  const allJobs = await getJobs();
+  const jobs = allJobs.filter((job) => job.state.toLowerCase().replaceAll(" ", "-") === slug);
 
   return (
     <div className="bg-surface">

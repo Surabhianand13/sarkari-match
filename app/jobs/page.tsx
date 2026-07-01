@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, BriefcaseBusiness, GraduationCap, Landmark, MapPinned } from "lucide-react";
 import { JobCard } from "@/components/job-card";
-import { demoJobs, departmentLabels, departments, qualificationLabels, qualificationPages, stateLabels, states } from "@/lib/data/catalog";
+import { departmentLabels, departments, qualificationLabels, qualificationPages, stateLabels, states } from "@/lib/data/catalog";
+import { getJobs } from "@/lib/data/jobs";
 import { EmptyState, SearchCommandBar, SectionHeading } from "@/components/design-system";
 
 export const metadata: Metadata = {
@@ -23,7 +24,8 @@ export default async function JobsPage({ searchParams }: { searchParams?: Promis
   const state = resolvedSearchParams?.state?.toLowerCase();
   const department = resolvedSearchParams?.department?.toLowerCase();
   const qualification = resolvedSearchParams?.qualification?.toLowerCase();
-  const jobs = demoJobs.filter((job) => {
+  const allJobs = await getJobs();
+  const jobs = allJobs.filter((job) => {
     if (q && ![job.title, job.recruitmentTitle, job.organisation, job.department, job.state, job.qualification].join(" ").toLowerCase().includes(q)) return false;
     if (state && !job.state.toLowerCase().includes(state.replaceAll("-", " "))) return false;
     if (department && job.department.toLowerCase() !== department) return false;

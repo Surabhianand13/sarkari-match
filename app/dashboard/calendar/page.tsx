@@ -2,14 +2,15 @@ import { CalendarDays, Download } from "lucide-react";
 import { ButtonLink, SectionHeading } from "@/components/design-system";
 import { requireUser } from "@/lib/auth/guards";
 import { buildDeadlineEvents } from "@/lib/calendar/events";
-import { demoJobs } from "@/lib/data/catalog";
+import { getJobs } from "@/lib/data/jobs";
 import { formatDate } from "@/lib/utils/format";
 
 export const metadata = { robots: { index: false, follow: false } };
 
 export default async function CalendarPage() {
   await requireUser();
-  const events = demoJobs.flatMap(buildDeadlineEvents);
+  const jobs = await getJobs();
+  const events = jobs.flatMap(buildDeadlineEvents);
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <SectionHeading eyebrow="Calendar" title="Personal exam notification calendar" body="Deadline reminders and saved notification dates are grouped into one mobile-friendly calendar." />

@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 
 export const FOUNDING_PASS_LIMIT = 1000;
-export const FOUNDING_PASS_PRICE_PAISE = 9900;
+export const FOUNDING_PASS_PRICE_PAISE = 4900;
 
 export type FoundingCounter = {
   successfulPurchases: number;

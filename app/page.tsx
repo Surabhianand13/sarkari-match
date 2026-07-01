@@ -12,10 +12,12 @@ import {
   SearchCommandBar,
   SectionHeading
 } from "@/components/design-system";
-import { demoJobs, departments, qualificationPages, states } from "@/lib/data/catalog";
+import { departments, qualificationPages, states } from "@/lib/data/catalog";
+import { getJobs } from "@/lib/data/jobs";
 
-export default function HomePage() {
-  const closingSoon = [...demoJobs].sort((a, b) => a.applicationEndDate.localeCompare(b.applicationEndDate));
+export default async function HomePage() {
+  const jobs = await getJobs();
+  const closingSoon = [...jobs].sort((a, b) => a.applicationEndDate.localeCompare(b.applicationEndDate));
 
   return (
     <div className="overflow-hidden">
@@ -68,7 +70,7 @@ export default function HomePage() {
           <SectionHeading eyebrow="Freshly added" title="Latest govt job and exam notifications" body="Recently published and recently verified notifications while live Supabase content is being connected." />
           <ButtonLink href="/jobs" variant="secondary">View all latest notifications</ButtonLink>
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">{demoJobs.map((job, index) => <JobCard key={job.id} job={job} index={index} />)}</div>
+        <div className="grid gap-4 lg:grid-cols-2">{jobs.map((job, index) => <JobCard key={job.id} job={job} index={index} />)}</div>
       </Band>
 
       <Band>

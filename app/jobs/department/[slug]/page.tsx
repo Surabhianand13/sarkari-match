@@ -1,11 +1,13 @@
 import { JobCard } from "@/components/job-card";
-import { demoJobs, departmentLabels } from "@/lib/data/catalog";
+import { departmentLabels } from "@/lib/data/catalog";
+import { getJobs } from "@/lib/data/jobs";
 import { EmptyState, SectionHeading } from "@/components/design-system";
 
 export default async function DepartmentPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const title = departmentLabels[slug] ?? slug;
-  const jobs = demoJobs.filter((job) => job.department.toLowerCase() === title.toLowerCase() || job.department.toLowerCase() === slug);
+  const allJobs = await getJobs();
+  const jobs = allJobs.filter((job) => job.department.toLowerCase() === title.toLowerCase() || job.department.toLowerCase() === slug);
 
   return (
     <div className="bg-surface">
