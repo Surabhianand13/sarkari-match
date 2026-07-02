@@ -4,6 +4,8 @@ import { Menu, Search } from "lucide-react";
 import { ButtonLink } from "@/components/design-system";
 import { HeaderAuthActions } from "@/components/auth/header-auth-actions";
 import { HeaderNav } from "@/components/header-nav";
+import { LanguageToggle } from "@/components/i18n/language-toggle";
+import { T } from "@/components/i18n/t";
 
 export function Header() {
   return (
@@ -24,8 +26,9 @@ export function Header() {
           <Link href="/jobs" className="inline-flex size-11 items-center justify-center rounded-md text-primary hover:bg-background lg:hidden" aria-label="Search govt job notifications">
             <Search size={20} aria-hidden="true" />
           </Link>
+          <LanguageToggle />
           <HeaderAuthActions />
-          <ButtonLink href="/eligibility" className="hidden sm:inline-flex">Find My Matches</ButtonLink>
+          <ButtonLink href="/eligibility" className="hidden sm:inline-flex"><T k="find_matches" /></ButtonLink>
           <Link href="/menu" className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-white text-primary shadow-soft lg:hidden" aria-label="Open menu">
             <Menu size={20} aria-hidden="true" />
           </Link>

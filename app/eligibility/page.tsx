@@ -1,4 +1,6 @@
 import { MapPinned, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { T } from "@/components/i18n/t";
+import type { StaticLabelKey } from "@/lib/i18n/locales";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -16,15 +18,15 @@ export default async function EligibilityPage({ searchParams }: { searchParams?:
       <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 pb-28 lg:grid-cols-[0.85fr_1.15fr]">
         <aside className="rounded-[2rem] bg-[linear-gradient(135deg,#0B2D63,#0D9488)] p-6 text-white shadow-lift">
           <Sparkles className="text-[#B9F8CD]" size={30} aria-hidden="true" />
-          <h1 className="mt-4 text-3xl font-black tracking-tight">Let’s find the right notifications for you.</h1>
-          <p className="mt-3 leading-7 text-white/75">Build a candidate profile once. SarkariMatch checks it against post-level govt job and exam notification rules.</p>
+          <h1 className="mt-4 text-3xl font-black tracking-tight"><T k="eligibility_headline" /></h1>
+          <p className="mt-3 leading-7 text-white/75"><T k="eligibility_subtitle" /></p>
           <div className="mt-6 rounded-2xl bg-white/12 p-4">
             <p className="text-sm font-black">Your privacy matters</p>
             <p className="mt-1 text-sm leading-6 text-white/70">We use these details only for eligibility matching and do not publish private profile data.</p>
           </div>
           <div className="mt-4 grid gap-2 text-sm font-semibold text-white/75">
-            {["Step 1: Basic details", "Step 2: Location and preferences", "Step 3: Review profile"].map((item, index) => (
-              <div key={item} className={`rounded-2xl px-4 py-3 ${step === index + 1 ? "bg-white text-primary" : "bg-white/10"}`}>{item}</div>
+            {(["eligibility_step1", "eligibility_step2", "eligibility_step3"] as const).map((key, index) => (
+              <div key={key} className={`rounded-2xl px-4 py-3 ${step === index + 1 ? "bg-white text-primary" : "bg-white/10"}`}><T k={key} /></div>
             ))}
           </div>
         </aside>
@@ -56,7 +58,7 @@ function BasicDetailsStep({ params }: { params: Record<string, string | string[]
         </Field>
         <Field label="Highest qualification"><input name="qualification" defaultValue={value(params, "qualification")} placeholder="Graduate, B.Tech/B.E, ITI..." className="form-input" /></Field>
         <PrivacyNote />
-        <StickyAction label="Continue" />
+        <StickyAction labelKey="cta_continue" />
       </form>
     </>
   );
@@ -79,7 +81,7 @@ function PreferenceStep({ params }: { params: Record<string, string | string[] |
           <MapPinned className="mb-2" size={19} aria-hidden="true" />
           Location is used to surface state-wise notifications and domicile rules where they apply.
         </div>
-        <StickyAction label="Review profile" />
+        <StickyAction labelKey="cta_review_profile" />
       </form>
     </>
   );
@@ -112,7 +114,7 @@ function ReviewStep({ params }: { params: Record<string, string | string[] | und
           <UserRound className="mb-2" size={19} aria-hidden="true" />
           Your profile will be checked against age, education, category, domicile and preference rules.
         </div>
-        <StickyAction label="View Matches" />
+        <StickyAction labelKey="cta_view_matches" />
       </form>
     </>
   );
@@ -135,10 +137,10 @@ function PrivacyNote() {
   );
 }
 
-function StickyAction({ label }: { label: string }) {
+function StickyAction({ labelKey }: { labelKey: StaticLabelKey }) {
   return (
     <div className="fixed inset-x-0 bottom-16 z-30 border-t border-white/70 bg-white/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-12px_34px_rgba(11,45,99,0.12)] md:static md:border-0 md:bg-transparent md:p-0 md:shadow-none">
-      <button className="min-h-12 w-full rounded-full bg-[linear-gradient(135deg,#18B943,#0D9488)] px-5 py-3 font-black text-white shadow-green">{label}</button>
+      <button className="min-h-12 w-full rounded-full bg-[linear-gradient(135deg,#18B943,#0D9488)] px-5 py-3 font-black text-white shadow-green"><T k={labelKey} /></button>
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
   SearchCommandBar,
   SectionHeading
 } from "@/components/design-system";
+import { T } from "@/components/i18n/t";
 import { departments, qualificationPages, states } from "@/lib/data/catalog";
 import { getJobs } from "@/lib/data/jobs";
 
@@ -28,31 +29,37 @@ export default async function HomePage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(24,185,67,0.22)] bg-mint px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-success">
               <Sparkles size={14} aria-hidden="true" />
-              India’s smarter govt job and exam notification matching platform
+              <T k="hero_eyebrow" />
             </div>
             <h1 className="mt-5 max-w-3xl text-balance text-[2.35rem] font-black leading-[1.04] tracking-tight text-primary sm:text-6xl">
-              Find govt job and exam notifications you are eligible for.
+              <T k="hero_title" />
             </h1>
             <p className="mt-5 max-w-2xl text-pretty text-base font-medium leading-7 text-muted sm:text-lg sm:leading-8">
-              Create your profile once. SarkariMatch checks your age, qualification, category and preferences to show relevant govt job and exam notifications.
+              <T k="hero_subtitle" />
             </p>
             <div className="mt-6 flex flex-col gap-3 min-[390px]:flex-row">
               <ButtonLink href="/eligibility" className="w-full min-[390px]:w-auto">
-                Find My Matches <ArrowRight size={17} aria-hidden="true" />
+                <T k="find_matches" /> <ArrowRight size={17} aria-hidden="true" />
               </ButtonLink>
               <ButtonLink href="/jobs" variant="secondary" className="w-full min-[390px]:w-auto">
-                Browse Notifications
+                <T k="cta_browse" />
               </ButtonLink>
             </div>
+            <div className="mt-4 flex items-start gap-2 rounded-2xl bg-white/70 px-3 py-2.5 text-xs font-bold leading-5 text-muted shadow-soft">
+              <ShieldCheck className="mt-0.5 shrink-0 text-teal" size={16} aria-hidden="true" />
+              <T k="trust_strip" />
+            </div>
             <div className="mt-6 grid gap-2 text-sm font-bold text-muted sm:grid-cols-3">
-              {[
-                [ShieldCheck, "Verified notifications"],
-                [Wand2, "Eligibility checks"],
-                [BellRing, "Deadline reminders"]
-              ].map(([Icon, label]) => (
-                <div key={label as string} className="flex items-center gap-2 rounded-full bg-white/75 px-3 py-2 shadow-soft">
+              {(
+                [
+                  [ShieldCheck, "proof_verified"],
+                  [Wand2, "proof_eligibility"],
+                  [BellRing, "proof_reminders"]
+                ] as const
+              ).map(([Icon, key]) => (
+                <div key={key} className="flex items-center gap-2 rounded-full bg-white/75 px-3 py-2 shadow-soft">
                   <Icon className="text-brand-green" size={17} aria-hidden="true" />
-                  {label as string}
+                  <T k={key} />
                 </div>
               ))}
             </div>

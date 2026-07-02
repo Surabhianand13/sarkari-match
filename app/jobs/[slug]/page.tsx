@@ -1,10 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, Bookmark, BriefcaseBusiness, CalendarClock, ExternalLink, GraduationCap, MapPin } from "lucide-react";
+import { ArrowRight, Bookmark, BriefcaseBusiness, CalendarClock, ExternalLink, GraduationCap, MapPin, MessageCircle } from "lucide-react";
 import { ButtonLink, DeadlineBadge, MatchStatusBadge, VerificationBadge } from "@/components/design-system";
+import { T } from "@/components/i18n/t";
 import { getJobBySlug } from "@/lib/data/jobs";
 import { formatDate } from "@/lib/utils/format";
+import { buildWhatsAppShareUrl } from "@/lib/utils/whatsapp-share";
+
+function safeHostname(url: string) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "";
+  }
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -21,6 +31,9 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
   const job = await getJobBySlug(slug);
   if (!job) notFound();
   const isOpen = job.applicationStatus === "open";
+  const officialHost = safeHostname(job.officialApplicationUrl);
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://sarkarimatch.com";
+  const shareUrl = buildWhatsAppShareUrl(`${job.title} — check your eligibility on SarkariMatch: ${siteUrl}/jobs/${job.slug}`);
 
   return (
     <article className="bg-surface pb-32 md:pb-12">
@@ -37,14 +50,24 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
         <p className="mt-4 max-w-3xl text-pretty text-lg leading-8 text-muted">
           {job.qualification} candidates can review this {job.department} govt job notification. Last date: {formatDate(job.applicationEndDate)}. Vacancies: {job.vacancyCount}.
         </p>
-        <div className="mt-6 hidden flex-wrap gap-3 md:flex">
+        <div className="mt-6 hidden flex-wrap items-start gap-3 md:flex">
         <ButtonLink href="/eligibility">Check My Eligibility <ArrowRight size={16} aria-hidden="true" /></ButtonLink>
         {isOpen && (
-          <a href={job.officialApplicationUrl} rel="nofollow noopener noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-white px-5 py-3 text-sm font-black text-primary shadow-soft transition hover:-translate-y-0.5">
-            Apply on Official Website <ExternalLink size={16} aria-hidden="true" />
-          </a>
+          <div className="flex flex-col gap-1">
+            <a href={job.officialApplicationUrl} rel="nofollow noopener noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-white px-5 py-3 text-sm font-black text-primary shadow-soft transition hover:-translate-y-0.5">
+              Apply on Official Website <ExternalLink size={16} aria-hidden="true" />
+            </a>
+            {officialHost && (
+              <span className="px-1 text-xs font-bold text-muted">
+                <T k="redirects_to" as="span" /> {officialHost}
+              </span>
+            )}
+          </div>
         )}
         <Link href={`/dashboard/saved?post=${job.slug}`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-white px-5 py-3 text-sm font-black text-primary shadow-soft"><Bookmark size={16} aria-hidden="true" /> Save Notification</Link>
+        <a href={shareUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-white px-5 py-3 text-sm font-black text-primary shadow-soft">
+          <MessageCircle size={16} className="text-success" aria-hidden="true" /> <T k="cta_share_whatsapp" />
+        </a>
         </div>
       </div>
       <dl className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -72,14 +95,24 @@ export default async function JobDetailPage({ params }: { params: Promise<{ slug
         </details>
       ))}
       </div>
-      <div className="fixed inset-x-0 bottom-16 z-30 grid grid-cols-3 gap-2 border-t border-white/70 bg-white/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-12px_34px_rgba(11,45,99,0.12)] backdrop-blur md:hidden">
-        <Link href="/eligibility" className="min-h-12 rounded-full bg-[linear-gradient(135deg,#18B943,#0D9488)] px-4 py-3 text-center text-sm font-black text-white shadow-green">Check Eligibility</Link>
-        {isOpen ? (
-          <a href={job.officialApplicationUrl} rel="nofollow noopener noreferrer" className="min-h-12 rounded-full border border-border bg-white px-4 py-3 text-center text-sm font-black text-primary">Official Apply</a>
-        ) : (
-          <Link href="/jobs" className="min-h-12 rounded-full border border-border bg-white px-4 py-3 text-center text-sm font-black text-primary">Similar Notifications</Link>
+      <div className="fixed inset-x-0 bottom-16 z-30 border-t border-white/70 bg-white/95 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-12px_34px_rgba(11,45,99,0.12)] backdrop-blur md:hidden">
+        {isOpen && officialHost && (
+          <p className="px-3 pt-2 text-center text-[0.65rem] font-bold text-muted">
+            <T k="redirects_to" as="span" /> {officialHost}
+          </p>
         )}
-        <Link href={`/dashboard/saved?post=${job.slug}`} className="min-h-12 rounded-full border border-border bg-white px-4 py-3 text-center text-sm font-black text-primary">Save</Link>
+        <div className="grid grid-cols-4 gap-2 p-3">
+          <Link href="/eligibility" className="min-h-12 rounded-full bg-[linear-gradient(135deg,#18B943,#0D9488)] px-2 py-3 text-center text-xs font-black text-white shadow-green">Check Eligibility</Link>
+          {isOpen ? (
+            <a href={job.officialApplicationUrl} rel="nofollow noopener noreferrer" className="min-h-12 rounded-full border border-border bg-white px-2 py-3 text-center text-xs font-black text-primary">Official Apply</a>
+          ) : (
+            <Link href="/jobs" className="min-h-12 rounded-full border border-border bg-white px-2 py-3 text-center text-xs font-black text-primary">Similar Notifications</Link>
+          )}
+          <Link href={`/dashboard/saved?post=${job.slug}`} className="min-h-12 rounded-full border border-border bg-white px-2 py-3 text-center text-xs font-black text-primary">Save</Link>
+          <a href={shareUrl} target="_blank" rel="noopener noreferrer" className="flex min-h-12 items-center justify-center rounded-full border border-border bg-white px-2 py-3 text-primary" aria-label="Share on WhatsApp">
+            <MessageCircle size={18} className="text-success" aria-hidden="true" />
+          </a>
+        </div>
       </div>
       {isOpen && (
         <script

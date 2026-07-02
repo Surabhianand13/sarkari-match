@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { T } from "@/components/i18n/t";
 
 const footerGroups = [
   {
@@ -47,7 +48,7 @@ export function Footer() {
           <div>
             <p className="text-2xl font-black text-white">SarkariMatch</p>
             <p className="mt-3 max-w-xl text-sm leading-7 text-white/70">
-              Govt job and exam notifications matched to your eligibility profile. SarkariMatch is an independent notification-matching platform and is not affiliated with the Government of India or any state government.
+              <T k="footer_disclaimer" />
             </p>
             <div className="mt-5 rounded-2xl bg-white/8 p-4 text-sm font-semibold leading-6 text-white/70">
               Always verify age, qualification, category, fee, dates and official links in the original notification before applying.

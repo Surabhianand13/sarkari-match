@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
+import { LocaleProvider } from "@/components/i18n/locale-provider";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 
 export const metadata: Metadata = {
@@ -22,10 +23,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body>
-        <Header />
-        <main className="pb-20 md:pb-0">{children}</main>
-        <Footer />
-        <MobileBottomNav />
+        <LocaleProvider>
+          <Header />
+          <main className="pb-20 md:pb-0">{children}</main>
+          <Footer />
+          <MobileBottomNav />
+        </LocaleProvider>
       </body>
     </html>
   );

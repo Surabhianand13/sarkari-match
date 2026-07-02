@@ -282,12 +282,34 @@ export function HowItWorksTimeline() {
   );
 }
 
-export function PricingCard({ title, price, body, features, featured = false, actionHref, actionLabel }: { title: string; price: string; body: string; features: string[]; featured?: boolean; actionHref?: string; actionLabel?: string }) {
+export function PricingCard({
+  title,
+  price,
+  priceNote,
+  trustBadge,
+  body,
+  features,
+  featured = false,
+  actionHref,
+  actionLabel
+}: {
+  title: React.ReactNode;
+  price: React.ReactNode;
+  priceNote?: React.ReactNode;
+  trustBadge?: React.ReactNode;
+  body: React.ReactNode;
+  features: string[];
+  featured?: boolean;
+  actionHref?: string;
+  actionLabel?: React.ReactNode;
+}) {
   return (
     <section className={`pricing-card ${featured ? "pricing-featured" : ""}`}>
       {featured && <span className="mb-4 inline-flex rounded-full bg-amber-soft px-3 py-1 text-xs font-black text-warning">Best early offer</span>}
       <h2 className="text-xl font-black text-primary">{title}</h2>
       <p className="mt-3 text-3xl font-black tracking-tight text-foreground">{price}</p>
+      {priceNote && <p className="mt-1 text-xs font-bold text-muted">{priceNote}</p>}
+      {trustBadge && <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-mint px-2.5 py-1 text-[0.68rem] font-black text-success">{trustBadge}</span>}
       <p className="mt-2 text-sm leading-6 text-muted">{body}</p>
       <ul className="mt-5 space-y-3 text-sm font-semibold text-muted">
         {features.map((feature) => (
