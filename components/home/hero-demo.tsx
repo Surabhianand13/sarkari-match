@@ -80,7 +80,7 @@ export function HeroDemo() {
   const frame = reducedMotion ? script[script.length - 1] : script[step];
 
   return (
-    <div className="mx-auto w-full max-w-md rounded-[1.75rem] border border-[color:var(--border)] bg-white p-5 shadow-lift" aria-label="Preview of how SarkariMatch matches govt job and exam notifications" role="img">
+    <div className="mx-auto w-full max-w-md rounded-[1.75rem] border border-[color:var(--border)] bg-white p-5 shadow-lift lg:max-w-lg lg:p-6" aria-label="Preview of how SarkariMatch matches govt job and exam notifications" role="img">
       {frame.scene === "search" ? (
         <SearchScene frame={frame} />
       ) : (

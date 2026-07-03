@@ -25,19 +25,19 @@ export default async function HomePage() {
       <FoundingOfferBanner />
       <section className="relative">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_0%,rgba(24,185,67,0.14),transparent_26rem)]" />
-        <div className="mx-auto max-w-2xl px-4 py-10 text-center sm:py-14">
+        <div className="mx-auto max-w-2xl px-4 py-10 text-center sm:py-14 lg:max-w-4xl lg:py-16">
           <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-[rgba(24,185,67,0.22)] bg-mint px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-success">
             <Sparkles size={14} aria-hidden="true" />
             <T k="hero_eyebrow" />
           </div>
-          <h1 className="mx-auto mt-5 max-w-xl text-balance text-[2.1rem] font-black leading-[1.08] tracking-tight text-primary sm:text-5xl">
+          <h1 className="mx-auto mt-5 max-w-xl text-balance text-[2.1rem] font-black leading-[1.08] tracking-tight text-primary sm:text-5xl lg:max-w-3xl lg:text-6xl">
             <T k="hero_title" />
           </h1>
-          <p className="mx-auto mt-4 max-w-lg text-pretty text-base font-medium leading-7 text-muted">
+          <p className="mx-auto mt-4 max-w-lg text-pretty text-base font-medium leading-7 text-muted lg:max-w-xl lg:text-lg">
             <T k="hero_subtitle" />
           </p>
 
-          <div className="mt-8">
+          <div className="mt-8 lg:mt-10">
             <HeroDemo />
           </div>
 
