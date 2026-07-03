@@ -33,6 +33,7 @@ export type StaticLabelKey =
   | "proof_eligibility"
   | "proof_reminders"
   | "trust_strip"
+  | "demo_tagline"
   | "eligibility_headline"
   | "eligibility_subtitle"
   | "eligibility_step1"
@@ -103,6 +104,14 @@ const staticLabels: Record<StaticLabelKey, Record<SupportedLocale, string>> = {
     te: "Independent notification-matching platform — not affiliated with any government. We never charge for applications.",
     ta: "Independent notification-matching platform — not affiliated with any government. We never charge for applications.",
     mr: "Independent notification-matching platform — not affiliated with any government. We never charge for applications."
+  },
+  demo_tagline: {
+    en: "No clutter. Only clean, verified notifications.",
+    hi: "कोई अव्यवस्था नहीं। सिर्फ़ स्वच्छ, सत्यापित सूचनाएं।",
+    kn: "No clutter. Only clean, verified notifications.",
+    te: "No clutter. Only clean, verified notifications.",
+    ta: "No clutter. Only clean, verified notifications.",
+    mr: "No clutter. Only clean, verified notifications."
   },
   eligibility_headline: {
     en: "Let's find the right notifications for you.",

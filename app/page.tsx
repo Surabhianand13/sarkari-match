@@ -3,7 +3,6 @@ import type { Route } from "next";
 import { ArrowRight, BadgeCheck, BellRing, Building2, MapPinned, ShieldCheck, Sparkles, Wand2 } from "lucide-react";
 import { JobCard } from "@/components/job-card";
 import {
-  AnimatedHeroMatchPreview,
   ButtonLink,
   FoundingOfferBanner,
   HowItWorksTimeline,
@@ -12,6 +11,7 @@ import {
   SearchCommandBar,
   SectionHeading
 } from "@/components/design-system";
+import { HeroDemo } from "@/components/home/hero-demo";
 import { T } from "@/components/i18n/t";
 import { departments, qualificationPages, states } from "@/lib/data/catalog";
 import { getJobs } from "@/lib/data/jobs";
@@ -24,53 +24,60 @@ export default async function HomePage() {
     <div className="overflow-hidden">
       <FoundingOfferBanner />
       <section className="relative">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_10%,rgba(24,185,67,0.16),transparent_26rem),radial-gradient(circle_at_80%_15%,rgba(99,102,241,0.12),transparent_24rem)]" />
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-4 sm:py-6 lg:grid-cols-[1.02fr_0.98fr] lg:items-start lg:py-8">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(24,185,67,0.22)] bg-mint px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-success">
-              <Sparkles size={14} aria-hidden="true" />
-              <T k="hero_eyebrow" />
-            </div>
-            <h1 className="mt-5 max-w-3xl text-balance text-[2.35rem] font-black leading-[1.04] tracking-tight text-primary sm:text-6xl">
-              <T k="hero_title" />
-            </h1>
-            <p className="mt-5 max-w-2xl text-pretty text-base font-medium leading-7 text-muted sm:text-lg sm:leading-8">
-              <T k="hero_subtitle" />
-            </p>
-            <div className="mt-6 flex flex-col gap-3 min-[390px]:flex-row">
-              <ButtonLink href="/eligibility" className="w-full min-[390px]:w-auto">
-                <T k="find_matches" /> <ArrowRight size={17} aria-hidden="true" />
-              </ButtonLink>
-              <ButtonLink href="/jobs" variant="secondary" className="w-full min-[390px]:w-auto">
-                <T k="cta_browse" />
-              </ButtonLink>
-            </div>
-            <div className="mt-4 flex items-start gap-2 rounded-2xl bg-white/70 px-3 py-2.5 text-xs font-bold leading-5 text-muted shadow-soft">
-              <ShieldCheck className="mt-0.5 shrink-0 text-teal" size={16} aria-hidden="true" />
-              <T k="trust_strip" />
-            </div>
-            <div className="mt-6 grid gap-2 text-sm font-bold text-muted sm:grid-cols-3">
-              {(
-                [
-                  [ShieldCheck, "proof_verified"],
-                  [Wand2, "proof_eligibility"],
-                  [BellRing, "proof_reminders"]
-                ] as const
-              ).map(([Icon, key]) => (
-                <div key={key} className="flex items-center gap-2 rounded-full bg-white/75 px-3 py-2 shadow-soft">
-                  <Icon className="text-brand-green" size={17} aria-hidden="true" />
-                  <T k={key} />
-                </div>
-              ))}
-            </div>
-            <div className="mt-6">
-              <SearchCommandBar />
-              <ProofCards />
-            </div>
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_0%,rgba(24,185,67,0.14),transparent_26rem)]" />
+        <div className="mx-auto max-w-2xl px-4 py-10 text-center sm:py-14">
+          <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-[rgba(24,185,67,0.22)] bg-mint px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-success">
+            <Sparkles size={14} aria-hidden="true" />
+            <T k="hero_eyebrow" />
           </div>
-          <AnimatedHeroMatchPreview />
+          <h1 className="mx-auto mt-5 max-w-xl text-balance text-[2.1rem] font-black leading-[1.08] tracking-tight text-primary sm:text-5xl">
+            <T k="hero_title" />
+          </h1>
+          <p className="mx-auto mt-4 max-w-lg text-pretty text-base font-medium leading-7 text-muted">
+            <T k="hero_subtitle" />
+          </p>
+
+          <div className="mt-8">
+            <HeroDemo />
+          </div>
+
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 min-[390px]:flex-row">
+            <ButtonLink href="/eligibility" className="w-full min-[390px]:w-auto">
+              <T k="find_matches" /> <ArrowRight size={17} aria-hidden="true" />
+            </ButtonLink>
+            <Link href="/jobs" className="text-sm font-black text-primary underline underline-offset-4">
+              <T k="cta_browse" />
+            </Link>
+          </div>
+          <p className="mx-auto mt-5 flex max-w-md items-start justify-center gap-1.5 text-xs font-bold leading-5 text-muted">
+            <ShieldCheck className="mt-0.5 shrink-0 text-teal" size={14} aria-hidden="true" />
+            <T k="trust_strip" />
+          </p>
         </div>
       </section>
+
+      <Band tone="cool">
+        <div className="mx-auto max-w-3xl">
+          <SearchCommandBar />
+        </div>
+        <div className="mx-auto mt-6 grid max-w-3xl grid-cols-2 gap-2 text-sm font-bold text-muted sm:grid-cols-3">
+          {(
+            [
+              [ShieldCheck, "proof_verified"],
+              [Wand2, "proof_eligibility"],
+              [BellRing, "proof_reminders"]
+            ] as const
+          ).map(([Icon, key]) => (
+            <div key={key} className="flex items-center justify-center gap-2 rounded-full bg-white px-3 py-2 shadow-soft">
+              <Icon className="text-brand-green" size={17} aria-hidden="true" />
+              <T k={key} />
+            </div>
+          ))}
+        </div>
+        <div className="mx-auto mt-8 max-w-3xl">
+          <ProofCards />
+        </div>
+      </Band>
 
       <Band>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">

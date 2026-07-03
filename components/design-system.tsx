@@ -3,7 +3,6 @@ import type { Route } from "next";
 import {
   ArrowRight,
   Award,
-  BadgeCheck,
   BellRing,
   BookOpen,
   BriefcaseBusiness,
@@ -135,56 +134,6 @@ export function SearchCommandBar({ compact = false }: { compact?: boolean }) {
   );
 }
 
-export function AnimatedHeroMatchPreview() {
-  return (
-    <div className="match-preview workflow-preview" aria-label="How SarkariMatch matches govt job and exam notifications">
-      <div className="match-grid" />
-      <div className="workflow-panel">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-success">How SarkariMatch works</p>
-            <h2 className="mt-2 text-2xl font-black leading-tight text-primary">Official match profile for govt notifications</h2>
-            <p className="mt-2 text-sm font-semibold leading-6 text-muted">Sign in once. Build your profile. See eligible notifications. Apply through official links.</p>
-          </div>
-          <span className="workflow-verified"><BadgeCheck size={16} aria-hidden="true" /> Official-source checked</span>
-        </div>
-
-        <div className="workflow-steps" aria-hidden="true">
-          {[
-            [UserRound, "Sign in", "Save your profile"],
-            [Wand2, "Find matches", "Rules checked"],
-            [CheckCircle2, "Eligible list", "Strong matches first"],
-            [ArrowRight, "Apply", "Official link"]
-          ].map(([Icon, title, body], index) => (
-            <div key={title as string} className={`workflow-step workflow-step-${index + 1}`}>
-              <span><Icon size={18} aria-hidden="true" /></span>
-              <div>
-                <p>{title as string}</p>
-                <small>{body as string}</small>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="workflow-results">
-          {[
-            ["SSC Assistant Officer", "96% eligible", "Strong Match"],
-            ["Railway Technician", "78% eligible", "Possible Match"]
-          ].map(([title, score, label]) => (
-          <div key={title} className="workflow-result-card">
-            <div>
-              <p className="text-sm font-black text-primary">{title}</p>
-              <p className="mt-1 text-xs font-bold text-muted">{score}</p>
-            </div>
-            <span>{label}</span>
-          </div>
-        ))}
-          <Link href="/eligibility" className="workflow-apply">Find My Matches <ArrowRight size={16} aria-hidden="true" /></Link>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 const qualificationMeta: Record<string, [React.ElementType, string, string, string]> = {
   "10th-pass": [BookOpen, "bg-mint text-success", "Entry-level notifications", "10th Pass"],
