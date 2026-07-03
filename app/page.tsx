@@ -25,34 +25,40 @@ export default async function HomePage() {
       <FoundingOfferBanner />
       <section className="relative">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_0%,rgba(24,185,67,0.14),transparent_26rem)]" />
-        <div className="mx-auto max-w-2xl px-4 py-10 text-center sm:py-14 lg:max-w-4xl lg:py-16">
-          <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-[rgba(24,185,67,0.22)] bg-mint px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-success">
-            <Sparkles size={14} aria-hidden="true" />
-            <T k="hero_eyebrow" />
-          </div>
-          <h1 className="mx-auto mt-5 max-w-xl text-balance text-[2.1rem] font-black leading-[1.08] tracking-tight text-primary sm:text-5xl lg:max-w-3xl lg:text-6xl">
-            <T k="hero_title" />
-          </h1>
-          <p className="mx-auto mt-4 max-w-lg text-pretty text-base font-medium leading-7 text-muted lg:max-w-xl lg:text-lg">
-            <T k="hero_subtitle" />
-          </p>
+        <div className="mx-auto max-w-2xl px-4 py-10 text-center sm:py-14 lg:max-w-7xl lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-12 lg:py-20 lg:text-left">
+          <div>
+            <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-[rgba(24,185,67,0.22)] bg-mint px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-success lg:mx-0">
+              <Sparkles size={14} aria-hidden="true" />
+              <T k="hero_eyebrow" />
+            </div>
+            <h1 className="mx-auto mt-5 max-w-xl text-balance text-[2.1rem] font-black leading-[1.08] tracking-tight text-primary sm:text-5xl lg:mx-0 lg:max-w-xl lg:text-6xl">
+              <T k="hero_title" />
+            </h1>
+            <p className="mx-auto mt-4 max-w-lg text-pretty text-base font-medium leading-7 text-muted lg:mx-0 lg:max-w-lg lg:text-lg">
+              <T k="hero_subtitle" />
+            </p>
 
-          <div className="mt-8 lg:mt-10">
+            <div className="mt-8 lg:hidden">
+              <HeroDemo />
+            </div>
+
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 min-[390px]:flex-row lg:justify-start">
+              <ButtonLink href="/eligibility" className="w-full min-[390px]:w-auto">
+                <T k="find_matches" /> <ArrowRight size={17} aria-hidden="true" />
+              </ButtonLink>
+              <Link href="/jobs" className="text-sm font-black text-primary underline underline-offset-4">
+                <T k="cta_browse" />
+              </Link>
+            </div>
+            <p className="mx-auto mt-5 flex max-w-md items-start justify-center gap-1.5 text-xs font-bold leading-5 text-muted lg:mx-0 lg:justify-start">
+              <ShieldCheck className="mt-0.5 shrink-0 text-teal" size={14} aria-hidden="true" />
+              <T k="trust_strip" />
+            </p>
+          </div>
+
+          <div className="hidden lg:block">
             <HeroDemo />
           </div>
-
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 min-[390px]:flex-row">
-            <ButtonLink href="/eligibility" className="w-full min-[390px]:w-auto">
-              <T k="find_matches" /> <ArrowRight size={17} aria-hidden="true" />
-            </ButtonLink>
-            <Link href="/jobs" className="text-sm font-black text-primary underline underline-offset-4">
-              <T k="cta_browse" />
-            </Link>
-          </div>
-          <p className="mx-auto mt-5 flex max-w-md items-start justify-center gap-1.5 text-xs font-bold leading-5 text-muted">
-            <ShieldCheck className="mt-0.5 shrink-0 text-teal" size={14} aria-hidden="true" />
-            <T k="trust_strip" />
-          </p>
         </div>
       </section>
 
