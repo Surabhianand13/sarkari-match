@@ -14,7 +14,7 @@ export default async function ApplicationsPage() {
         <section className="rounded-[2rem] bg-white p-5 shadow-soft">
           <ClipboardCheck className="text-brand-green" size={28} aria-hidden="true" />
           <h2 className="mt-3 text-xl font-black text-primary">Add your first tracked application</h2>
-          <p className="mt-2 text-sm leading-6 text-muted">P1 persistence is ready in Supabase. The live form will save status, application number, applied date, notes and next action date.</p>
+          <p className="mt-2 text-sm leading-6 text-muted">Application tracking is coming soon. The live form will save status, application number, applied date, notes and next action date.</p>
           <ButtonLink href="/jobs" className="mt-5">Choose a notification to track</ButtonLink>
         </section>
         <section className="rounded-[2rem] bg-surface p-5">

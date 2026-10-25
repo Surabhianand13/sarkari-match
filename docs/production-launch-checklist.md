@@ -1,7 +1,7 @@
 # Production Launch Checklist
 
 - [ ] Replace demo listings with verified official job data.
-- [ ] Configure Supabase project and auth redirects.
+- [ ] Create Render web service and Postgres from render.yaml, set AUTH_SECRET and NEXT_PUBLIC_SITE_URL.
 - [ ] Create first admin.
 - [ ] Configure Razorpay keys, plans and webhook.
 - [ ] Verify Founding Pass reservation and webhook entitlement grant.

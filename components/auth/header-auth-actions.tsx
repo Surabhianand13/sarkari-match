@@ -4,26 +4,26 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LogOut, UserRound } from "lucide-react";
-import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 export function HeaderAuthActions() {
   const router = useRouter();
   const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
-    const supabase = createBrowserSupabaseClient();
-    if (!supabase) return;
-    supabase.auth.getUser().then(({ data }) => setSignedIn(Boolean(data.user)));
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSignedIn(Boolean(session?.user));
-    });
-    return () => subscription.subscription.unsubscribe();
+    let cancelled = false;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data: { user: unknown }) => {
+        if (!cancelled) setSignedIn(Boolean(data.user));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function handleSignOut() {
-    const supabase = createBrowserSupabaseClient();
-    if (!supabase) return;
-    await supabase.auth.signOut();
+    await fetch("/api/auth/logout", { method: "POST" });
     setSignedIn(false);
     router.push("/");
     router.refresh();

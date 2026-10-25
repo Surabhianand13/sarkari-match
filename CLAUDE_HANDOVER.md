@@ -25,7 +25,7 @@ From `AGENTS.md`:
 - Keep public pages server-rendered by default.
 - Do not use live AI for eligibility decisions.
 - Do not expose service-role, Razorpay, email, or webhook secrets to clients.
-- Add tables through Supabase migrations and enable RLS on exposed tables.
+- Add tables through SQL files in `db/migrations` (Render Postgres); authorization lives in application code, not RLS. (Supabase was replaced in Oct 2026.)
 - Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build` before shipping a phase.
 
 ## Product Context

@@ -1,33 +1,30 @@
 import { requireUser } from "@/lib/auth/guards";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getDb } from "@/lib/db";
 import { ButtonLink, ProfileCompletionCard } from "@/components/design-system";
 
 export const metadata = { robots: { index: false, follow: false } };
 
 async function getExistingProfile(userId: string) {
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) return null;
+  const db = await getDb();
+  if (!db) return null;
 
-  const { data: profile } = await supabase
-    .from("candidate_profiles")
-    .select("date_of_birth, category")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const profile = await db.query<{ date_of_birth: string | null; category: string | null }>(
+    "select date_of_birth::text as date_of_birth, category from candidate_profiles where user_id = $1 order by created_at asc limit 1",
+    [userId]
+  );
+  const qualification = await db.query<{ name: string }>(
+    `select ql.name from user_qualifications uq join qualification_levels ql on ql.id = uq.qualification_level_id
+     where uq.user_id = $1 limit 1`,
+    [userId]
+  );
 
-  const { data: qualification } = await supabase
-    .from("user_qualifications")
-    .select("qualification_levels ( name )")
-    .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
-
-  if (!profile && !qualification) return null;
+  const row = profile.rows[0];
+  const level = qualification.rows[0];
+  if (!row && !level) return null;
   return {
-    dateOfBirth: profile?.date_of_birth ?? "",
-    category: profile?.category ?? "general",
-    qualification: (qualification?.qualification_levels as unknown as { name: string } | null)?.name ?? ""
+    dateOfBirth: row?.date_of_birth ?? "",
+    category: row?.category ?? "general",
+    qualification: level?.name ?? ""
   };
 }
 

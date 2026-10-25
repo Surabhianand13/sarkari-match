@@ -103,7 +103,7 @@ export default async function HomePage() {
 
       <Band>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <SectionHeading eyebrow="Freshly added" title="Latest govt job and exam notifications" body="Recently published and recently verified notifications while live Supabase content is being connected." />
+          <SectionHeading eyebrow="Freshly added" title="Latest govt job and exam notifications" body="Recently published and recently verified govt job and exam notifications, each linked to its official source." />
           <ButtonLink href="/jobs" variant="secondary">View all latest notifications</ButtonLink>
         </div>
         <div className="grid gap-4 lg:grid-cols-2">{jobs.map((job, index) => <JobCard key={job.id} job={job} index={index} />)}</div>

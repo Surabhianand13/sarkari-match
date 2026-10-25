@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   typedRoutes: true,
+  serverExternalPackages: ["pg", "@electric-sql/pglite"],
   outputFileTracingRoot: process.cwd(),
   async headers() {
     return [

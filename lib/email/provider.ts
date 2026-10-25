@@ -1,5 +1,6 @@
 export type EmailTemplate =
   | "welcome"
+  | "login_otp"
   | "new_strong_matches"
   | "daily_digest"
   | "weekly_digest"

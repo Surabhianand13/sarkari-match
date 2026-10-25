@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { UserRound } from "lucide-react";
-import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -16,33 +15,22 @@ export default function SignupPage() {
     event.preventDefault();
     setError(null);
     setNotice(null);
-    const supabase = createBrowserSupabaseClient();
-    if (!supabase) {
-      setError("Sign-up is not configured yet.");
-      return;
-    }
     const formData = new FormData(event.currentTarget);
-    const name = String(formData.get("name") ?? "").trim();
-    const email = String(formData.get("email") ?? "").trim();
-    const phone = String(formData.get("phone") ?? "").trim();
-    const password = String(formData.get("password") ?? "");
-
     setLoading(true);
-    const { data, error: signupError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: name, phone },
-        emailRedirectTo: `${window.location.origin}/auth/callback`
-      }
+    const response = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: String(formData.get("name") ?? "").trim(),
+        email: String(formData.get("email") ?? "").trim(),
+        phone: String(formData.get("phone") ?? "").trim() || undefined,
+        password: String(formData.get("password") ?? "")
+      })
     });
+    const data = (await response.json().catch(() => ({}))) as { error?: string };
     setLoading(false);
-    if (signupError) {
-      setError(signupError.message);
-      return;
-    }
-    if (!data.session) {
-      setNotice("Check your email to confirm your account, then sign in.");
+    if (!response.ok) {
+      setError(data.error ?? "Could not create your account.");
       return;
     }
     router.push("/dashboard/profile");
@@ -61,7 +49,7 @@ export default function SignupPage() {
           <label className="grid gap-2 font-bold text-primary">Full name<input name="name" autoComplete="name" required className="min-h-12 rounded-2xl border border-border px-3 py-2 font-semibold" /></label>
           <label className="grid gap-2 font-bold text-primary">Email<input name="email" type="email" autoComplete="email" required className="min-h-12 rounded-2xl border border-border px-3 py-2 font-semibold" /></label>
           <label className="grid gap-2 font-bold text-primary">Phone<input name="phone" type="tel" autoComplete="tel" className="min-h-12 rounded-2xl border border-border px-3 py-2 font-semibold" /></label>
-          <label className="grid gap-2 font-bold text-primary">Create password<input name="password" type="password" autoComplete="new-password" required minLength={6} className="min-h-12 rounded-2xl border border-border px-3 py-2 font-semibold" /></label>
+          <label className="grid gap-2 font-bold text-primary">Create password<input name="password" type="password" autoComplete="new-password" required minLength={8} className="min-h-12 rounded-2xl border border-border px-3 py-2 font-semibold" /></label>
           {error ? <p className="text-sm font-bold text-error">{error}</p> : null}
           {notice ? <p className="text-sm font-bold text-success">{notice}</p> : null}
           <button disabled={loading} className="min-h-12 rounded-full bg-[linear-gradient(135deg,#18B943,#0D9488)] px-5 py-3 font-black text-white shadow-green disabled:opacity-60">

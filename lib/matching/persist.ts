@@ -1,5 +1,4 @@
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { getDb } from "@/lib/db";
 import type { JobPost } from "@/lib/data/catalog";
 import type { CandidateProfile, MatchResult } from "./types";
 
@@ -8,65 +7,35 @@ export async function persistCandidateMatches(
   profile: CandidateProfile,
   results: Array<{ job: JobPost; result: MatchResult }>
 ) {
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) return;
+  const db = await getDb();
+  if (!db) return;
 
-  const { data: existingProfile } = await supabase
-    .from("candidate_profiles")
-    .select("id")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  await db.transaction(async (tx) => {
+    const existing = await tx.query<{ id: string }>("select id from candidate_profiles where user_id = $1 order by created_at asc limit 1", [userId]);
+    let profileId = existing.rows[0]?.id;
+    if (profileId) {
+      await tx.query("update candidate_profiles set date_of_birth = $1, category = $2, updated_at = now() where id = $3", [profile.dateOfBirth || null, profile.category, profileId]);
+    } else {
+      const inserted = await tx.query<{ id: string }>("insert into candidate_profiles (user_id, date_of_birth, category) values ($1, $2, $3) returning id", [userId, profile.dateOfBirth || null, profile.category]);
+      profileId = inserted.rows[0].id;
+    }
 
-  const profilePayload = {
-    user_id: userId,
-    date_of_birth: profile.dateOfBirth || null,
-    category: profile.category
-  };
+    await tx.query("delete from user_qualifications where user_id = $1", [userId]);
+    for (const qualification of profile.qualifications) {
+      await tx.query(
+        `insert into user_qualifications (user_id, candidate_profile_id, qualification_level_id, degree, specialisation, passing_year, final_year)
+         values ($1, $2, (select id from qualification_levels where slug = $3), $4, $5, $6, $7)`,
+        [userId, profileId, qualification.level, qualification.degree ?? null, qualification.specialisation ?? null, qualification.passingYear ?? null, qualification.finalYear ?? false]
+      );
+    }
 
-  let profileId: string | undefined = existingProfile?.id;
-  if (profileId) {
-    await supabase.from("candidate_profiles").update(profilePayload).eq("id", profileId);
-  } else {
-    const { data: inserted } = await supabase.from("candidate_profiles").insert(profilePayload).select("id").single();
-    profileId = inserted?.id;
-  }
-
-  if (!profileId) return;
-
-  await supabase.from("user_qualifications").delete().eq("user_id", userId);
-  if (profile.qualifications.length) {
-    const slugs = profile.qualifications.map((q) => q.level);
-    const { data: levels } = await supabase.from("qualification_levels").select("id, slug").in("slug", slugs);
-    const levelIdBySlug = new Map((levels ?? []).map((level) => [level.slug, level.id]));
-    await supabase.from("user_qualifications").insert(
-      profile.qualifications.map((q) => ({
-        user_id: userId,
-        candidate_profile_id: profileId,
-        qualification_level_id: levelIdBySlug.get(q.level) ?? null,
-        degree: q.degree ?? null,
-        specialisation: q.specialisation ?? null,
-        passing_year: q.passingYear ?? null,
-        final_year: q.finalYear ?? false
-      }))
-    );
-  }
-
-  const admin = createAdminSupabaseClient();
-  if (!admin) return;
-  await admin.from("match_results").delete().eq("user_id", userId);
-  if (results.length) {
-    await admin.from("match_results").insert(
-      results.map(({ job, result }) => ({
-        user_id: userId,
-        candidate_profile_id: profileId,
-        post_id: job.id,
-        status: result.status,
-        score: result.score,
-        explanation_json: result,
-        rules_version: "v1"
-      }))
-    );
-  }
+    await tx.query("delete from match_results where user_id = $1", [userId]);
+    for (const { job, result } of results) {
+      await tx.query(
+        `insert into match_results (user_id, candidate_profile_id, post_id, status, score, explanation_json, rules_version)
+         values ($1, $2, $3, $4, $5, $6, 'v1')`,
+        [userId, profileId, job.id, result.status, result.score, JSON.stringify(result)]
+      );
+    }
+  });
 }

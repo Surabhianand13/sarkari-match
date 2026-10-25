@@ -1,0 +1,29 @@
+# Render Blueprint: web service + Postgres. Cloudflare sits in front for DNS, caching and protection.
+services:
+  - type: web
+    name: sarkarimatch-web
+    runtime: node
+    plan: starter
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm build
+    startCommand: pnpm start
+    healthCheckPath: /api/health
+    preDeployCommand: pnpm db:migrate
+    envVars:
+      - key: NODE_VERSION
+        value: 24
+      - key: NEXT_PUBLIC_SITE_URL
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sarkarimatch-db
+          property: connectionString
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+
+databases:
+  - name: sarkarimatch-db
+    plan: basic-256mb

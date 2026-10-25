@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { requireUser } from "@/lib/auth/guards";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getDb } from "@/lib/db";
 import { getJobs } from "@/lib/data/jobs";
 import { ButtonLink, DeadlineBadge, EmptyState, MatchStatusBadge, SectionHeading } from "@/components/design-system";
 import type { MatchStatus } from "@/lib/matching/types";
@@ -15,16 +15,13 @@ const badgeStatusByMatchStatus: Record<MatchStatus, "strong" | "possible" | "nee
 };
 
 async function getSavedMatches(userId: string) {
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) return [];
-
-  const { data } = await supabase
-    .from("match_results")
-    .select("post_id, status, score")
-    .eq("user_id", userId)
-    .order("score", { ascending: false });
-
-  return data ?? [];
+  const db = await getDb();
+  if (!db) return [];
+  const { rows } = await db.query<{ post_id: string; status: string; score: number }>(
+    "select post_id, status, score from match_results where user_id = $1 order by score desc",
+    [userId]
+  );
+  return rows;
 }
 
 export default async function MatchesPage() {

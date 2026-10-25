@@ -1,6 +1,6 @@
 # Security Checklist
 
-- [x] Server-only Supabase service-role key documented and not used in client modules.
+- [x] Session cookie is httpOnly, secure in production and SameSite=Lax; AUTH_SECRET and DATABASE_URL are server-only.
 - [x] Route guards created for user and admin routes.
 - [x] RLS enabled in migrations.
 - [x] Razorpay signature verification helper created.

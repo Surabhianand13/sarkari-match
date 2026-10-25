@@ -4,11 +4,6 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
-import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-
-function isEmail(identifier: string) {
-  return identifier.includes("@");
-}
 
 function OtpVerifyForm() {
   const router = useRouter();
@@ -20,24 +15,22 @@ function OtpVerifyForm() {
   async function handleVerify(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    const supabase = createBrowserSupabaseClient();
-    if (!supabase) {
-      setError("OTP verification is not configured yet.");
-      return;
-    }
     if (!identifier) {
-      setError("Missing phone or email to verify. Please request a new OTP.");
+      setError("Missing email to verify. Please request a new code.");
       return;
     }
     const formData = new FormData(event.currentTarget);
-    const token = String(formData.get("otp") ?? "").trim();
+    const code = String(formData.get("otp") ?? "").trim();
     setLoading(true);
-    const { error: verifyError } = isEmail(identifier)
-      ? await supabase.auth.verifyOtp({ email: identifier, token, type: "email" })
-      : await supabase.auth.verifyOtp({ phone: identifier, token, type: "sms" });
+    const response = await fetch("/api/auth/otp/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: identifier, code })
+    });
+    const data = (await response.json().catch(() => ({}))) as { error?: string };
     setLoading(false);
-    if (verifyError) {
-      setError(verifyError.message);
+    if (!response.ok) {
+      setError(data.error ?? "Could not verify the code.");
       return;
     }
     router.push("/dashboard");

@@ -11,6 +11,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_signature" }, { status: 401 });
   }
 
-  // Persistence and entitlement granting happen server-side once Supabase service-role access is configured.
+  // Persistence and entitlement granting happen server-side once the payment integration is connected.
   return NextResponse.json({ ok: true, received: true });
 }

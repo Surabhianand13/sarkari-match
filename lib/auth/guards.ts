@@ -1,37 +1,37 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { SESSION_COOKIE, verifySession } from "@/lib/auth/session";
+import { findUserById, type SessionUser } from "@/lib/auth/users";
+import { getDb } from "@/lib/db";
 
-export async function requireUser() {
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) {
+export async function getOptionalUser(): Promise<SessionUser | null> {
+  // Reading cookies first opts the calling page out of static rendering, whatever the environment.
+  const store = await cookies();
+  const db = await getDb();
+  if (!db) return null;
+  const claims = await verifySession(store.get(SESSION_COOKIE)?.value);
+  if (!claims) return null;
+  return findUserById(claims.sub);
+}
+
+export async function requireUser(): Promise<SessionUser> {
+  await cookies();
+  const db = await getDb();
+  if (!db) {
     if (process.env.NODE_ENV !== "production") return demoUser();
     redirect("/login");
   }
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) redirect("/login");
-  return data.user;
-}
-
-export async function getOptionalUser() {
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) return null;
-  const { data } = await supabase.auth.getUser();
-  return data.user ?? null;
-}
-
-export async function requireAdmin() {
-  const user = await requireUser();
-  const roles = (user.app_metadata?.roles ?? []) as string[];
-  if (!roles.includes("admin")) redirect("/dashboard");
+  const user = await getOptionalUser();
+  if (!user) redirect("/login");
   return user;
 }
 
-function demoUser() {
-  return {
-    id: "00000000-0000-4000-8000-000000000001",
-    app_metadata: { roles: ["admin"] },
-    user_metadata: { full_name: "Demo User" },
-    aud: "authenticated",
-    created_at: new Date(0).toISOString()
-  };
+export async function requireAdmin(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (!user.roles.includes("admin")) redirect("/dashboard");
+  return user;
+}
+
+function demoUser(): SessionUser {
+  return { id: "00000000-0000-4000-8000-000000000001", email: "demo@example.com", fullName: "Demo User", roles: ["admin"] };
 }

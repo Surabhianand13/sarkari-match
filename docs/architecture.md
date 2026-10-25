@@ -9,7 +9,7 @@ Core modules:
 - `lib/payments`: Razorpay-facing helpers and Founding Pass reservation rules.
 - `lib/applications`, `lib/calendar`, `lib/email`, `lib/referrals`, `lib/import`, `lib/reports`: P1 domain services for tracking, alerts, referrals, CSV import and admin reporting.
 - `lib/profiles`, `lib/whatsapp`, `lib/extraction`, `lib/i18n`, `lib/reports/advanced`: P2 services for Pro Plus profile limits, WhatsApp adapters, reviewed extraction assistance, localization and advanced reports.
-- `lib/supabase`: server-side Supabase client setup.
+- `lib/db.ts`: PostgreSQL access (pg pool, or embedded PGlite for local development).
 - `lib/auth`: server-side route guards.
 - `lib/analytics`: privacy-safe event abstraction.
 

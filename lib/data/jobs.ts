@@ -1,8 +1,8 @@
-import { createPublicSupabaseClient } from "@/lib/supabase/public";
+import { getDb } from "@/lib/db";
 import { demoJobs, getJobBySlug as getDemoJobBySlug, qualificationLabels, type JobPost } from "@/lib/data/catalog";
 import type { PostRules } from "@/lib/matching/types";
 
-type JobPostRow = {
+export type JobPostRow = {
   id: string;
   slug: string;
   title: string;
@@ -12,18 +12,14 @@ type JobPostRow = {
   application_status: JobPost["applicationStatus"];
   published_at: string | null;
   eligibility_rules: Partial<PostRules> | null;
-  recruitments: {
-    title: string;
-    application_end_date: string | null;
-    official_notification_url: string | null;
-    official_application_url: string | null;
-    verified_at: string | null;
-    organisations: {
-      name: string;
-      departments: { name: string } | null;
-      states: { name: string } | null;
-    } | null;
-  } | null;
+  recruitment_title: string | null;
+  application_end_date: string | null;
+  official_notification_url: string | null;
+  official_application_url: string | null;
+  verified_at: string | null;
+  organisation_name: string | null;
+  department_name: string | null;
+  state_name: string | null;
 };
 
 function qualificationLabelFor(rules: Partial<PostRules> | null) {
@@ -32,50 +28,55 @@ function qualificationLabelFor(rules: Partial<PostRules> | null) {
   return qualificationLabels[minimumLevel] ?? minimumLevel;
 }
 
-function toJobPost(row: JobPostRow): JobPost {
-  const organisation = row.recruitments?.organisations;
+export function toJobPost(row: JobPostRow): JobPost {
   return {
     id: row.id,
     slug: row.slug,
     title: row.title,
-    recruitmentTitle: row.recruitments?.title ?? row.title,
-    organisation: organisation?.name ?? "Unknown organisation",
-    department: organisation?.departments?.name ?? "General",
-    state: organisation?.states?.name ?? "Central Government",
+    recruitmentTitle: row.recruitment_title ?? row.title,
+    organisation: row.organisation_name ?? "Unknown organisation",
+    department: row.department_name ?? "General",
+    state: row.state_name ?? "Central Government",
     qualification: qualificationLabelFor(row.eligibility_rules),
     vacancyCount: row.vacancy_count ?? 0,
     salaryText: row.salary_text ?? "As per official notification",
-    applicationEndDate: row.recruitments?.application_end_date ?? "",
+    applicationEndDate: row.application_end_date ?? "",
     applicationStatus: row.application_status,
     publishedAt: row.published_at ?? "",
-    verifiedAt: row.recruitments?.verified_at ?? row.published_at ?? "",
-    officialApplicationUrl: row.recruitments?.official_application_url ?? "#",
-    officialNotificationUrl: row.recruitments?.official_notification_url ?? "#",
+    verifiedAt: row.verified_at ?? row.published_at ?? "",
+    officialApplicationUrl: row.official_application_url ?? "#",
+    officialNotificationUrl: row.official_notification_url ?? "#",
     description: row.description ?? ""
   };
 }
 
+const iso = (column: string) => `to_char(${column} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`;
+
+// Only published notifications from active organisations are public.
 const JOB_POST_SELECT = `
-  id, slug, title, description, vacancy_count, salary_text, application_status, published_at, eligibility_rules,
-  recruitments!inner (
-    title, application_end_date, official_notification_url, official_application_url, verified_at,
-    organisations!inner ( name, departments ( name ), states ( name ) )
-  )
-`;
+  select jp.id, jp.slug, jp.title, jp.description, jp.vacancy_count, jp.salary_text, jp.application_status,
+         ${iso("jp.published_at")} as published_at, jp.eligibility_rules,
+         r.title as recruitment_title, r.application_end_date::text as application_end_date,
+         r.official_notification_url, r.official_application_url, ${iso("r.verified_at")} as verified_at,
+         o.name as organisation_name, d.name as department_name, s.name as state_name
+  from job_posts jp
+  join recruitments r on r.id = jp.recruitment_id and r.editorial_status = 'published'
+  join organisations o on o.id = r.organisation_id and o.active = true
+  left join departments d on d.id = o.department_id
+  left join states s on s.id = o.state_id
+  where jp.active = true and jp.published_at is not null`;
+
+async function fetchRows(extraWhere = "", params: unknown[] = []): Promise<JobPostRow[] | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const { rows } = await db.query<JobPostRow>(`${JOB_POST_SELECT} ${extraWhere} order by jp.published_at desc`, params);
+  return rows;
+}
 
 export async function getJobs(): Promise<JobPost[]> {
-  const supabase = createPublicSupabaseClient();
-  if (!supabase) return demoJobs;
-
-  const { data, error } = await supabase
-    .from("job_posts")
-    .select(JOB_POST_SELECT)
-    .eq("active", true)
-    .not("published_at", "is", null)
-    .order("published_at", { ascending: false });
-
-  if (error || !data) return demoJobs;
-  return (data as unknown as JobPostRow[]).map(toJobPost);
+  const rows = await fetchRows();
+  if (!rows) return demoJobs;
+  return rows.map(toJobPost);
 }
 
 export type MatchableJob = { job: JobPost; rules: PostRules };
@@ -87,50 +88,22 @@ function toPostRules(rules: Partial<PostRules> | null): PostRules {
 }
 
 export async function getJobsForMatching(): Promise<MatchableJob[]> {
-  const supabase = createPublicSupabaseClient();
-  if (!supabase) return demoJobs.map((job) => ({ job, rules: EMPTY_RULES }));
-
-  const { data, error } = await supabase
-    .from("job_posts")
-    .select(JOB_POST_SELECT)
-    .eq("active", true)
-    .not("published_at", "is", null)
-    .order("published_at", { ascending: false });
-
-  if (error || !data) return demoJobs.map((job) => ({ job, rules: EMPTY_RULES }));
-  return (data as unknown as JobPostRow[]).map((row) => ({ job: toJobPost(row), rules: toPostRules(row.eligibility_rules) }));
+  const rows = await fetchRows();
+  if (!rows) return demoJobs.map((job) => ({ job, rules: EMPTY_RULES }));
+  return rows.map((row) => ({ job: toJobPost(row), rules: toPostRules(row.eligibility_rules) }));
 }
 
 export async function getJobBySlug(slug: string): Promise<JobPost | undefined> {
-  const supabase = createPublicSupabaseClient();
-  if (!supabase) return getDemoJobBySlug(slug);
-
-  const { data, error } = await supabase
-    .from("job_posts")
-    .select(JOB_POST_SELECT)
-    .eq("slug", slug)
-    .eq("active", true)
-    .not("published_at", "is", null)
-    .maybeSingle();
-
-  if (error || !data) return getDemoJobBySlug(slug);
-  return toJobPost(data as unknown as JobPostRow);
+  const found = await getJobWithRulesBySlug(slug);
+  return found?.job;
 }
 
 export async function getJobWithRulesBySlug(slug: string): Promise<MatchableJob | undefined> {
-  const supabase = createPublicSupabaseClient();
-  const demo = getDemoJobBySlug(slug);
-  if (!supabase) return demo ? { job: demo, rules: EMPTY_RULES } : undefined;
-
-  const { data, error } = await supabase
-    .from("job_posts")
-    .select(JOB_POST_SELECT)
-    .eq("slug", slug)
-    .eq("active", true)
-    .not("published_at", "is", null)
-    .maybeSingle();
-
-  if (error || !data) return demo ? { job: demo, rules: EMPTY_RULES } : undefined;
-  const row = data as unknown as JobPostRow;
-  return { job: toJobPost(row), rules: toPostRules(row.eligibility_rules) };
+  const rows = await fetchRows("and jp.slug = $1", [slug]);
+  if (!rows) {
+    const demo = getDemoJobBySlug(slug);
+    return demo ? { job: demo, rules: EMPTY_RULES } : undefined;
+  }
+  const row = rows[0];
+  return row ? { job: toJobPost(row), rules: toPostRules(row.eligibility_rules) } : undefined;
 }

@@ -5,7 +5,7 @@ SarkariMatch is a Next.js App Router application for matching candidates with go
 ## P0 Scope
 
 - Branded public homepage, job listing, job detail, taxonomy pages, pricing, legal pages, auth shells, dashboard, admin shell.
-- Supabase schema and RLS migration for P0 tables.
+- PostgreSQL schema migrations (Render Postgres) with app-level authorization.
 - Rule-based matching engine with structured explanations.
 - Central entitlement and Founding Pass reservation/payment abstractions.
 - SEO routes, health endpoint, analytics adapter, and deployment documentation.
@@ -27,4 +27,4 @@ pnpm test
 pnpm build
 ```
 
-External integrations are production-shaped but require Supabase and Razorpay credentials before real auth, persistence, or payments can be enabled.
+External integrations are production-shaped but require a `DATABASE_URL`, `AUTH_SECRET` and Razorpay credentials before real auth, persistence, or payments can be enabled.

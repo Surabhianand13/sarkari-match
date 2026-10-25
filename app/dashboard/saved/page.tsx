@@ -1,21 +1,21 @@
 import { requireUser } from "@/lib/auth/guards";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getDb } from "@/lib/db";
 import { ButtonLink, EmptyState } from "@/components/design-system";
 import { getJobs } from "@/lib/data/jobs";
 
 export const metadata = { robots: { index: false, follow: false } };
 
 async function saveJob(userId: string, postId: string) {
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) return;
-  await supabase.from("saved_jobs").upsert({ user_id: userId, post_id: postId }, { onConflict: "user_id,post_id", ignoreDuplicates: true });
+  const db = await getDb();
+  if (!db) return;
+  await db.query("insert into saved_jobs (user_id, post_id) values ($1, $2) on conflict (user_id, post_id) do nothing", [userId, postId]);
 }
 
 async function getSavedJobIds(userId: string) {
-  const supabase = await createServerSupabaseClient();
-  if (!supabase) return new Set<string>();
-  const { data } = await supabase.from("saved_jobs").select("post_id").eq("user_id", userId);
-  return new Set((data ?? []).map((row) => row.post_id));
+  const db = await getDb();
+  if (!db) return new Set<string>();
+  const { rows } = await db.query<{ post_id: string }>("select post_id from saved_jobs where user_id = $1", [userId]);
+  return new Set(rows.map((row) => row.post_id));
 }
 
 export default async function SavedJobsPage({ searchParams }: { searchParams?: Promise<{ post?: string }> }) {
