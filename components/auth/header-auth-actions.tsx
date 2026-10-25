@@ -8,13 +8,16 @@ import { LogOut, UserRound } from "lucide-react";
 export function HeaderAuthActions() {
   const router = useRouter();
   const [signedIn, setSignedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/auth/me", { cache: "no-store" })
       .then((response) => response.json())
-      .then((data: { user: unknown }) => {
-        if (!cancelled) setSignedIn(Boolean(data.user));
+      .then((data: { user: { roles?: string[] } | null }) => {
+        if (cancelled) return;
+        setSignedIn(Boolean(data.user));
+        setIsAdmin(Boolean(data.user?.roles?.includes("admin")));
       })
       .catch(() => {});
     return () => {
@@ -35,6 +38,11 @@ export function HeaderAuthActions() {
         <Link href="/dashboard" className="inline-flex size-11 items-center justify-center rounded-md text-primary hover:bg-background lg:hidden" aria-label="Dashboard">
           <UserRound size={20} aria-hidden="true" />
         </Link>
+        {isAdmin && (
+          <Link href="/admin" className="inline-flex rounded-full bg-primary px-3 py-2 text-sm font-black text-white">
+            Admin
+          </Link>
+        )}
         <Link href="/dashboard" className="hidden rounded-full px-3 py-2 text-sm font-black text-primary hover:bg-mint sm:inline-flex">
           Dashboard
         </Link>

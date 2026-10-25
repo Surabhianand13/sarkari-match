@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [otpError, setOtpError] = useState<string | null>(null);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handlePasswordLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -75,7 +76,8 @@ export default function LoginPage() {
             </div>
             <div className="mt-5 grid gap-4">
               <label className="grid gap-2 font-bold text-primary">Email<input name="identifier" type="email" autoComplete="username" required className="min-h-12 rounded-2xl border border-border px-3 py-2 font-semibold" /></label>
-              <label className="grid gap-2 font-bold text-primary">Password<input name="password" type="password" autoComplete="current-password" required className="min-h-12 rounded-2xl border border-border px-3 py-2 font-semibold" /></label>
+              <label className="grid gap-2 font-bold text-primary">Password<input name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" required className="min-h-12 rounded-2xl border border-border px-3 py-2 font-semibold" /></label>
+              <label className="flex items-center gap-2 text-sm font-bold text-muted"><input type="checkbox" checked={showPassword} onChange={(event) => setShowPassword(event.target.checked)} className="size-4" /> Show password</label>
               {passwordError ? <p className="text-sm font-bold text-error">{passwordError}</p> : null}
               <button disabled={passwordLoading} className="min-h-12 rounded-full bg-[linear-gradient(135deg,#18B943,#0D9488)] px-5 py-3 font-black text-white shadow-green disabled:opacity-60">
                 {passwordLoading ? "Signing in..." : "Login"}
