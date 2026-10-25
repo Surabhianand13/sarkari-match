@@ -13,7 +13,9 @@
     "test:e2e": "playwright test",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
-    "db:create-admin": "tsx scripts/create-admin.ts"
+    "db:create-admin": "tsx scripts/create-admin.ts",
+    "factory": "tsx scripts/question-factory.ts",
+    "factory:benchmark": "tsx scripts/question-factory-benchmark.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -47,6 +47,24 @@ describe("baseline schema and seeds", () => {
   });
 });
 
+describe("test platform schema", () => {
+  it("applies and enforces question constraints", async () => {
+    const { getDb } = await import("@/lib/db");
+    const db = (await getDb())!;
+    await db.query("insert into exams (slug, name) values ('ssc-cgl', 'SSC CGL')");
+    const insert = (hash: string, status: string, answer = "B") =>
+      db.query(
+        `insert into questions (subject, topic, difficulty, stem, options, correct_option, explanation, validation_status, content_hash)
+         values ('Quant', 'Percentage', 'moderate', 'stem', '{"A":"a","B":"b","C":"c","D":"d"}', $3, 'because', $2, $1)`,
+        [hash, status, answer]
+      );
+    await insert("h1", "pending");
+    await expect(insert("h1", "pending")).rejects.toThrow();
+    await expect(insert("h2", "published-ish")).rejects.toThrow();
+    await expect(insert("h3", "pending", "E")).rejects.toThrow();
+  });
+});
+
 describe("rate limiting", () => {
   it("allows up to the limit then blocks within the window", async () => {
     const { checkRateLimit } = await import("@/lib/auth/rate-limit");

@@ -1,19 +1,26 @@
-import { requireAdmin } from "@/lib/auth/guards";
+import { AdminHeader, Card, Field, Flash, SubmitButton, inputClass } from "@/components/admin/ui";
+import { importCsv } from "@/app/admin/import/actions";
 import { recruitmentCsvTemplate } from "@/lib/import/csv";
 
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata = { title: "CSV import" };
 
-export default async function AdminImportPage() {
-  await requireAdmin();
+export default async function AdminImportPage({ searchParams }: { searchParams: Promise<{ notice?: string; error?: string }> }) {
+  const { notice, error } = await searchParams;
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <p className="text-sm font-black uppercase tracking-[0.18em] text-success">Admin</p>
-      <h1 className="mt-2 text-3xl font-black text-primary">CSV import</h1>
-      <p className="mt-3 text-muted">Validate rows, preview errors and import only into draft or needs-review status. Imported rows must never publish automatically.</p>
-      <section className="mt-6 rounded-3xl bg-white p-5 shadow-soft">
-        <h2 className="text-xl font-black text-primary">Template</h2>
-        <pre className="mt-4 overflow-x-auto rounded-2xl bg-surface p-4 text-sm">{recruitmentCsvTemplate}</pre>
-      </section>
+    <div className="grid gap-4">
+      <AdminHeader title="CSV import" description="Bulk-create draft notifications. Imported rows are never published automatically; review and publish them one by one." />
+      <Flash notice={notice} error={error} />
+      <Card title="Template">
+        <p className="mb-2 text-sm text-muted">First line of the file (dates as YYYY-MM-DD, links starting with https):</p>
+        <pre className="overflow-x-auto rounded-xl bg-surface p-3 text-xs text-primary">{recruitmentCsvTemplate}</pre>
+      </Card>
+      <Card title="Upload">
+        <form action={importCsv} className="grid gap-4">
+          <Field label="CSV file"><input type="file" name="csv" accept=".csv,text/csv" required className={inputClass} /></Field>
+          <label className="flex items-center gap-2 text-sm font-black text-primary"><input type="checkbox" name="dry_run" defaultChecked className="size-4" /> Check only, do not create anything</label>
+          <div><SubmitButton>Run</SubmitButton></div>
+        </form>
+      </Card>
     </div>
   );
 }
