@@ -5,11 +5,13 @@ import { JobCard } from "@/components/job-card";
 import { departmentLabels, departments, qualificationLabels, qualificationPages, stateLabels, states } from "@/lib/data/catalog";
 import { getJobs } from "@/lib/data/jobs";
 import { EmptyState, SearchCommandBar, SectionHeading } from "@/components/design-system";
+import { buildMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Latest Govt Job Notifications",
-  description: "Search and filter active govt job and exam notifications by qualification, state, department and closing date."
-};
+export const metadata: Metadata = buildMetadata({
+  title: "Latest Govt Job and Exam Notifications 2026",
+  description: "Search and filter active govt job and exam notifications by qualification, state, department and closing date. Verified, with official application links.",
+  path: "/jobs"
+});
 
 const discoveryCards = [
   ["/jobs/central", Landmark, "Central Govt", "UPSC, SSC, Railways, PSUs"],

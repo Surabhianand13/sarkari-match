@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createPublicSupabaseClient } from "@/lib/supabase/public";
 import { demoJobs, getJobBySlug as getDemoJobBySlug, qualificationLabels, type JobPost } from "@/lib/data/catalog";
 import type { PostRules } from "@/lib/matching/types";
 
@@ -64,7 +64,7 @@ const JOB_POST_SELECT = `
 `;
 
 export async function getJobs(): Promise<JobPost[]> {
-  const supabase = await createServerSupabaseClient();
+  const supabase = createPublicSupabaseClient();
   if (!supabase) return demoJobs;
 
   const { data, error } = await supabase
@@ -87,7 +87,7 @@ function toPostRules(rules: Partial<PostRules> | null): PostRules {
 }
 
 export async function getJobsForMatching(): Promise<MatchableJob[]> {
-  const supabase = await createServerSupabaseClient();
+  const supabase = createPublicSupabaseClient();
   if (!supabase) return demoJobs.map((job) => ({ job, rules: EMPTY_RULES }));
 
   const { data, error } = await supabase
@@ -102,7 +102,7 @@ export async function getJobsForMatching(): Promise<MatchableJob[]> {
 }
 
 export async function getJobBySlug(slug: string): Promise<JobPost | undefined> {
-  const supabase = await createServerSupabaseClient();
+  const supabase = createPublicSupabaseClient();
   if (!supabase) return getDemoJobBySlug(slug);
 
   const { data, error } = await supabase
@@ -115,4 +115,22 @@ export async function getJobBySlug(slug: string): Promise<JobPost | undefined> {
 
   if (error || !data) return getDemoJobBySlug(slug);
   return toJobPost(data as unknown as JobPostRow);
+}
+
+export async function getJobWithRulesBySlug(slug: string): Promise<MatchableJob | undefined> {
+  const supabase = createPublicSupabaseClient();
+  const demo = getDemoJobBySlug(slug);
+  if (!supabase) return demo ? { job: demo, rules: EMPTY_RULES } : undefined;
+
+  const { data, error } = await supabase
+    .from("job_posts")
+    .select(JOB_POST_SELECT)
+    .eq("slug", slug)
+    .eq("active", true)
+    .not("published_at", "is", null)
+    .maybeSingle();
+
+  if (error || !data) return demo ? { job: demo, rules: EMPTY_RULES } : undefined;
+  const row = data as unknown as JobPostRow;
+  return { job: toJobPost(row), rules: toPostRules(row.eligibility_rules) };
 }

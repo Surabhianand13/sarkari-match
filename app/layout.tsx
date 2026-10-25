@@ -1,27 +1,41 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { Manrope, Noto_Sans_Devanagari } from "next/font/google";
 import "./globals.css";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { LocaleProvider } from "@/components/i18n/locale-provider";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
+import { brand, getSiteUrl } from "@/lib/brand";
+
+const manrope = Manrope({ subsets: ["latin"], display: "swap", variable: "--font-manrope" });
+const notoDevanagari = Noto_Sans_Devanagari({ subsets: ["devanagari"], display: "swap", variable: "--font-devanagari" });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://sarkarimatch.com"),
+  metadataBase: new URL(getSiteUrl()),
+  applicationName: brand.fullName,
   title: {
-    default: "SarkariMatch - Govt Job Notifications Matched to Your Eligibility",
-    template: "%s | SarkariMatch"
+    default: `${brand.fullName} - Govt Job Notifications Matched to Your Eligibility`,
+    template: `%s | ${brand.fullName}`
   },
-  description:
-    "Create your profile once and discover govt job and exam notifications matched to your age, qualification, category, experience and location.",
+  description: brand.shortDescription,
   openGraph: {
-    siteName: "SarkariMatch",
-    type: "website"
-  }
+    siteName: brand.fullName,
+    type: "website",
+    locale: brand.locale
+  },
+  twitter: { card: "summary_large_image" },
+  robots: { index: true, follow: true }
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0B2D63",
+  width: "device-width",
+  initialScale: 1
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en-IN" className={`${manrope.variable} ${notoDevanagari.variable}`}>
       <body>
         <LocaleProvider>
           <Header />

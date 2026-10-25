@@ -2,6 +2,9 @@ import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { PricingCard, SectionHeading } from "@/components/design-system";
 import { T } from "@/components/i18n/t";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata = buildMetadata({ title: 'Pricing: Free, Founding Pass ₹49 and Pro Plans', description: 'Simple pricing for Sarkari Match by PW. Start free, claim the one-time ₹49 Founding Pass for 3 months of Pro, or choose a Pro plan. No automatic renewal on the Founding Pass.', path: '/pricing' });
 
 type PricingSearchParams = Promise<{ billing?: string }>;
 

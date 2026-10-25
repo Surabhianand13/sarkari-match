@@ -2,6 +2,9 @@ import Link from "next/link";
 import { ArrowRight, GraduationCap, ShieldCheck } from "lucide-react";
 import { SectionHeading } from "@/components/design-system";
 import { qualificationLabels, qualificationPages } from "@/lib/data/catalog";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata = buildMetadata({ title: 'Govt Jobs by Qualification: 10th, 12th, ITI, Graduate', description: 'Browse govt job and exam notifications by qualification: 8th, 10th, 12th pass, ITI, diploma, graduate, B.Tech and more.', path: '/jobs/qualification' });
 
 const descriptions: Record<string, string> = {
   "8th-pass": "Entry-level notifications with basic education rules.",

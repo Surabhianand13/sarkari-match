@@ -13,8 +13,23 @@ import {
 } from "@/components/design-system";
 import { HeroDemo } from "@/components/home/hero-demo";
 import { T } from "@/components/i18n/t";
+import { JsonLd } from "@/components/seo/json-ld";
 import { departments, qualificationPages, states } from "@/lib/data/catalog";
+import { homeFaq } from "@/lib/faq";
+import { brand } from "@/lib/brand";
+import { buildMetadata, faqJsonLd, organizationJsonLd, websiteJsonLd } from "@/lib/seo";
 import { getJobs } from "@/lib/data/jobs";
+
+export const revalidate = 3600;
+
+export const metadata = {
+  ...buildMetadata({
+    title: `${brand.fullName}: Govt Job Notifications Matched to Your Eligibility`,
+    description: brand.shortDescription,
+    path: "/"
+  }),
+  title: { absolute: `${brand.fullName}: Govt Job Notifications Matched to Your Eligibility` }
+};
 
 export default async function HomePage() {
   const jobs = await getJobs();
@@ -22,6 +37,7 @@ export default async function HomePage() {
 
   return (
     <div className="overflow-hidden">
+      <JsonLd data={[organizationJsonLd(), websiteJsonLd(), faqJsonLd(homeFaq)]} />
       <FoundingOfferBanner />
       <section className="relative">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_0%,rgba(24,185,67,0.14),transparent_26rem)]" />
@@ -147,18 +163,10 @@ export default async function HomePage() {
       <Band>
         <SectionHeading eyebrow="Questions" title="What candidates ask before trusting a notification-matching platform" />
         <div className="grid gap-3 lg:grid-cols-2">
-          {[
-            "Is SarkariMatch a government website?",
-            "Does SarkariMatch guarantee eligibility?",
-            "How does eligibility matching work?",
-            "Are application links official?",
-            "What happens after my Founding Pass expires?",
-            "Can I cancel a monthly plan?",
-            "What is included in Pro Plus?"
-          ].map((q) => (
-            <details key={q} className="rounded-2xl border border-[color:var(--border)] bg-white p-4 shadow-soft">
-              <summary className="cursor-pointer font-black text-primary">{q}</summary>
-              <p className="mt-3 text-sm leading-6 text-muted">SarkariMatch provides verified information and rule-based guidance. Always verify the official notification before applying.</p>
+          {homeFaq.map((item) => (
+            <details key={item.question} className="rounded-2xl border border-[color:var(--border)] bg-white p-4 shadow-soft">
+              <summary className="cursor-pointer font-black text-primary">{item.question}</summary>
+              <p className="mt-3 text-sm leading-6 text-muted">{item.answer}</p>
             </details>
           ))}
         </div>

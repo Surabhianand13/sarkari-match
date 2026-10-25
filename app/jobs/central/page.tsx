@@ -4,6 +4,9 @@ import { JobCard } from "@/components/job-card";
 import { ButtonLink, EmptyState, SearchCommandBar, SectionHeading } from "@/components/design-system";
 import { departmentLabels, departments } from "@/lib/data/catalog";
 import { getJobs } from "@/lib/data/jobs";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata = buildMetadata({ title: 'Central Govt Job and Exam Notifications 2026', description: 'Latest central government job and exam notifications from UPSC, SSC, Railways and PSUs with last dates, eligibility and official links.', path: '/jobs/central' });
 
 export default async function CentralGovtJobsPage() {
   const jobs = await getJobs();

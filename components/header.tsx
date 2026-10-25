@@ -6,20 +6,22 @@ import { HeaderAuthActions } from "@/components/auth/header-auth-actions";
 import { HeaderNav } from "@/components/header-nav";
 import { LanguageToggle } from "@/components/i18n/language-toggle";
 import { T } from "@/components/i18n/t";
+import { brand } from "@/lib/brand";
 
 export function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-white/70 bg-white/85 shadow-[0_8px_30px_rgba(11,45,99,0.06)] backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2.5">
-        <Link href="/" className="flex min-w-0 items-center">
+        <Link href="/" className="flex min-w-0 items-center gap-2" aria-label={brand.fullName}>
           <Image
             src="/brand/sarkarimatch-logo.svg"
-            alt="SarkariMatch"
+            alt={brand.fullName}
             width={260}
             height={68}
             priority
             className="h-10 w-auto sm:h-11"
           />
+          <span className="rounded-full bg-primary px-2 py-0.5 text-[0.65rem] font-black uppercase tracking-wider text-white">{brand.byline}</span>
         </Link>
         <HeaderNav />
         <div className="flex items-center gap-1 sm:gap-2">

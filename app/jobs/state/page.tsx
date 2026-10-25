@@ -2,6 +2,9 @@ import Link from "next/link";
 import { ArrowRight, MapPinned, SearchCheck } from "lucide-react";
 import { SectionHeading } from "@/components/design-system";
 import { stateLabels, states } from "@/lib/data/catalog";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata = buildMetadata({ title: 'State Govt Job Notifications by State 2026', description: 'Choose your state to see state government job and exam notifications with domicile and eligibility context.', path: '/jobs/state' });
 
 const stateOptions = states.filter((state) => state !== "central-government");
 

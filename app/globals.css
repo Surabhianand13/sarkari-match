@@ -41,6 +41,8 @@ body {
     linear-gradient(180deg, #fbfcf7 0%, #f5f8fc 42%, #fafaf7 100%);
   color: var(--foreground);
   font-family:
+    var(--font-manrope),
+    var(--font-devanagari),
     Manrope,
     Inter,
     ui-sans-serif,

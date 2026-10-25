@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { T } from "@/components/i18n/t";
+import { brand } from "@/lib/brand";
 
 const footerGroups = [
   {
@@ -46,7 +47,7 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-10">
         <div className="grid gap-8 lg:grid-cols-[1.2fr_2fr]">
           <div>
-            <p className="text-2xl font-black text-white">SarkariMatch</p>
+            <p className="text-2xl font-black text-white">{brand.name} <span className="text-[#B9F8CD]">{brand.byline}</span></p>
             <p className="mt-3 max-w-xl text-sm leading-7 text-white/70">
               <T k="footer_disclaimer" />
             </p>
@@ -70,7 +71,7 @@ export function Footer() {
           </nav>
         </div>
         <div className="mt-8 flex flex-col gap-2 border-t border-white/10 pt-5 text-xs font-semibold text-white/55 sm:flex-row sm:items-center sm:justify-between">
-          <p>© 2026 SarkariMatch. Independent eligibility guidance.</p>
+          <p>© 2026 {brand.fullName}. Independent eligibility guidance.</p>
           <p>No selection, appointment or application success is guaranteed.</p>
         </div>
       </div>

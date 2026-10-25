@@ -1,8 +1,0 @@
-{
-  "name": "SarkariMatch",
-  "short_name": "SarkariMatch",
-  "start_url": "/",
-  "display": "browser",
-  "background_color": "#F7F9FC",
-  "theme_color": "#0B2D63"
-}

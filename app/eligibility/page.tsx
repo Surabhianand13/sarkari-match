@@ -1,6 +1,9 @@
 import { MapPinned, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { T } from "@/components/i18n/t";
 import type { StaticLabelKey } from "@/lib/i18n/locales";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata = buildMetadata({ title: 'Check Your Govt Job Eligibility Free', description: 'Enter your date of birth, category and qualification to see which govt job and exam notifications you are eligible for. Free, no sign-in needed.', path: '/eligibility' });
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 

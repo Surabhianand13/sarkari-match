@@ -2,6 +2,9 @@ import Link from "next/link";
 import { ArrowRight, BriefcaseBusiness, Building2 } from "lucide-react";
 import { SectionHeading } from "@/components/design-system";
 import { departmentLabels, departments } from "@/lib/data/catalog";
+import { buildMetadata } from "@/lib/seo";
+
+export const metadata = buildMetadata({ title: 'Govt Jobs by Department: SSC, UPSC, Railways, Banking', description: 'Browse govt job and exam notifications by department including SSC, UPSC, Railways, Banking, Defence and Police.', path: '/jobs/department' });
 
 const departmentDescriptions: Record<string, string> = {
   ssc: "SSC exams and central staff selection notifications.",
