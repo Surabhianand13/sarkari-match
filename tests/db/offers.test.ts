@@ -157,4 +157,20 @@ describe("exam offers", () => {
     await conn.query("update exams set pattern = $2 where id = $1", [ids.upsc, JSON.stringify(pattern)]);
     expect(await getExamPattern("upsc-cse")).toEqual(pattern);
   });
+
+  it("grants a Pass and the Guide together for a bundle payment, once", async () => {
+    const { signCheckoutRef } = await import("@/lib/tests/checkout-ref");
+    const { POST } = await import("@/app/api/internal/grant-access/route");
+    const { createUser } = await import("@/lib/auth/users");
+    const { getGuideStatus, hasPassForExam } = await import("@/lib/offers");
+    const buyer = (await createUser({ email: "bundle-buyer@example.com", passwordHash: "x" }))!.id;
+    const call = (body: unknown) => POST(new Request("http://localhost/api/internal/grant-access", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${process.env.ACCESS_GRANT_SECRET}` }, body: JSON.stringify(body) }));
+
+    const ref = await signCheckoutRef({ userId: buyer, product: "bundle", targetId: ids.cglSeries, amountPaise: 99900 + 199900 });
+    expect((await call({ paymentRef: "pay_bundle_1", ref, amountPaise: 99900 })).status).toBe(400); // only the Pass amount paid
+    expect(await (await call({ paymentRef: "pay_bundle_1", ref, amountPaise: 299800 })).json()).toMatchObject({ ok: true, product: "bundle", granted: true });
+    expect(await hasPassForExam(buyer, ids.cgl)).toBe(true);
+    expect(await getGuideStatus(buyer, ids.cgl)).toMatchObject({ owned: true });
+    expect(await (await call({ paymentRef: "pay_bundle_1", ref, amountPaise: 299800 })).json()).toMatchObject({ granted: false });
+  });
 });

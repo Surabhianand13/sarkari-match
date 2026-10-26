@@ -116,7 +116,9 @@ export async function getTest(seriesId: string, testSlug: string): Promise<TestS
 }
 
 export function formatPrice(paise: number) {
-  return paise === 0 ? "Free" : `₹${paise % 100 === 0 ? paise / 100 : (paise / 100).toFixed(2)}`;
+  if (paise === 0) return "Free";
+  const rupees = paise / 100;
+  return `₹${paise % 100 === 0 ? rupees.toLocaleString("en-IN") : rupees.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function discountPercent(pricePaise: number, mrpPaise: number | null) {
