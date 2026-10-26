@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, ClipboardList, FileSpreadsheet, Image as ImageIcon, LayoutDashboard, LogOut, Menu, Building2, Briefcase, FileText, Wand2, Sparkles, CreditCard, Users, History, X, ListChecks, ExternalLink } from "lucide-react";
+import { BarChart3, ClipboardList, FileSpreadsheet, Image as ImageIcon, LayoutDashboard, LogOut, Menu, Building2, Briefcase, FileText, Wand2, CreditCard, Users, History, X, ListChecks, ExternalLink } from "lucide-react";
 import type { ElementType } from "react";
 
 type NavGroup = { title: string; items: Array<[string, string, ElementType]> };
@@ -32,7 +33,7 @@ export function AdminShell({ email, children }: { email: string; children: React
   const sidebar = (
     <nav aria-label="Admin" className="flex h-full flex-col overflow-y-auto px-3 pb-6">
       <div className="flex items-center gap-3 px-3 py-5">
-        <span className="flex size-10 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#18B943,#0D9488)] text-white"><Sparkles size={20} aria-hidden="true" /></span>
+        <Image src="/brand/sarkarimatch-icon-512.png" alt="" width={40} height={40} className="size-10 rounded-xl" />
         <div className="leading-tight">
           <p className="font-black text-white">Sarkari Match</p>
           <p className="text-xs font-semibold text-white/50">Admin Panel</p>

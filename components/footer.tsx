@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { T } from "@/components/i18n/t";
 import { brand } from "@/lib/brand";
@@ -48,7 +49,7 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-10">
         <div className="grid gap-8 lg:grid-cols-[1.2fr_2fr]">
           <div>
-            <p className="text-2xl font-black text-white">{brand.name}</p>
+            <p className="flex items-center gap-3 text-2xl font-black text-white"><Image src="/brand/sarkarimatch-icon-512.png" alt="" width={44} height={44} className="size-11" />{brand.name}</p>
             <p className="mt-3 max-w-xl text-sm leading-7 text-white/70">
               <T k="footer_disclaimer" />
             </p>

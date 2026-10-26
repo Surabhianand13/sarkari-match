@@ -14,12 +14,12 @@ export function Header() {
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2.5">
         <Link href="/" className="flex min-w-0 items-center gap-2" aria-label={brand.fullName}>
           <Image
-            src="/brand/sarkarimatch-logo.svg"
+            src="/brand/sarkarimatch-logo.png"
             alt={brand.fullName}
-            width={260}
-            height={68}
+            width={1167}
+            height={474}
             priority
-            className="h-10 w-auto sm:h-11"
+            className="h-12 w-auto sm:h-14"
           />
         </Link>
         <HeaderNav />

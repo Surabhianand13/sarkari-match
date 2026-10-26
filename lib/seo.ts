@@ -51,7 +51,7 @@ export function organizationJsonLd() {
     name: brand.fullName,
     alternateName: [brand.name, "SarkariMatch"],
     url: absoluteUrl("/"),
-    logo: absoluteUrl("/brand/sarkarimatch-logo.svg"),
+    logo: absoluteUrl("/brand/sarkarimatch-icon-512.png"),
     description: brand.shortDescription,
     areaServed: { "@type": "Country", name: "India" }
   };
