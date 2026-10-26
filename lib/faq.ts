@@ -2,7 +2,7 @@ export const homeFaq = [
   {
     question: "Is Sarkari Match a government website?",
     answer:
-      "No. Sarkari Match by PW is an independent platform and is not affiliated with the Government of India or any state government. Every notification links to the official source so you can verify details yourself."
+      "No. Sarkari Match is an independent platform and is not affiliated with the Government of India or any state government. Every notification links to the official source so you can verify details yourself."
   },
   {
     question: "Does Sarkari Match guarantee eligibility or selection?",

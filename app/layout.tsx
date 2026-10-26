@@ -4,7 +4,10 @@ import "./globals.css";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { LocaleProvider } from "@/components/i18n/locale-provider";
+import { LoginPrompt } from "@/components/engagement/login-prompt";
+import { PurchaseToast } from "@/components/engagement/purchase-toast";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
+import { SiteChrome } from "@/components/site-chrome";
 import { brand, getSiteUrl } from "@/lib/brand";
 
 const manrope = Manrope({ subsets: ["latin"], display: "swap", variable: "--font-manrope" });
@@ -14,7 +17,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
   applicationName: brand.fullName,
   title: {
-    default: `${brand.fullName} - Govt Job Notifications Matched to Your Eligibility`,
+    default: `${brand.fullName}: SSC CGL Mock Test Series and Govt Job Notifications`,
     template: `%s | ${brand.fullName}`
   },
   description: brand.shortDescription,
@@ -38,10 +41,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en-IN" className={`${manrope.variable} ${notoDevanagari.variable}`}>
       <body>
         <LocaleProvider>
-          <Header />
-          <main className="pb-20 md:pb-0">{children}</main>
-          <Footer />
-          <MobileBottomNav />
+          <SiteChrome header={<Header />} footer={<Footer />} mobileNav={<MobileBottomNav />} extras={<><PurchaseToast /><LoginPrompt /></>}>
+            {children}
+          </SiteChrome>
         </LocaleProvider>
       </body>
     </html>

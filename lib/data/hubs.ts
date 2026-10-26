@@ -35,7 +35,7 @@ export function hubHeading(kind: HubKind, title: string) {
 
 export function hubDescription(kind: HubKind, title: string, count: number) {
   const scope = kind === "state" ? `${title} state` : kind === "department" ? `${title}` : `${title}-qualified candidates`;
-  return `${count} verified ${scope} govt job and exam notifications with eligibility, last dates and official application links. Check your eligibility free on Sarkari Match by PW.`;
+  return `${count} verified ${scope} govt job and exam notifications with eligibility, last dates and official application links. Check your eligibility free on Sarkari Match.`;
 }
 
 export function hubPath(kind: HubKind, slug: string) {

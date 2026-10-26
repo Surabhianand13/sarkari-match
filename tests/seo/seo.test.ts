@@ -24,8 +24,8 @@ describe("seo helpers", () => {
     expect(data.mainEntity.every((entry) => entry.acceptedAnswer.text.length > 40)).toBe(true);
   });
 
-  it("links the website and organization entities and brands them by PW", () => {
-    expect(organizationJsonLd().name).toContain("by PW");
+  it("links the website and organization entities and names the brand", () => {
+    expect(organizationJsonLd().name).toBe("Sarkari Match");
     expect(websiteJsonLd().publisher["@id"]).toBe(organizationJsonLd()["@id"]);
   });
 

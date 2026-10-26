@@ -3,11 +3,13 @@ import type { Route } from "next";
 import { ArrowRight, BarChart3, BookOpenCheck, ClipboardCheck, ListChecks, Smartphone } from "lucide-react";
 import { JobCard } from "@/components/job-card";
 import { ButtonLink } from "@/components/design-system";
+import { BannerCarousel } from "@/components/home/banner-carousel";
 import { HeroDemo } from "@/components/home/hero-demo";
 import { TestPreview } from "@/components/home/test-preview";
 import { T } from "@/components/i18n/t";
 import { JsonLd } from "@/components/seo/json-ld";
 import { ExpertsSection, PatternTable, ProcessSteps, ReviewsSection, StatsBand, TrustBadges } from "@/components/tests/trust-blocks";
+import { getBanners } from "@/lib/banners";
 import { getJobs } from "@/lib/data/jobs";
 import { examFamilies } from "@/lib/exams/directory";
 import { testSeriesFaq } from "@/lib/faq";
@@ -27,7 +29,7 @@ export const metadata = {
 };
 
 export default async function HomePage() {
-  const [series, jobs] = await Promise.all([getPublishedSeries(), getJobs()]);
+  const [series, jobs, banners] = await Promise.all([getPublishedSeries(), getJobs(), getBanners(true)]);
   const featured = series.find((item) => item.examSlug === "ssc-cgl") ?? series[0] ?? null;
   const seriesPath = featured ? `/tests/${featured.examSlug}/${featured.slug}` : "/tests";
   const discount = featured ? discountPercent(featured.pricePaise, featured.mrpPaise) : 0;
@@ -43,6 +45,25 @@ export default async function HomePage() {
         ]}
       />
 
+      {banners.length > 0 ? (
+        <>
+          <BannerCarousel banners={banners} />
+          <section className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 lg:flex-row lg:items-center lg:justify-between">
+            {featured && (
+              <p className="flex flex-wrap items-end gap-x-3 gap-y-1">
+                <span className="text-3xl font-black text-primary">{formatPrice(featured.pricePaise)}</span>
+                {featured.mrpPaise && featured.mrpPaise > featured.pricePaise && <span className="pb-0.5 text-base font-bold text-muted line-through">{formatPrice(featured.mrpPaise)}</span>}
+                <span className="pb-0.5 text-sm font-bold text-muted">{featured.title} · {featured.testCount} tests · one-time</span>
+              </p>
+            )}
+            <div className="flex flex-col gap-3 min-[420px]:flex-row">
+              <ButtonLink href={seriesPath}><T k="cta_view_series" /> <ArrowRight size={17} aria-hidden="true" /></ButtonLink>
+              <ButtonLink href="/tests" variant="secondary"><T k="cta_free_sample" /></ButtonLink>
+            </div>
+          </section>
+          <section className="mx-auto max-w-7xl px-4 pb-6"><TrustBadges /></section>
+        </>
+      ) : (
       <section className="relative">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_0%,rgba(24,185,67,0.14),transparent_26rem),radial-gradient(circle_at_90%_10%,rgba(99,102,241,0.10),transparent_22rem)]" />
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:py-14 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-20">
@@ -67,6 +88,7 @@ export default async function HomePage() {
           <TestPreview />
         </div>
       </section>
+      )}
 
       <section className="bg-surface">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:py-12">

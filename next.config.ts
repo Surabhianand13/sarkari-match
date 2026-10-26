@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   typedRoutes: true,
   serverExternalPackages: ["pg", "@electric-sql/pglite"],
   outputFileTracingRoot: process.cwd(),
+  experimental: { serverActions: { bodySizeLimit: "6mb" } },
   async headers() {
     return [
       {

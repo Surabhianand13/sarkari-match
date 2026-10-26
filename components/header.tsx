@@ -21,7 +21,6 @@ export function Header() {
             priority
             className="h-10 w-auto sm:h-11"
           />
-          <span className="rounded-full bg-primary px-2 py-0.5 text-[0.65rem] font-black uppercase tracking-wider text-white">{brand.byline}</span>
         </Link>
         <HeaderNav />
         <div className="flex items-center gap-1 sm:gap-2">

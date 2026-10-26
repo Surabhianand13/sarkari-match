@@ -48,7 +48,7 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-10">
         <div className="grid gap-8 lg:grid-cols-[1.2fr_2fr]">
           <div>
-            <p className="text-2xl font-black text-white">{brand.name} <span className="text-[#B9F8CD]">{brand.byline}</span></p>
+            <p className="text-2xl font-black text-white">{brand.name}</p>
             <p className="mt-3 max-w-xl text-sm leading-7 text-white/70">
               <T k="footer_disclaimer" />
             </p>

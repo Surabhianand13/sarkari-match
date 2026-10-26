@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   const sent = await createEmailProvider().send({
     to: email,
     template: "login_otp",
-    subject: "Your Sarkari Match by PW sign-in code",
+    subject: "Your Sarkari Match sign-in code",
     data: { code, validForMinutes: OTP_TTL_MINUTES }
   });
   if (sent.skipped && process.env.NODE_ENV !== "production") console.info(`[dev] sign-in code for ${email}: ${code}`);

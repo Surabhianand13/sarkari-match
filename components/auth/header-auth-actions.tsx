@@ -3,21 +3,21 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import type { Route } from "next";
 import { LogOut, UserRound } from "lucide-react";
+
+type Me = { fullName?: string | null; name?: string | null; email?: string; roles?: string[] };
 
 export function HeaderAuthActions() {
   const router = useRouter();
-  const [signedIn, setSignedIn] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState<Me | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/auth/me", { cache: "no-store" })
       .then((response) => response.json())
-      .then((data: { user: { roles?: string[] } | null }) => {
-        if (cancelled) return;
-        setSignedIn(Boolean(data.user));
-        setIsAdmin(Boolean(data.user?.roles?.includes("admin")));
+      .then((data: { user: Me | null }) => {
+        if (!cancelled) setUser(data.user);
       })
       .catch(() => {});
     return () => {
@@ -27,40 +27,36 @@ export function HeaderAuthActions() {
 
   async function handleSignOut() {
     await fetch("/api/auth/logout", { method: "POST" });
-    setSignedIn(false);
+    setUser(null);
     router.push("/");
     router.refresh();
   }
 
-  if (signedIn) {
+  if (!user) {
     return (
-      <>
-        <Link href="/dashboard" className="inline-flex size-11 items-center justify-center rounded-md text-primary hover:bg-background lg:hidden" aria-label="Dashboard">
-          <UserRound size={20} aria-hidden="true" />
-        </Link>
-        {isAdmin && (
-          <Link href="/admin" className="inline-flex rounded-full bg-primary px-3 py-2 text-sm font-black text-white">
-            Admin
-          </Link>
-        )}
-        <Link href="/dashboard" className="hidden rounded-full px-3 py-2 text-sm font-black text-primary hover:bg-mint sm:inline-flex">
-          Dashboard
-        </Link>
-        <button onClick={handleSignOut} className="hidden items-center gap-1 rounded-full px-3 py-2 text-sm font-black text-primary hover:bg-mint sm:inline-flex" aria-label="Sign out">
-          <LogOut size={16} aria-hidden="true" />
-        </button>
-      </>
+      <Link href="/login" className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-black text-primary hover:bg-mint">
+        Sign In
+      </Link>
     );
   }
 
+  const label = user.fullName ?? user.name ?? user.email ?? "Account";
+  const isAdmin = Boolean(user.roles?.includes("admin"));
+  const itemClass = "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-primary hover:bg-mint";
   return (
-    <>
-      <Link href="/login" className="inline-flex size-11 items-center justify-center rounded-md text-primary hover:bg-background lg:hidden" aria-label="Sign in">
-        <UserRound size={20} aria-hidden="true" />
+    <div className="group relative">
+      <Link href="/dashboard/tests" className="inline-flex size-11 items-center justify-center rounded-full bg-primary text-sm font-black text-white" aria-label="Your account">
+        {label.trim().charAt(0).toUpperCase() || <UserRound size={18} aria-hidden="true" />}
       </Link>
-      <Link href="/login" className="hidden rounded-full px-3 py-2 text-sm font-black text-primary hover:bg-mint sm:inline-flex">
-        Sign In
-      </Link>
-    </>
+      <div className="invisible absolute right-0 top-full z-50 w-56 pt-2 opacity-0 transition duration-150 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+        <div className="rounded-2xl border border-border bg-white p-2 shadow-lift">
+          <p className="truncate px-3 py-2 text-xs font-bold text-muted">{user.email ?? label}</p>
+          <Link href={"/dashboard/tests" as Route} className={itemClass}>My tests</Link>
+          <Link href={"/dashboard" as Route} className={itemClass}>Dashboard</Link>
+          {isAdmin && <Link href={"/admin" as Route} className={itemClass}>Admin panel</Link>}
+          <button onClick={handleSignOut} className={`${itemClass} w-full`}><LogOut size={15} aria-hidden="true" /> Sign out</button>
+        </div>
+      </div>
+    </div>
   );
 }

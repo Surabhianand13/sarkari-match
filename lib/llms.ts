@@ -12,7 +12,7 @@ export async function buildLlmsText(full: boolean) {
     "",
     `> ${brand.shortDescription}`,
     "",
-    "Sarkari Match by PW is an independent platform. It is not affiliated with the Government of India or any state government. Eligibility results are rule-based guidance, not a guarantee; always verify the official notification before applying. We never charge for applications.",
+    "Sarkari Match is an independent platform. It is not affiliated with the Government of India or any state government. Eligibility results are rule-based guidance, not a guarantee; always verify the official notification before applying. We never charge for applications.",
     "",
     "## Mock test series (main product)",
     ...(series.length

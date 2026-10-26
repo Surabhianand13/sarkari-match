@@ -3,7 +3,7 @@ import { Mail, ShieldAlert } from "lucide-react";
 import { ButtonLink } from "@/components/design-system";
 import { buildMetadata } from "@/lib/seo";
 
-export const metadata = buildMetadata({ title: 'Contact Sarkari Match by PW', description: 'Contact the Sarkari Match by PW team for support, corrections and partnership questions.', path: '/contact' });
+export const metadata = buildMetadata({ title: 'Contact Sarkari Match', description: 'Contact the Sarkari Match team for support, corrections and partnership questions.', path: '/contact' });
 
 export default function ContactPage() {
   return (

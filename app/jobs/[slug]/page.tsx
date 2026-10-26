@@ -55,7 +55,7 @@ export default async function JobDetailPage({ params }: { params: Params }) {
   const isOpen = job.applicationStatus === "open";
   const officialHost = safeHostname(job.officialApplicationUrl);
   const siteUrl = absoluteUrl("/");
-  const shareUrl = buildWhatsAppShareUrl(`${job.title} — check your eligibility on Sarkari Match by PW: ${siteUrl.replace(/\/$/, "")}/jobs/${job.slug}`);
+  const shareUrl = buildWhatsAppShareUrl(`${job.title} — check your eligibility on Sarkari Match: ${siteUrl.replace(/\/$/, "")}/jobs/${job.slug}`);
 
   const related = (await getJobs())
     .filter((other) => other.slug !== job.slug && (other.department === job.department || other.state === job.state))
@@ -116,7 +116,7 @@ export default async function JobDetailPage({ params }: { params: Params }) {
       body: (
         <ol className="list-decimal space-y-1 pl-5 text-muted">
           <li>Read the official notification and confirm age, qualification and category rules.</li>
-          <li>Run the free eligibility check on Sarkari Match by PW.</li>
+          <li>Run the free eligibility check on Sarkari Match.</li>
           <li>Open the official application page{officialHost ? ` (${officialHost})` : ""} and complete the form. Sarkari Match never collects application fees.</li>
           <li>Keep your documents and the application number safe for later stages.</li>
         </ol>
@@ -197,7 +197,7 @@ export default async function JobDetailPage({ params }: { params: Params }) {
           <Row label="Vacancies" value={String(job.vacancyCount)} />
           <Row label="Salary" value={job.salaryText} />
           <Row label="Last verified" value={dateOrEmpty(job.verifiedAt)} />
-          <Row label="Verified by" value="Sarkari Match by PW editorial team" />
+          <Row label="Verified by" value="Sarkari Match editorial team" />
         </dl>
         <div className="mt-5 rounded-3xl bg-[linear-gradient(135deg,#EAFBF0,#E8F8FA)] p-5">
           <div className="grid gap-3 sm:grid-cols-4">

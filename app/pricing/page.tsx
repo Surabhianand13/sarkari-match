@@ -5,7 +5,7 @@ import { T } from "@/components/i18n/t";
 import { buildMetadata } from "@/lib/seo";
 import { discountPercent, formatPrice, getPublishedSeries } from "@/lib/tests/catalog";
 
-export const metadata = buildMetadata({ title: 'Pricing: Mock Test Series and Notification Pro', description: 'Pricing for Sarkari Match by PW. Pay once for a mock test series, take a free sample test first, and add Notification Pro plans only if you want reminders.', path: '/pricing' });
+export const metadata = buildMetadata({ title: 'Pricing: Mock Test Series and Notification Pro', description: 'Pricing for Sarkari Match. Pay once for a mock test series, take a free sample test first, and add Notification Pro plans only if you want reminders.', path: '/pricing' });
 
 type PricingSearchParams = Promise<{ billing?: string }>;
 
