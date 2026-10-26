@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, BriefcaseBusiness, GraduationCap, Landmark, MapPinned } from "lucide-react";
+import { ArrowRight, BriefcaseBusiness, GraduationCap, Landmark, MapPinned, Wand2 } from "lucide-react";
 import { JobCard } from "@/components/job-card";
 import { departmentLabels, departments, qualificationLabels, qualificationPages, stateLabels, states } from "@/lib/data/catalog";
 import { getJobs } from "@/lib/data/jobs";
@@ -17,7 +17,8 @@ const discoveryCards = [
   ["/jobs/central", Landmark, "Central Govt", "UPSC, SSC, Railways, PSUs"],
   ["/jobs/state", MapPinned, "State Govt", "Choose state first"],
   ["/jobs/qualification", GraduationCap, "Qualifications", "Browse by education"],
-  ["/jobs/department", BriefcaseBusiness, "Departments", "Browse by board"]
+  ["/jobs/department", BriefcaseBusiness, "Departments", "Browse by board"],
+  ["/eligibility", Wand2, "Eligibility match", "See only what you can apply for"]
 ] as const;
 
 export default async function JobsPage({ searchParams }: { searchParams?: Promise<{ q?: string; state?: string; department?: string; qualification?: string }> }) {
@@ -38,8 +39,8 @@ export default async function JobsPage({ searchParams }: { searchParams?: Promis
   return (
     <div className="bg-surface">
       <section className="mx-auto max-w-7xl px-4 py-8 sm:py-12">
-        <SectionHeading eyebrow="Discover" title="Latest govt job and exam notifications" body="Search verified notifications and preserve filter state through shareable URLs." />
-        <div className="mb-6 grid gap-3 md:grid-cols-4">
+        <SectionHeading eyebrow="Discover" title="Govt exam and job notifications" body="Search verified notifications and preserve filter state through shareable URLs." />
+        <div className="mb-6 grid gap-3 md:grid-cols-3 lg:grid-cols-5">
           {discoveryCards.map(([href, Icon, title, body]) => (
             <Link key={href} href={href} className="group rounded-3xl border border-[color:var(--border)] bg-white p-4 shadow-soft transition hover:-translate-y-1 hover:border-[color:var(--brand-green)]">
               <div className="flex items-start justify-between gap-3">
