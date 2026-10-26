@@ -8,6 +8,7 @@ const footerGroups = [
     title: "Explore",
     links: [
       ["SSC CGL Test Series", "/tests"],
+      ["Practice questions", "/practice"],
       ["Govt Job Notifications", "/jobs"],
       ["Qualifications", "/jobs/qualification"],
       ["State Govt Notifications", "/jobs/state"],
@@ -18,6 +19,7 @@ const footerGroups = [
     title: "Product",
     links: [
       ["Eligibility", "/eligibility"],
+      ["Blog", "/blog"],
       ["Pricing", "/pricing"],
       ["Editorial policy", "/editorial-policy"],
       ["Corrections", "/corrections"]

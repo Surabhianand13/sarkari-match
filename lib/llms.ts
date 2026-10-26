@@ -2,11 +2,13 @@ import { absoluteUrl, brand } from "@/lib/brand";
 import { jobsForDepartment, jobsForQualification, jobsForState } from "@/lib/data/hubs";
 import { departmentLabels, departments, qualificationLabels, qualificationPages, stateLabels, states } from "@/lib/data/catalog";
 import { getJobs } from "@/lib/data/jobs";
+import { getPublishedPosts } from "@/lib/blog";
 import { getPublishedSeries, formatPrice } from "@/lib/tests/catalog";
 
 export async function buildLlmsText(full: boolean) {
   const jobs = await getJobs();
   const series = await getPublishedSeries();
+  const posts = await getPublishedPosts(30);
   const lines: string[] = [
     `# ${brand.fullName}`,
     "",
@@ -18,6 +20,9 @@ export async function buildLlmsText(full: boolean) {
     ...(series.length
       ? series.map((item) => `- [${item.title}](${absoluteUrl(`/tests/${item.examSlug}/${item.slug}`)}): ${item.testCount} tests, ${item.questionCount} questions, ${formatPrice(item.pricePaise)} one-time${item.freeSampleCount ? ", free sample test available" : ""}. Questions are written by subject experts, checked by AI for difficulty and exam relevance, and reviewed by a person before publishing.`)
       : [`- [Mock test series](${absoluteUrl("/tests")}): test series for govt exams, starting with SSC CGL`]),
+    "",
+    "## Blog",
+    ...(posts.length ? posts.map((post) => `- [${post.title}](${absoluteUrl(`/blog/${post.slug}`)}): ${post.excerpt}`) : [`- [Blog](${absoluteUrl("/blog")}): preparation guides for govt exams`]),
     "",
     "## Key pages",
     `- [Latest govt job and exam notifications](${absoluteUrl("/jobs")}): all active notifications with last dates and official links`,

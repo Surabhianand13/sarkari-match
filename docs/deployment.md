@@ -17,6 +17,15 @@
 - Question bank at scale: load questions with `pnpm questions:import file.jsonl` (batched, skips exact duplicates, lands as `needs_review`; use `--status approved` only for content your experts already reviewed). Publishing stays a separate admin step. The admin queue is paginated and indexed (migration 0004).
 - Reviews, expert profiles and stats shown on the site live in `lib/trust.ts`. Only add what you can substantiate.
 
+## Engagement features
+
+- **WhatsApp button:** set `NEXT_PUBLIC_WHATSAPP_NUMBER` (digits with country code, for example 919876543210). It is hidden when empty. It needs a redeploy because the value is read at build time.
+- **AI assistant (24/7 learner support):** set `ANTHROPIC_API_KEY`. The "Ask AI" button and the home page's AI help card only appear when a key is set. `ASSISTANT_MODEL` defaults to `claude-haiku-5-5`; `ASSISTANT_DAILY_LIMIT` (default 3000) caps total questions per day, and each visitor is limited to 20 per 10 minutes. The assistant answers only from the platform facts in `lib/assistant.ts` and sends payment or account issues to WhatsApp or the Contact page.
+- **Purchase pop-ups** show real purchases only (first name, state if given, series, time ago). Nothing shows when there are none. Mention this in your privacy policy.
+- **Blog:** write and publish in Admin > Blog. `pnpm db:seed-blog` loads three starter articles; edit or delete them there.
+- **Home banners:** Admin > Homepage banners (3:1 desktop 1800x600, 3:4 mobile 900x1200).
+- **Practice and study plan:** use the question bank (published questions), so they work as soon as questions are published. Nothing else to configure.
+
 Local development: `DATABASE_URL=pglite://./.data/dev` gives a zero-setup embedded Postgres (single process, so run `pnpm db:migrate`, `pnpm db:seed` and the dev server one at a time). Or point `DATABASE_URL` at the Render External Database URL. Production builds should run with the real `DATABASE_URL` or with it unset (demo data), not with PGlite.
 
 Rollback: disable payments, unpublish affected posts, redeploy the previous Render deploy and restore the database from a Render backup when needed.

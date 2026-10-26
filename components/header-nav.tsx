@@ -42,6 +42,20 @@ export function HeaderNav() {
         {notificationLinks.map(([label, href]) => <Link key={href} href={href as Route} className={itemClass}>{label}</Link>)}
       </NavItem>
       <Link
+        href="/practice"
+        aria-current={isActive(pathname, "/practice") ? "page" : undefined}
+        className={`whitespace-nowrap rounded-full px-4 py-2.5 transition hover:bg-surface hover:text-primary ${isActive(pathname, "/practice") ? "bg-mint text-primary" : ""}`}
+      >
+        Practice
+      </Link>
+      <Link
+        href="/blog"
+        aria-current={isActive(pathname, "/blog") ? "page" : undefined}
+        className={`whitespace-nowrap rounded-full px-4 py-2.5 transition hover:bg-surface hover:text-primary ${isActive(pathname, "/blog") ? "bg-mint text-primary" : ""}`}
+      >
+        Blog
+      </Link>
+      <Link
         href="/pricing"
         aria-current={isActive(pathname, "/pricing") ? "page" : undefined}
         className={`whitespace-nowrap rounded-full px-4 py-2.5 transition hover:bg-surface hover:text-primary ${isActive(pathname, "/pricing") ? "bg-mint text-primary" : ""}`}

@@ -130,3 +130,19 @@ export function courseJsonLd(input: { name: string; description: string; path: s
     inLanguage: "en-IN"
   };
 }
+
+export function articleJsonLd(input: { title: string; description: string; path: string; author: string; publishedAt: string | null; updatedAt: string }) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: input.title,
+    description: input.description,
+    url: absoluteUrl(input.path),
+    mainEntityOfPage: absoluteUrl(input.path),
+    datePublished: input.publishedAt ?? undefined,
+    dateModified: input.updatedAt,
+    author: { "@type": "Organization", name: input.author },
+    publisher: { "@id": absoluteUrl("/#organization") },
+    inLanguage: "en-IN"
+  };
+}

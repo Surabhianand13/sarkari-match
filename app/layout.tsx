@@ -5,6 +5,8 @@ import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { LocaleProvider } from "@/components/i18n/locale-provider";
 import { LoginPrompt } from "@/components/engagement/login-prompt";
+import { SupportWidget } from "@/components/engagement/support-widget";
+import { assistantEnabled } from "@/lib/assistant";
 import { PurchaseToast } from "@/components/engagement/purchase-toast";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { SiteChrome } from "@/components/site-chrome";
@@ -41,7 +43,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en-IN" className={`${manrope.variable} ${notoDevanagari.variable}`}>
       <body>
         <LocaleProvider>
-          <SiteChrome header={<Header />} footer={<Footer />} mobileNav={<MobileBottomNav />} extras={<><PurchaseToast /><LoginPrompt /></>}>
+          <SiteChrome header={<Header />} footer={<Footer />} mobileNav={<MobileBottomNav />} extras={<><PurchaseToast /><LoginPrompt /><SupportWidget whatsappNumber={(process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/\D/g, "") || null} assistant={assistantEnabled()} /></>}>
             {children}
           </SiteChrome>
         </LocaleProvider>

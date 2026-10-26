@@ -23,6 +23,10 @@ services:
         generateValue: true
       - key: TEST_CHECKOUT_URL
         sync: false
+      - key: NEXT_PUBLIC_WHATSAPP_NUMBER
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: EMAIL_FROM

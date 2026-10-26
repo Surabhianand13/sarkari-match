@@ -34,7 +34,7 @@ export function HeaderAuthActions() {
 
   if (!user) {
     return (
-      <Link href="/login" className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-black text-primary hover:bg-mint">
+      <Link href="/login" className="inline-flex min-h-11 items-center whitespace-nowrap rounded-full px-3 text-sm font-black text-primary hover:bg-mint">
         Sign In
       </Link>
     );
@@ -52,6 +52,8 @@ export function HeaderAuthActions() {
         <div className="rounded-2xl border border-border bg-white p-2 shadow-lift">
           <p className="truncate px-3 py-2 text-xs font-bold text-muted">{user.email ?? label}</p>
           <Link href={"/dashboard/tests" as Route} className={itemClass}>My tests</Link>
+          <Link href={"/dashboard/progress" as Route} className={itemClass}>My progress</Link>
+          <Link href={"/practice" as Route} className={itemClass}>Practice</Link>
           <Link href={"/dashboard" as Route} className={itemClass}>Dashboard</Link>
           {isAdmin && <Link href={"/admin" as Route} className={itemClass}>Admin panel</Link>}
           <button onClick={handleSignOut} className={`${itemClass} w-full`}><LogOut size={15} aria-hidden="true" /> Sign out</button>

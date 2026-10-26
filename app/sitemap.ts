@@ -3,6 +3,7 @@ import { departments, qualificationPages, states } from "@/lib/data/catalog";
 import { jobsForDepartment, jobsForQualification, jobsForState } from "@/lib/data/hubs";
 import { getJobs } from "@/lib/data/jobs";
 import { absoluteUrl } from "@/lib/brand";
+import { getPublishedPosts } from "@/lib/blog";
 import { getPublishedSeries, getSeriesTests } from "@/lib/tests/catalog";
 
 export const revalidate = 3600;
@@ -21,6 +22,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const core: MetadataRoute.Sitemap = [
     { url: absoluteUrl("/"), lastModified: freshest, changeFrequency: "daily", priority: 1 },
     { url: absoluteUrl("/tests"), changeFrequency: "weekly", priority: 1 },
+    { url: absoluteUrl("/practice"), changeFrequency: "weekly", priority: 0.8 },
+    { url: absoluteUrl("/blog"), changeFrequency: "weekly", priority: 0.7 },
     { url: absoluteUrl("/jobs"), lastModified: freshest, changeFrequency: "daily", priority: 0.9 },
     { url: absoluteUrl("/jobs/central"), lastModified: freshest, changeFrequency: "daily", priority: 0.8 },
     { url: absoluteUrl("/jobs/state"), lastModified: freshest, changeFrequency: "daily", priority: 0.8 },
@@ -61,5 +64,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
   for (const exam of exams) testPages.push({ url: absoluteUrl(`/tests/${exam}`), changeFrequency: "weekly", priority: 0.9 });
 
-  return [...core, ...testPages, ...notificationPages, ...hubPages];
+  const blogPages: MetadataRoute.Sitemap = (await getPublishedPosts(500)).map((post) => ({ url: absoluteUrl(`/blog/${post.slug}`), lastModified: safeDate(post.updatedAt), changeFrequency: "monthly", priority: 0.6 }));
+
+  return [...core, ...testPages, ...blogPages, ...notificationPages, ...hubPages];
 }

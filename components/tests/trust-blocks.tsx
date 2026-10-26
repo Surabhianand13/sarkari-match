@@ -1,4 +1,5 @@
 import { BadgeCheck, Bot, PenLine, ShieldCheck, Star } from "lucide-react";
+import { CountUp } from "@/components/motion/count-up";
 import { trust } from "@/lib/trust";
 import { examPattern } from "@/lib/exams/ssc-cgl";
 
@@ -22,10 +23,10 @@ export function TrustBadges({ className = "" }: { className?: string }) {
 export function StatsBand() {
   if (!trust.stats.length) return null;
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-3 sm:grid-cols-3">
       {trust.stats.map((stat) => (
         <div key={stat.label} className="rounded-2xl bg-white px-5 py-4 shadow-soft">
-          <p className="text-3xl font-black text-primary">{stat.value}</p>
+          <p className="text-3xl font-black text-primary sm:text-4xl"><CountUp value={stat.count} suffix={stat.suffix} label={stat.label} /></p>
           <p className="mt-1 text-sm font-bold text-muted">{stat.label}</p>
         </div>
       ))}

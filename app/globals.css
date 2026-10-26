@@ -712,3 +712,39 @@ a {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Motion helpers used on the home page. All of them are switched off by the reduced-motion rule above. */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+@keyframes floatYSlow {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(10px) rotate(1deg); }
+}
+@keyframes pulseRing {
+  0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.55); }
+  70% { box-shadow: 0 0 0 16px rgba(37, 211, 102, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+}
+@keyframes drawBar {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+@keyframes sheen {
+  from { transform: translateX(-120%) skewX(-18deg); }
+  to { transform: translateX(260%) skewX(-18deg); }
+}
+.animate-marquee { animation: marquee 38s linear infinite; }
+.animate-float { animation: floatY 6s ease-in-out infinite; }
+.animate-float-slow { animation: floatYSlow 8s ease-in-out infinite; }
+.animate-pulse-ring { animation: pulseRing 2.2s ease-out infinite; }
+.marquee-pause:hover .animate-marquee { animation-play-state: paused; }
+.reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.7s ease, transform 0.7s ease; }
+.reveal.is-visible { opacity: 1; transform: none; }
+.bar-grow { transform-origin: bottom; animation: drawBar 0.9s ease-out both; }
+.sheen::after { content: ""; position: absolute; inset: 0; width: 40%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent); animation: sheen 3.4s ease-in-out infinite; pointer-events: none; }
