@@ -760,3 +760,20 @@ a {
 .ring-draw { stroke-dasharray: 100; animation: ringDraw 1.8s ease-out both; }
 .orbit-dot { animation: orbit 7s linear infinite; }
 .dot-grid { background-image: radial-gradient(rgba(255,255,255,0.14) 1px, transparent 1px); background-size: 22px 22px; }
+
+@keyframes popIn {
+  0% { transform: scale(0.6); opacity: 0; }
+  70% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes blobMorph {
+  0%, 100% { border-radius: 42% 58% 60% 40% / 45% 45% 55% 55%; }
+  50% { border-radius: 58% 42% 38% 62% / 55% 60% 40% 45%; }
+}
+.pop-in { animation: popIn 0.35s ease-out both; }
+.slide-up-fade { animation: slideUpFade 0.45s ease-out both; }
+.blob-morph { animation: blobMorph 11s ease-in-out infinite; }

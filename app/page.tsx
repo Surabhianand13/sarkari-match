@@ -8,6 +8,7 @@ import { FeatureRow } from "@/components/home/feature-row";
 import { Hero } from "@/components/home/hero";
 import { HeroDemo } from "@/components/home/hero-demo";
 import { Marquee } from "@/components/home/marquee";
+import { PrepLaunchpad } from "@/components/home/prep-launchpad";
 import { NotificationTile } from "@/components/home/notification-tile";
 import { StatsShowcase } from "@/components/home/stats-showcase";
 import { T } from "@/components/i18n/t";
@@ -75,7 +76,7 @@ export default async function HomePage() {
 
       <Marquee />
 
-      <StatsShowcase />
+      <PrepLaunchpad featured={featured} seriesPath={seriesPath} />
 
       <section className="mx-auto max-w-7xl px-4 pt-14 sm:pt-20">
         <Reveal>
@@ -148,6 +149,8 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      <StatsShowcase />
 
       <section className="bg-surface">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-14 sm:py-20 lg:grid-cols-[0.9fr_1.1fr]">
