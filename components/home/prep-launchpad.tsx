@@ -1,16 +1,14 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import { MockDemo } from "@/components/home/mock-demo";
 import { T } from "@/components/i18n/t";
+import { CountUp } from "@/components/motion/count-up";
 import { Reveal } from "@/components/motion/reveal";
 import { examFamilies } from "@/lib/exams/directory";
-import { formatPrice } from "@/lib/tests/catalog";
 import { trust } from "@/lib/trust";
 
-type Featured = { title: string; pricePaise: number; testCount: number } | null;
-
-// Light "start here" section: exam chips, two clear actions, the headline numbers as a dotted row, and a self-playing mock test.
-export function PrepLaunchpad({ featured, seriesPath }: { featured: Featured; seriesPath: string }) {
+// Light "start here" section: exam chips, two clear actions, the headline numbers as a stats strip, and a self-playing mock test.
+export function PrepLaunchpad({ seriesPath }: { seriesPath: string }) {
   const chips: Array<{ name: string; href?: string }> = examFamilies.slice(0, 6).flatMap((family) =>
     family.exams.length ? family.exams.map((exam) => ({ name: exam.name, href: exam.href })) : [{ name: family.name.replace(" Exams", "") }]
   );
@@ -46,26 +44,18 @@ export function PrepLaunchpad({ featured, seriesPath }: { featured: Featured; se
               Start practising
             </Link>
           </div>
-          <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-3" aria-label="Platform numbers">
-            {trust.stats.map((stat) => (
-              <li key={stat.label} className="flex items-center gap-2 text-sm">
-                <span className="size-2.5 rounded-full bg-brand-green shadow-[0_0_0_4px_rgba(24,185,67,0.18)]" aria-hidden="true" />
-                <span className="font-black text-primary">{stat.value}</span>
-                <span className="font-semibold text-muted">{stat.label}</span>
-              </li>
+          <dl className="mt-9 grid grid-cols-2 overflow-hidden rounded-3xl border border-border bg-white/80 shadow-soft backdrop-blur sm:grid-cols-4 sm:divide-x sm:divide-border" aria-label="Platform numbers">
+            {trust.stats.map((stat, i) => (
+              <div key={stat.label} className={`px-4 py-4 text-center sm:px-3 ${i % 2 === 0 ? "border-r border-border sm:border-r-0" : ""} ${i < 2 ? "border-b border-border sm:border-b-0" : ""}`}>
+                <dd className="text-2xl font-black leading-none tracking-tight text-primary sm:text-[1.65rem]"><CountUp value={stat.count} suffix={stat.suffix} label={stat.label} /></dd>
+                <dt className="mt-1.5 text-[0.7rem] font-black uppercase tracking-[0.12em] text-muted">{stat.label}</dt>
+              </div>
             ))}
-            <li className="flex items-center gap-2 text-sm">
-              <span className="size-2.5 rounded-full bg-brand-green shadow-[0_0_0_4px_rgba(24,185,67,0.18)]" aria-hidden="true" />
-              <span className="font-black text-primary">AI</span>
-              <span className="font-semibold text-muted">checked questions</span>
-            </li>
-          </ul>
-          {featured && (
-            <p className="mt-5 flex items-center gap-2 text-sm font-semibold text-muted">
-              <CheckCircle2 size={17} className="text-brand-green" aria-hidden="true" />
-              {featured.title} from <span className="font-black text-primary">{formatPrice(featured.pricePaise)}</span> one-time. Free sample test included, no auto-renewal.
-            </p>
-          )}
+            <div className="flex flex-col items-center justify-center border-t border-border px-4 py-4 text-center sm:border-t-0 sm:px-3">
+              <dd className="flex items-center gap-1.5 text-2xl font-black leading-none text-success sm:text-[1.65rem]"><ShieldCheck size={24} aria-hidden="true" /> AI</dd>
+              <dt className="mt-1.5 text-[0.7rem] font-black uppercase tracking-[0.12em] text-muted">checked questions</dt>
+            </div>
+          </dl>
         </Reveal>
         <Reveal delay={150}><MockDemo /></Reveal>
       </div>

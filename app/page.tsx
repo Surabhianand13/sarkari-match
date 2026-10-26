@@ -76,7 +76,7 @@ export default async function HomePage() {
 
       <Marquee />
 
-      <PrepLaunchpad featured={featured} seriesPath={seriesPath} />
+      <PrepLaunchpad seriesPath={seriesPath} />
 
       <section className="mx-auto max-w-7xl px-4 pt-14 sm:pt-20">
         <Reveal>
