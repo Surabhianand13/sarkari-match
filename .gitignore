@@ -8,3 +8,6 @@ tsconfig.tsbuildinfo
 .DS_Store
 .claude/settings.local.json
 .data/
+
+# Local-only dev logins
+docs/local-development.md
