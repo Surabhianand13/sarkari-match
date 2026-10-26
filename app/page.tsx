@@ -9,8 +9,8 @@ import { FeatureRow } from "@/components/home/feature-row";
 import { Hero } from "@/components/home/hero";
 import { HeroDemo } from "@/components/home/hero-demo";
 import { Marquee } from "@/components/home/marquee";
+import { StatsShowcase } from "@/components/home/stats-showcase";
 import { T } from "@/components/i18n/t";
-import { CountUp } from "@/components/motion/count-up";
 import { Reveal } from "@/components/motion/reveal";
 import { JsonLd } from "@/components/seo/json-ld";
 import { ExpertsSection, PatternTable, ProcessSteps, ReviewsSection, TrustBadges } from "@/components/tests/trust-blocks";
@@ -22,7 +22,6 @@ import { examFamilies } from "@/lib/exams/directory";
 import { testSeriesFaq } from "@/lib/faq";
 import { brand } from "@/lib/brand";
 import { buildMetadata, faqJsonLd, organizationJsonLd, productJsonLd, websiteJsonLd } from "@/lib/seo";
-import { trust } from "@/lib/trust";
 import { discountPercent, formatPrice, getPublishedSeries } from "@/lib/tests/catalog";
 
 export const revalidate = 300;
@@ -65,23 +64,7 @@ export default async function HomePage() {
       />
 
       {banners.length > 0 ? (
-        <>
-          <BannerCarousel banners={banners} />
-          <section className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 lg:flex-row lg:items-center lg:justify-between">
-            {featured && (
-              <p className="flex flex-wrap items-end gap-x-3 gap-y-1">
-                <span className="text-3xl font-black text-primary">{formatPrice(featured.pricePaise)}</span>
-                {featured.mrpPaise && featured.mrpPaise > featured.pricePaise && <span className="pb-0.5 text-base font-bold text-muted line-through">{formatPrice(featured.mrpPaise)}</span>}
-                <span className="pb-0.5 text-sm font-bold text-muted">{featured.title} · {featured.testCount} tests · one-time</span>
-              </p>
-            )}
-            <div className="flex flex-col gap-3 min-[420px]:flex-row">
-              <ButtonLink href={seriesPath}><T k="cta_view_series" /> <ArrowRight size={17} aria-hidden="true" /></ButtonLink>
-              <ButtonLink href="/tests" variant="secondary"><T k="cta_free_sample" /></ButtonLink>
-            </div>
-          </section>
-          <section className="mx-auto max-w-7xl px-4 pb-6"><TrustBadges /></section>
-        </>
+        <BannerCarousel banners={banners} />
       ) : (
         <>
           <Hero featured={featured} seriesPath={seriesPath} chips={chips} />
@@ -91,16 +74,7 @@ export default async function HomePage() {
 
       <Marquee />
 
-      <section className="bg-[linear-gradient(135deg,#071F46,#0B2D63_55%,#0D6E6E)] text-white">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:grid-cols-3 sm:py-14">
-          {trust.stats.map((stat, i) => (
-            <Reveal key={stat.label} delay={i * 100}>
-              <p className="text-5xl font-black tracking-tight sm:text-6xl"><CountUp value={stat.count} suffix={stat.suffix} label={stat.label} /></p>
-              <p className="mt-1 text-sm font-bold uppercase tracking-[0.14em] text-[#B9F8CD]">{stat.label}</p>
-            </Reveal>
-          ))}
-        </div>
-      </section>
+      <StatsShowcase />
 
       <section className="mx-auto max-w-7xl px-4 pt-14 sm:pt-20">
         <Reveal>
@@ -129,6 +103,27 @@ export default async function HomePage() {
           })}
         </div>
       </section>
+
+      {featured && banners.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 pt-12">
+          <Reveal>
+            <div className="rounded-3xl border border-border bg-white p-5 shadow-soft sm:p-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <p className="flex flex-wrap items-end gap-x-3 gap-y-1">
+                  <span className="text-4xl font-black text-primary">{formatPrice(featured.pricePaise)}</span>
+                  {featured.mrpPaise && featured.mrpPaise > featured.pricePaise && <span className="pb-1 text-lg font-bold text-muted line-through">{formatPrice(featured.mrpPaise)}</span>}
+                  <span className="pb-1 text-sm font-bold text-muted">{featured.title} · {featured.testCount} tests · one-time</span>
+                </p>
+                <div className="flex flex-col gap-3 min-[420px]:flex-row">
+                  <ButtonLink href={seriesPath}><T k="cta_view_series" /> <ArrowRight size={17} aria-hidden="true" /></ButtonLink>
+                  <ButtonLink href="/tests" variant="secondary"><T k="cta_free_sample" /></ButtonLink>
+                </div>
+              </div>
+              <TrustBadges className="mt-5" />
+            </div>
+          </Reveal>
+        </section>
+      )}
 
       <section className="mx-auto max-w-7xl px-4 py-14 sm:py-20">
         <Reveal>

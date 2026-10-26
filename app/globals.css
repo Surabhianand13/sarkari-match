@@ -748,3 +748,15 @@ a {
 .reveal.is-visible { opacity: 1; transform: none; }
 .bar-grow { transform-origin: bottom; animation: drawBar 0.9s ease-out both; }
 .sheen::after { content: ""; position: absolute; inset: 0; width: 40%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent); animation: sheen 3.4s ease-in-out infinite; pointer-events: none; }
+
+@keyframes ringDraw {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 24; }
+}
+@keyframes orbit {
+  from { transform: rotate(0deg) translateX(var(--orbit, 38px)) rotate(0deg); }
+  to { transform: rotate(360deg) translateX(var(--orbit, 38px)) rotate(-360deg); }
+}
+.ring-draw { stroke-dasharray: 100; animation: ringDraw 1.8s ease-out both; }
+.orbit-dot { animation: orbit 7s linear infinite; }
+.dot-grid { background-image: radial-gradient(rgba(255,255,255,0.14) 1px, transparent 1px); background-size: 22px 22px; }
