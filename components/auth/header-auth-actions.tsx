@@ -56,7 +56,7 @@ export function HeaderAuthActions() {
           <Link href={"/dashboard/billing" as Route} className={itemClass}>My plans</Link>
           <Link href={"/practice" as Route} className={itemClass}>Practice</Link>
           <Link href={"/dashboard" as Route} className={itemClass}>Dashboard</Link>
-          {isAdmin && <Link href={"/admin" as Route} className={itemClass}>Admin panel</Link>}
+          {isAdmin && <Link href={"/admin" as Route} className={itemClass}>Admin</Link>}
           <button onClick={handleSignOut} className={`${itemClass} w-full`}><LogOut size={15} aria-hidden="true" /> Sign out</button>
         </div>
       </div>
