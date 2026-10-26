@@ -5,11 +5,8 @@ import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import type { ElementType, ReactNode } from "react";
 import { BriefcaseBusiness, ChevronDown, GraduationCap, Landmark, MapPinned } from "lucide-react";
-import { departmentLabels, qualificationLabels, stateLabels } from "@/lib/data/catalog";
+import { examFamilies } from "@/lib/exams/directory";
 
-const topStates = ["karnataka", "uttar-pradesh", "maharashtra", "tamil-nadu", "telangana", "rajasthan"];
-const topQualifications = ["10th-pass", "12th-pass", "iti", "diploma", "graduate", "btech", "postgraduate", "nursing"];
-const topDepartments = ["ssc", "upsc", "railways", "banking", "defence", "police", "teaching", "psu"];
 
 function isActive(pathname: string, matchPath: string) {
   if (matchPath === "/jobs") {
@@ -20,65 +17,49 @@ function isActive(pathname: string, matchPath: string) {
 
 export function HeaderNav() {
   const pathname = usePathname();
-  const jobsActive = isActive(pathname, "/jobs") || pathname.startsWith("/jobs/central") || pathname.startsWith("/jobs/state");
-  const qualificationActive = isActive(pathname, "/jobs/qualification");
-  const departmentActive = isActive(pathname, "/jobs/department");
+  const jobsActive = pathname.startsWith("/jobs") || isActive(pathname, "/eligibility");
   const pricingActive = isActive(pathname, "/pricing");
   const testsActive = isActive(pathname, "/tests");
-  const eligibilityActive = isActive(pathname, "/eligibility");
 
   return (
     <nav aria-label="Primary" className="hidden items-center gap-1 rounded-full bg-surface px-2 py-1 text-sm font-bold text-muted lg:flex">
-      <Link
-        href="/tests"
-        aria-current={testsActive ? "page" : undefined}
-        className={`rounded-full px-3 py-2 transition hover:bg-white hover:text-primary hover:shadow-soft ${testsActive ? "bg-white text-primary shadow-soft ring-1 ring-[rgba(24,185,67,0.18)]" : ""}`}
-      >
-        Test Series
-      </Link>
-      <Dropdown label="Govt Job Notifications" active={jobsActive}>
+      <Dropdown label="Test Series & Question Bank" active={testsActive}>
+        <div className="grid gap-3 p-4">
+          <MenuHeader title="Choose your exam" body="Full-length mock tests and a question bank written by experts, checked by AI." />
+          <div className="grid gap-3 sm:grid-cols-2">
+            {examFamilies.map((family) => (
+              <div key={family.name} className="rounded-2xl border border-[color:var(--border)] bg-surface p-3">
+                <p className="flex items-center gap-2 font-black text-primary">
+                  {family.name}
+                  {family.comingSoon && <span className="rounded-full bg-white px-2 py-0.5 text-[0.65rem] font-black uppercase tracking-wide text-muted">Coming soon</span>}
+                </p>
+                {family.exams.map((exam) => (
+                  <Link key={exam.href} href={exam.href as Route} className="mt-2 flex items-center justify-between rounded-xl bg-white px-3 py-2 text-sm font-black text-primary transition hover:bg-mint">
+                    {exam.name}
+                    <span className="text-xs font-bold text-success">Mock tests</span>
+                  </Link>
+                ))}
+              </div>
+            ))}
+          </div>
+          <Link href="/tests" className="rounded-2xl bg-primary px-4 py-3 text-center text-sm font-black text-white shadow-soft">See all test series</Link>
+        </div>
+      </Dropdown>
+
+      <Dropdown label="Govt Exam & Job Notifications" active={jobsActive}>
         <div className="grid gap-4 p-4">
           <div className="grid gap-3 md:grid-cols-2">
-            <MenuFeature href="/jobs/central" icon={Landmark} title="Central Govt Job Notifications" body="UPSC, SSC, Railways, PSUs and central organisations." />
-            <MenuFeature href="/jobs/state" icon={MapPinned} title="State Govt Job Notifications" body="Browse every state and then narrow by eligibility." />
+            <MenuFeature href="/jobs/central" icon={Landmark} title="Central Govt Notifications" body="UPSC, SSC, Railways, PSUs and central organisations." />
+            <MenuFeature href="/jobs/state" icon={MapPinned} title="State Govt Notifications" body="Browse every state and then narrow by eligibility." />
+            <MenuFeature href="/jobs/qualification" icon={GraduationCap} title="By qualification" body="10th pass, 12th pass, graduate, ITI, diploma and more." />
+            <MenuFeature href="/jobs/department" icon={BriefcaseBusiness} title="By department" body="SSC, UPSC, Railways, Banking, Defence, Police and more." />
           </div>
-          <div>
-            <p className="px-1 text-[0.68rem] font-black uppercase tracking-[0.18em] text-muted">Popular states</p>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {topStates.map((state) => <MenuPill key={state} href={`/jobs/state/${state}`} label={stateLabels[state]} />)}
-            </div>
+          <div className="flex gap-2">
+            <Link href="/jobs" className="flex-1 rounded-2xl bg-primary px-4 py-3 text-center text-sm font-black text-white shadow-soft">All latest notifications</Link>
+            <Link href="/eligibility" className="flex-1 rounded-2xl bg-mint px-4 py-3 text-center text-sm font-black text-success">Check my eligibility</Link>
           </div>
-          <Link href="/jobs" className="rounded-2xl bg-primary px-4 py-3 text-center text-sm font-black text-white shadow-soft">View all latest notifications</Link>
         </div>
       </Dropdown>
-
-      <Dropdown label="Qualifications" active={qualificationActive}>
-        <div className="p-4">
-          <MenuHeader title="Browse qualification-wise" body="Start from the qualification the candidate already has." />
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {topQualifications.map((slug) => <MenuPill key={slug} href={`/jobs/qualification/${slug}`} label={qualificationLabels[slug]} />)}
-          </div>
-          <Link href="/jobs/qualification" className="mt-3 flex rounded-2xl bg-mint px-4 py-3 text-sm font-black text-success">View all qualification options</Link>
-        </div>
-      </Dropdown>
-
-      <Dropdown label="Departments" active={departmentActive}>
-        <div className="p-4">
-          <MenuHeader title="Browse department-wise" body="Find notifications from the exam bodies and departments candidates track most." />
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {topDepartments.map((slug) => <MenuPill key={slug} href={`/jobs/department/${slug}`} label={departmentLabels[slug]} />)}
-          </div>
-          <Link href="/jobs/department" className="mt-3 flex rounded-2xl bg-mint px-4 py-3 text-sm font-black text-success">View all departments</Link>
-        </div>
-      </Dropdown>
-
-      <Link
-        href="/eligibility"
-        aria-current={eligibilityActive ? "page" : undefined}
-        className={`rounded-full px-3 py-2 transition hover:bg-white hover:text-primary hover:shadow-soft ${eligibilityActive ? "bg-white text-primary shadow-soft ring-1 ring-[rgba(24,185,67,0.18)]" : ""}`}
-      >
-        Eligibility Match
-      </Link>
 
       <Link
         href="/pricing"
@@ -119,20 +100,12 @@ function MenuFeature({ href, icon: Icon, title, body }: { href: string; icon: El
   );
 }
 
-function MenuPill({ href, label }: { href: string; label: string }) {
-  return (
-    <Link href={href as Route} className="rounded-2xl border border-[color:var(--border)] bg-surface px-3 py-2 text-sm font-black text-primary transition hover:border-[color:var(--brand-green)] hover:bg-mint">
-      {label}
-    </Link>
-  );
-}
-
 function MenuHeader({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-2xl bg-surface p-4">
       <div className="flex items-center gap-2">
         <span className="flex size-9 items-center justify-center rounded-2xl bg-mint text-success">
-          {title.includes("qualification") ? <GraduationCap size={18} aria-hidden="true" /> : <BriefcaseBusiness size={18} aria-hidden="true" />}
+          <GraduationCap size={18} aria-hidden="true" />
         </span>
         <p className="font-black text-primary">{title}</p>
       </div>

@@ -9,6 +9,7 @@ import { T } from "@/components/i18n/t";
 import { JsonLd } from "@/components/seo/json-ld";
 import { ExpertsSection, PatternTable, ProcessSteps, ReviewsSection, StatsBand, TrustBadges } from "@/components/tests/trust-blocks";
 import { getJobs } from "@/lib/data/jobs";
+import { examFamilies } from "@/lib/exams/directory";
 import { testSeriesFaq } from "@/lib/faq";
 import { brand } from "@/lib/brand";
 import { buildMetadata, faqJsonLd, organizationJsonLd, productJsonLd, websiteJsonLd } from "@/lib/seo";
@@ -73,6 +74,27 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-7xl px-4 pt-12 sm:pt-16">
+        <h2 className="text-3xl font-black tracking-tight text-primary sm:text-4xl">Choose your exam</h2>
+        <p className="mt-3 max-w-2xl text-muted">Mock tests and a question bank for each exam family. SSC CGL is open now; the rest are on the way.</p>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {examFamilies.map((family) => {
+            const live = family.exams[0];
+            const body = (
+              <>
+                <p className="text-lg font-black text-primary">{family.name}</p>
+                {live ? <p className="mt-2 text-sm font-black text-success">{live.name} mock tests <ArrowRight size={14} className="inline" aria-hidden="true" /></p> : <p className="mt-2 inline-flex rounded-full bg-surface px-2.5 py-1 text-xs font-black uppercase tracking-wide text-muted">Coming soon</p>}
+              </>
+            );
+            return live ? (
+              <Link key={family.name} href={live.href as Route} className="rounded-3xl border border-[rgba(24,185,67,0.35)] bg-mint p-5 shadow-soft transition hover:-translate-y-0.5">{body}</Link>
+            ) : (
+              <div key={family.name} className="rounded-3xl border border-border bg-white p-5 opacity-80">{body}</div>
+            );
+          })}
+        </div>
+      </section>
+
       <section className="mx-auto max-w-7xl px-4 py-12 sm:py-16">
         <h2 className="text-3xl font-black tracking-tight text-primary sm:text-4xl">What you get with the series</h2>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -131,7 +153,7 @@ export default async function HomePage() {
         <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-success">Free with every account</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight text-primary sm:text-4xl">Govt job notifications matched to your eligibility</h2>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-primary sm:text-4xl">Govt exam &amp; job notifications matched to your eligibility</h2>
             <p className="mt-3 max-w-xl text-muted">Enter your age, qualification and category once. We check them against the published rules and show only the notifications you can apply for, with official links.</p>
             <div className="mt-5 flex flex-col gap-3 min-[420px]:flex-row">
               <ButtonLink href="/eligibility">Check my eligibility</ButtonLink>

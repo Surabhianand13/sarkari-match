@@ -3,7 +3,9 @@ import { ArrowRight } from "lucide-react";
 
 const links = [
   ["Home", "/"],
-  ["All Govt Job Notifications", "/jobs"],
+  ["Test Series & Question Bank", "/tests"],
+  ["SSC CGL Mock Tests", "/tests/ssc-cgl"],
+  ["Govt Exam & Job Notifications", "/jobs"],
   ["Central Govt Job Notifications", "/jobs/central"],
   ["State Govt Job Notifications", "/jobs/state"],
   ["Qualification-wise Notifications", "/jobs/qualification"],
