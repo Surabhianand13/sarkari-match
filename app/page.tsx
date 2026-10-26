@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { ArrowRight, BookOpenCheck, ClipboardCheck, Headphones, Smartphone, Target } from "lucide-react";
-import { JobCard } from "@/components/job-card";
+import { ArrowRight, BookOpenCheck, CheckCircle2, ClipboardCheck, Headphones, MessageCircle, Smartphone, Target } from "lucide-react";
 import { ButtonLink } from "@/components/design-system";
 import { BannerCarousel } from "@/components/home/banner-carousel";
 import { AdaptiveVisual, InsightsVisual, PlanVisual } from "@/components/home/feature-visuals";
@@ -9,6 +8,7 @@ import { FeatureRow } from "@/components/home/feature-row";
 import { Hero } from "@/components/home/hero";
 import { HeroDemo } from "@/components/home/hero-demo";
 import { Marquee } from "@/components/home/marquee";
+import { NotificationTile } from "@/components/home/notification-tile";
 import { StatsShowcase } from "@/components/home/stats-showcase";
 import { T } from "@/components/i18n/t";
 import { Reveal } from "@/components/motion/reveal";
@@ -40,8 +40,9 @@ export default async function HomePage() {
   const featured = series.find((item) => item.examSlug === "ssc-cgl") ?? series[0] ?? null;
   const seriesPath = featured ? `/tests/${featured.examSlug}/${featured.slug}` : "/tests";
   const discount = featured ? discountPercent(featured.pricePaise, featured.mrpPaise) : 0;
-  const chips = examFamilies.flatMap((family) => (family.exams.length ? family.exams.map((exam) => ({ name: exam.name, href: exam.href })) : [{ name: family.name.replace(" Exams", "") }]));
+  const chips = examFamilies.slice(0, 6).flatMap((family) => (family.exams.length ? family.exams.map((exam) => ({ name: exam.name, href: exam.href })) : [{ name: family.name.replace(" Exams", "") }]));
   const aiSupport = assistantEnabled();
+  const whatsapp = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/\D/g, "") || null;
 
   const smallFeatures = [
     { Icon: ClipboardCheck, title: "Real exam window", body: "Timed like the real paper, with section tabs, a question palette and mark for review." },
@@ -185,69 +186,111 @@ export default async function HomePage() {
         </section>
       )}
 
-      <section className="mx-auto max-w-7xl px-4 py-14 sm:py-20">
-        <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-          <Reveal>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-success">Free with every account</p>
-            <h2 className="mt-2 text-3xl font-black tracking-tight text-primary sm:text-4xl">Govt exam &amp; job notifications matched to your eligibility</h2>
-            <p className="mt-3 max-w-xl text-muted">Enter your age, qualification and category once. We check them against the published rules and show only the notifications you can apply for, with official links.</p>
-            <div className="mt-5 flex flex-col gap-3 min-[420px]:flex-row">
-              <ButtonLink href="/eligibility">Check my eligibility</ButtonLink>
-              <ButtonLink href="/jobs" variant="secondary">Browse notifications</ButtonLink>
-            </div>
-          </Reveal>
-          <Reveal delay={100}><HeroDemo /></Reveal>
-        </div>
-        {jobs.length > 0 && (
-          <div className="mt-10">
-            <h3 className="mb-4 text-xl font-black text-primary">Latest notifications</h3>
-            <div className="grid gap-4 lg:grid-cols-2">{jobs.slice(0, 4).map((job, index) => <JobCard key={job.id} job={job} index={index} />)}</div>
-            <div className="mt-5"><ButtonLink href="/jobs" variant="secondary">View all notifications</ButtonLink></div>
+      <section className="px-4 py-14 sm:py-20">
+        <div className="relative isolate mx-auto max-w-7xl overflow-hidden rounded-[2rem] border border-[rgba(24,185,67,0.2)] bg-[linear-gradient(135deg,#F0FBF4,#FFFFFF_55%,#EEF4FF)] p-6 shadow-soft sm:p-10">
+          <div className="pointer-events-none absolute -right-16 -top-16 -z-10 size-72 rounded-full bg-brand-green/15 blur-3xl animate-float-slow" />
+          <div className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+            <Reveal>
+              <p className="inline-flex rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-success shadow-soft">Free with every account</p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight text-primary sm:text-4xl">Govt exam &amp; job notifications matched to your eligibility</h2>
+              <p className="mt-3 max-w-xl text-muted">Enter your age, qualification and category once. We check them against the published rules and show only the notifications you can apply for.</p>
+              <ul className="mt-5 grid gap-2.5">
+                {["Checks age, qualification, category and domicile", "Shows only what you can apply for", "Every notification links to the official source"].map((point) => (
+                  <li key={point} className="flex items-center gap-2.5 text-sm font-bold text-primary"><CheckCircle2 size={18} className="shrink-0 text-brand-green" aria-hidden="true" />{point}</li>
+                ))}
+              </ul>
+              <div className="mt-6 flex flex-col gap-3 min-[420px]:flex-row">
+                <ButtonLink href="/eligibility">Check my eligibility</ButtonLink>
+                <ButtonLink href="/jobs" variant="secondary">Browse notifications</ButtonLink>
+              </div>
+            </Reveal>
+            <Reveal delay={120}><div className="animate-float-slow"><HeroDemo /></div></Reveal>
           </div>
-        )}
+          {jobs.length > 0 && (
+            <div className="mt-12">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <h3 className="text-xl font-black text-primary sm:text-2xl">Latest notifications</h3>
+                <Link href="/jobs" className="inline-flex items-center gap-1.5 text-sm font-black text-primary hover:underline">View all <ArrowRight size={15} aria-hidden="true" /></Link>
+              </div>
+              <div className="-mx-2 mt-5 flex snap-x gap-4 overflow-x-auto px-2 pb-3 md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0 lg:grid-cols-3">
+                {jobs.slice(0, 6).map((job) => <NotificationTile key={job.id} job={job} />)}
+              </div>
+            </div>
+          )}
+        </div>
       </section>
 
       {posts.length > 0 && (
-        <section className="bg-surface">
-          <div className="mx-auto max-w-7xl px-4 py-14 sm:py-20">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <h2 className="text-3xl font-black tracking-tight text-primary sm:text-4xl">From the blog</h2>
-              <Link href="/blog" className="text-sm font-black text-primary underline">All articles</Link>
+        <section className="mx-auto max-w-7xl px-4 pb-14 sm:pb-20">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-success">Blog</p>
+              <h2 className="mt-1 text-3xl font-black tracking-tight text-primary sm:text-4xl">Preparation guides</h2>
             </div>
-            <div className="mt-7 grid gap-5 md:grid-cols-3">
-              {posts.map((post, i) => (
-                <Reveal key={post.id} delay={i * 90}>
-                  <Link href={`/blog/${post.slug}` as Route} className="group flex h-full flex-col rounded-3xl border border-border bg-white p-6 shadow-soft transition hover:-translate-y-1 hover:shadow-lift">
-                    <div className="flex flex-wrap gap-2">{post.tags.slice(0, 2).map((tag) => <span key={tag} className="rounded-full bg-mint px-2.5 py-1 text-xs font-black text-success">{tag}</span>)}</div>
-                    <h3 className="mt-3 text-lg font-black text-primary">{post.title}</h3>
+            <Link href="/blog" className="inline-flex items-center gap-1.5 text-sm font-black text-primary hover:underline">All articles <ArrowRight size={15} aria-hidden="true" /></Link>
+          </div>
+          <div className="mt-7 grid gap-5 md:grid-cols-3">
+            {posts.map((post, i) => (
+              <Reveal key={post.id} delay={i * 90}>
+                <Link href={`/blog/${post.slug}` as Route} className="group flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-white shadow-soft transition hover:-translate-y-1 hover:shadow-lift">
+                  <div className="flex h-28 items-end bg-[linear-gradient(135deg,#0B2D63,#0D9488)] p-5">
+                    <div className="flex flex-wrap gap-2">{post.tags.slice(0, 2).map((tag) => <span key={tag} className="rounded-full bg-white/20 px-2.5 py-1 text-xs font-black text-white backdrop-blur">{tag}</span>)}</div>
+                  </div>
+                  <div className="flex flex-1 flex-col p-6">
+                    <h3 className="text-lg font-black leading-snug text-primary group-hover:underline">{post.title}</h3>
                     <p className="mt-2 flex-1 text-sm leading-6 text-muted">{post.excerpt}</p>
                     <p className="mt-4 text-xs font-bold text-muted">{formatDate(post.publishedAt)} · {readingMinutes(post.content)} min read</p>
-                  </Link>
-                </Reveal>
-              ))}
-            </div>
+                  </div>
+                </Link>
+              </Reveal>
+            ))}
           </div>
         </section>
       )}
 
-      <section className="mx-auto max-w-7xl px-4 py-14 sm:py-20">
-        <h2 className="text-3xl font-black tracking-tight text-primary sm:text-4xl">Questions before you start</h2>
-        <div className="mt-6 grid gap-3 lg:grid-cols-2">
-          {testSeriesFaq.map((item) => (
-            <details key={item.question} className="group rounded-2xl border border-border bg-white p-4 shadow-soft open:shadow-lift">
-              <summary className="cursor-pointer list-none font-black text-primary marker:hidden"><span className="flex items-start justify-between gap-3">{item.question}<span className="mt-0.5 text-muted transition group-open:rotate-45" aria-hidden="true">+</span></span></summary>
-              <p className="mt-3 text-sm leading-6 text-muted">{item.answer}</p>
-            </details>
-          ))}
+      <section className="bg-surface">
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:py-20 lg:grid-cols-[0.8fr_1.2fr]">
+          <Reveal className="lg:sticky lg:top-28 lg:self-start">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-success">FAQ</p>
+            <h2 className="mt-2 text-3xl font-black tracking-tight text-primary sm:text-4xl">Questions before you start</h2>
+            <p className="mt-3 text-muted">Everything learners ask us first. Cannot find your answer? Talk to us.</p>
+            <div className="mt-6 rounded-3xl bg-white p-5 shadow-soft">
+              <p className="flex items-center gap-2 font-black text-primary"><MessageCircle size={18} className="text-success" aria-hidden="true" /> Need a hand?</p>
+              <p className="mt-1 text-sm text-muted">Payments, access or anything else: we reply personally.</p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                {whatsapp && <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#25D366] px-5 text-sm font-black text-white">WhatsApp us</a>}
+                <Link href="/contact" className="inline-flex min-h-11 items-center rounded-full border border-border px-5 text-sm font-black text-primary hover:bg-surface">Contact page</Link>
+              </div>
+            </div>
+          </Reveal>
+          <div className="grid content-start gap-3">
+            {testSeriesFaq.map((item, i) => (
+              <Reveal key={item.question} delay={i * 40}>
+                <details className="group rounded-2xl border border-border bg-white p-5 shadow-soft transition open:border-[rgba(24,185,67,0.4)] open:shadow-lift">
+                  <summary className="cursor-pointer list-none font-black text-primary marker:hidden"><span className="flex items-start justify-between gap-4">{item.question}<span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-surface text-lg leading-none text-muted transition group-open:rotate-45 group-open:bg-mint group-open:text-success" aria-hidden="true">+</span></span></summary>
+                  <p className="mt-3 text-sm leading-7 text-muted">{item.answer}</p>
+                </details>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 
-      <section className="px-4 pb-14">
-        <div className="relative isolate mx-auto max-w-7xl overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#0B2D63,#0D9488)] p-7 text-white shadow-lift sm:p-12">
-          <div className="pointer-events-none absolute -left-10 bottom-0 -z-10 size-64 rounded-full bg-brand-green/30 blur-3xl animate-float" />
-          <h2 className="max-w-2xl text-3xl font-black tracking-tight sm:text-4xl">Start with the free sample test</h2>
-          <p className="mt-3 max-w-2xl text-white/75">Create a free account, take a full sample test in the real exam window, and see your score with solutions.</p>
-          <ButtonLink href="/tests" variant="secondary" className="sheen relative mt-6 overflow-hidden bg-white text-primary">Try the free sample test</ButtonLink>
+      <section className="px-4 py-14 sm:py-20">
+        <div className="relative isolate mx-auto max-w-7xl overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#050F26,#0B2D63_50%,#0D6E6E)] px-6 py-12 text-center text-white shadow-lift sm:px-12 sm:py-16">
+          <div className="dot-grid pointer-events-none absolute inset-0 -z-10 opacity-60" />
+          <div className="pointer-events-none absolute -left-16 bottom-0 -z-10 size-72 rounded-full bg-brand-green/30 blur-3xl animate-float" />
+          <div className="pointer-events-none absolute -right-16 -top-10 -z-10 size-72 rounded-full bg-teal/40 blur-3xl animate-float-slow" />
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-[#B9F8CD]">Ready when you are</p>
+          <h2 className="mx-auto mt-3 max-w-3xl text-balance text-3xl font-black tracking-tight sm:text-5xl">See where you stand with a free sample test</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-white/75">Create a free account, take a full sample test in the real exam window, and get your score with solutions and analysis.</p>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 min-[420px]:flex-row">
+            <Link href="/tests" className="sheen relative inline-flex min-h-12 items-center justify-center overflow-hidden rounded-full bg-white px-7 text-sm font-black text-primary">Try the free sample test</Link>
+            <Link href="/practice" className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/40 px-7 text-sm font-black text-white hover:bg-white/10">Start practising</Link>
+          </div>
+          <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm font-bold text-white/80">
+            {["No card needed to start", "Pay once, no auto-renewal", "Solutions for every question"].map((point) => <li key={point} className="flex items-center gap-2"><CheckCircle2 size={16} className="text-[#7CE9A0]" aria-hidden="true" />{point}</li>)}
+          </ul>
         </div>
       </section>
     </div>

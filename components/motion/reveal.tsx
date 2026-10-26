@@ -14,7 +14,8 @@ export function Reveal({ children, className = "", delay = 0 }: { children: Reac
     setArmed(true);
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
+        // Also reveal content the visitor has already scrolled past (fast scrolling, anchor jumps), so nothing stays hidden.
+        if (entry.isIntersecting || entry.boundingClientRect.top < 0) {
           setVisible(true);
           observer.disconnect();
         }

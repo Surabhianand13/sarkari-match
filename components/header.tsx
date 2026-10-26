@@ -12,14 +12,14 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-white/70 bg-white/85 shadow-[0_8px_30px_rgba(11,45,99,0.06)] backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2.5">
-        <Link href="/" className="flex min-w-0 items-center gap-2" aria-label={brand.fullName}>
+        <Link href="/" className="flex shrink-0 items-center gap-2" aria-label={brand.fullName}>
           <Image
             src="/brand/sarkarimatch-logo.png"
             alt={brand.fullName}
             width={1167}
             height={474}
             priority
-            className="h-12 w-auto sm:h-14"
+            className="h-12 w-auto max-w-none shrink-0 object-contain sm:h-14"
           />
         </Link>
         <HeaderNav />
