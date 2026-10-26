@@ -11,6 +11,9 @@ const config: Config = {
         muted: "var(--muted)",
         primary: "var(--primary)",
         success: "var(--success)",
+        "brand-green": "var(--brand-green)",
+        mint: "var(--mint)",
+        surface: "var(--surface)",
         warning: "var(--warning)",
         error: "var(--error)"
       },

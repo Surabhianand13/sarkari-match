@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { KeyRound, MessageSquareText, ShieldCheck } from "lucide-react";
+import type { Route } from "next";
+import { safeNextPath } from "@/lib/auth/next-path";
 
 async function postJson(url: string, body: unknown) {
   const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -33,7 +35,7 @@ export default function LoginPage() {
       setPasswordError(result.error ?? "Could not sign you in.");
       return;
     }
-    router.push("/dashboard");
+    router.push(safeNextPath(new URLSearchParams(window.location.search).get("next"), "/dashboard") as Route);
     router.refresh();
   }
 
@@ -49,7 +51,8 @@ export default function LoginPage() {
       setOtpError(result.error ?? "Could not send the code.");
       return;
     }
-    router.push(`/login/otp-sent?identifier=${encodeURIComponent(email)}`);
+    const next = new URLSearchParams(window.location.search).get("next");
+    router.push(`/login/otp-sent?identifier=${encodeURIComponent(email)}${next ? `&next=${encodeURIComponent(next)}` : ""}` as Route);
   }
 
   return (
@@ -103,7 +106,7 @@ export default function LoginPage() {
           </form>
 
           <p className="text-center text-sm font-bold text-muted">
-            New to SarkariMatch? <Link href="/signup" className="font-black text-primary">Create an account</Link>
+            New here? <Link href="/signup" className="font-black text-primary">Create an account</Link>
           </p>
         </div>
       </div>

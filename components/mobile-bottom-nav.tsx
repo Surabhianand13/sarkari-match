@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { Bookmark, BriefcaseBusiness, Home, UserRound, Wand2 } from "lucide-react";
+import { BriefcaseBusiness, ClipboardCheck, Home, UserRound, Wand2 } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 const items = [
   ["Home", "/", Home],
+  ["Tests", "/tests", ClipboardCheck],
   ["Notices", "/jobs", BriefcaseBusiness],
-  ["Matches", "/eligibility/results", Wand2],
-  ["Saved", "/dashboard/applications", Bookmark],
-  ["Profile", "/dashboard/profile", UserRound]
+  ["Match", "/eligibility", Wand2],
+  ["Account", "/dashboard/tests", UserRound]
 ] as const;
 
 export function MobileBottomNav() {

@@ -9,6 +9,14 @@
 7. Configure Razorpay keys and the webhook, then run payment tests before enabling payments.
 8. Import the first verified notifications, then connect Search Console and analytics.
 
+## Test series: payments, access and question bank
+
+- Set `TEST_CHECKOUT_URL` (your payment page) and `ACCESS_GRANT_SECRET` (random, 32+ characters). The Buy button sends learners to `TEST_CHECKOUT_URL?series=<slug>&ref=<signed token>`; the token is valid for 2 hours.
+- After a successful payment your server unlocks the series: `POST /api/internal/grant-access` with `Authorization: Bearer <ACCESS_GRANT_SECRET>` and JSON `{"paymentRef": "<your payment id>", "ref": "<token from the URL>"}`, or `{"paymentRef", "email", "seriesSlug"}`. Calls are idempotent on `paymentRef`, so webhook retries are safe. Admins can also grant access by hand in Admin > Subscriptions.
+- Price, MRP and publishing are controlled in Admin > Tests. Only published series with at least one published test appear on the site.
+- Question bank at scale: load questions with `pnpm questions:import file.jsonl` (batched, skips exact duplicates, lands as `needs_review`; use `--status approved` only for content your experts already reviewed). Publishing stays a separate admin step. The admin queue is paginated and indexed (migration 0004).
+- Reviews, expert profiles and stats shown on the site live in `lib/trust.ts`. Only add what you can substantiate.
+
 Local development: `DATABASE_URL=pglite://./.data/dev` gives a zero-setup embedded Postgres (single process, so run `pnpm db:migrate`, `pnpm db:seed` and the dev server one at a time). Or point `DATABASE_URL` at the Render External Database URL. Production builds should run with the real `DATABASE_URL` or with it unset (demo data), not with PGlite.
 
 Rollback: disable payments, unpublish affected posts, redeploy the previous Render deploy and restore the database from a Render backup when needed.

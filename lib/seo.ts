@@ -99,3 +99,34 @@ export function itemListJsonLd(name: string, items: ReadonlyArray<{ name: string
     }))
   };
 }
+
+export function productJsonLd(input: { name: string; description: string; path: string; pricePaise: number; mrpPaise?: number | null }) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: input.name,
+    description: input.description,
+    url: absoluteUrl(input.path),
+    brand: { "@type": "Brand", name: brand.fullName },
+    offers: {
+      "@type": "Offer",
+      price: (input.pricePaise / 100).toFixed(2),
+      priceCurrency: "INR",
+      availability: "https://schema.org/InStock",
+      url: absoluteUrl(input.path),
+      seller: { "@id": absoluteUrl("/#organization") }
+    }
+  };
+}
+
+export function courseJsonLd(input: { name: string; description: string; path: string }) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Course",
+    name: input.name,
+    description: input.description,
+    url: absoluteUrl(input.path),
+    provider: { "@type": "Organization", name: brand.fullName, url: absoluteUrl("/") },
+    inLanguage: "en-IN"
+  };
+}

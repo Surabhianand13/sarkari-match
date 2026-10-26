@@ -2,9 +2,9 @@ export const brand = {
   name: "Sarkari Match",
   byline: "by PW",
   fullName: "Sarkari Match by PW",
-  tagline: "Govt job and exam notifications matched to your eligibility, plus affordable mock tests.",
+  tagline: "Affordable SSC CGL mock test series, plus govt job notifications matched to your eligibility.",
   shortDescription:
-    "Sarkari Match by PW matches govt job and exam notifications to your age, qualification and category, and offers low-priced mock tests for SSC, banking, railway and other exams.",
+    "Sarkari Match by PW offers affordable SSC CGL mock test series written by experts and checked by AI, with solutions and analysis, plus govt job notifications matched to your eligibility.",
   locale: "en_IN"
 } as const;
 

@@ -29,6 +29,8 @@ export type StaticLabelKey =
   | "hero_title"
   | "hero_subtitle"
   | "cta_browse"
+  | "cta_view_series"
+  | "cta_free_sample"
   | "proof_verified"
   | "proof_eligibility"
   | "proof_reminders"
@@ -70,29 +72,31 @@ const staticLabels: Record<StaticLabelKey, Record<SupportedLocale, string>> = {
   nav_sign_in: { en: "Sign In", hi: "साइन इन करें", kn: "Sign In", te: "Sign In", ta: "Sign In", mr: "Sign In" },
   nav_dashboard: { en: "Dashboard", hi: "डैशबोर्ड", kn: "Dashboard", te: "Dashboard", ta: "Dashboard", mr: "Dashboard" },
   hero_eyebrow: {
-    en: "India's smarter govt job and exam notification matching platform",
-    hi: "भारत का स्मार्ट सरकारी नौकरी और परीक्षा सूचना मिलान प्लेटफ़ॉर्म",
-    kn: "India's smarter govt job and exam notification matching platform",
-    te: "India's smarter govt job and exam notification matching platform",
-    ta: "India's smarter govt job and exam notification matching platform",
-    mr: "India's smarter govt job and exam notification matching platform"
+    en: "SSC CGL Tier I mock test series",
+    hi: "SSC CGL टियर I मॉक टेस्ट सीरीज़",
+    kn: "SSC CGL Tier I mock test series",
+    te: "SSC CGL Tier I mock test series",
+    ta: "SSC CGL Tier I mock test series",
+    mr: "SSC CGL Tier I mock test series"
   },
   hero_title: {
-    en: "Find govt job and exam notifications you are eligible for.",
-    hi: "वे सरकारी नौकरी और परीक्षा सूचनाएं खोजें जिनके लिए आप पात्र हैं।",
-    kn: "Find govt job and exam notifications you are eligible for.",
-    te: "Find govt job and exam notifications you are eligible for.",
-    ta: "Find govt job and exam notifications you are eligible for.",
-    mr: "Find govt job and exam notifications you are eligible for."
+    en: "SSC CGL mock tests written by experts and checked by AI.",
+    hi: "विशेषज्ञों द्वारा लिखे और AI से जांचे गए SSC CGL मॉक टेस्ट।",
+    kn: "SSC CGL mock tests written by experts and checked by AI.",
+    te: "SSC CGL mock tests written by experts and checked by AI.",
+    ta: "SSC CGL mock tests written by experts and checked by AI.",
+    mr: "SSC CGL mock tests written by experts and checked by AI."
   },
   hero_subtitle: {
-    en: "Create your profile once. SarkariMatch checks your age, qualification, category and preferences to show relevant govt job and exam notifications.",
-    hi: "अपनी प्रोफ़ाइल एक बार बनाएं। सरकारीमैच आपकी उम्र, योग्यता, श्रेणी और प्राथमिकताओं की जांच करता है और प्रासंगिक सरकारी नौकरी व परीक्षा सूचनाएं दिखाता है।",
-    kn: "Create your profile once. SarkariMatch checks your age, qualification, category and preferences to show relevant govt job and exam notifications.",
-    te: "Create your profile once. SarkariMatch checks your age, qualification, category and preferences to show relevant govt job and exam notifications.",
-    ta: "Create your profile once. SarkariMatch checks your age, qualification, category and preferences to show relevant govt job and exam notifications.",
-    mr: "Create your profile once. SarkariMatch checks your age, qualification, category and preferences to show relevant govt job and exam notifications."
+    en: "Practice on the real exam pattern with full solutions and analysis after every test. Try a free sample test first.",
+    hi: "असली परीक्षा पैटर्न पर अभ्यास करें, हर टेस्ट के बाद पूरे समाधान और विश्लेषण के साथ। पहले एक फ्री सैंपल टेस्ट दें।",
+    kn: "Practice on the real exam pattern with full solutions and analysis after every test. Try a free sample test first.",
+    te: "Practice on the real exam pattern with full solutions and analysis after every test. Try a free sample test first.",
+    ta: "Practice on the real exam pattern with full solutions and analysis after every test. Try a free sample test first.",
+    mr: "Practice on the real exam pattern with full solutions and analysis after every test. Try a free sample test first."
   },
+  cta_view_series: { en: "View the test series", hi: "टेस्ट सीरीज़ देखें", kn: "View the test series", te: "View the test series", ta: "View the test series", mr: "View the test series" },
+  cta_free_sample: { en: "Free sample test", hi: "फ्री सैंपल टेस्ट", kn: "Free sample test", te: "Free sample test", ta: "Free sample test", mr: "Free sample test" },
   cta_browse: { en: "Browse Notifications", hi: "सूचनाएं देखें", kn: "Browse Notifications", te: "Browse Notifications", ta: "Browse Notifications", mr: "Browse Notifications" },
   proof_verified: { en: "Verified notifications", hi: "सत्यापित सूचनाएं", kn: "Verified notifications", te: "Verified notifications", ta: "Verified notifications", mr: "Verified notifications" },
   proof_eligibility: { en: "Eligibility checks", hi: "पात्रता जांच", kn: "Eligibility checks", te: "Eligibility checks", ta: "Eligibility checks", mr: "Eligibility checks" },

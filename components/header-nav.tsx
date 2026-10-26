@@ -24,9 +24,18 @@ export function HeaderNav() {
   const qualificationActive = isActive(pathname, "/jobs/qualification");
   const departmentActive = isActive(pathname, "/jobs/department");
   const pricingActive = isActive(pathname, "/pricing");
+  const testsActive = isActive(pathname, "/tests");
+  const eligibilityActive = isActive(pathname, "/eligibility");
 
   return (
     <nav aria-label="Primary" className="hidden items-center gap-1 rounded-full bg-surface px-2 py-1 text-sm font-bold text-muted lg:flex">
+      <Link
+        href="/tests"
+        aria-current={testsActive ? "page" : undefined}
+        className={`rounded-full px-3 py-2 transition hover:bg-white hover:text-primary hover:shadow-soft ${testsActive ? "bg-white text-primary shadow-soft ring-1 ring-[rgba(24,185,67,0.18)]" : ""}`}
+      >
+        Test Series
+      </Link>
       <Dropdown label="Govt Job Notifications" active={jobsActive}>
         <div className="grid gap-4 p-4">
           <div className="grid gap-3 md:grid-cols-2">
@@ -62,6 +71,14 @@ export function HeaderNav() {
           <Link href="/jobs/department" className="mt-3 flex rounded-2xl bg-mint px-4 py-3 text-sm font-black text-success">View all departments</Link>
         </div>
       </Dropdown>
+
+      <Link
+        href="/eligibility"
+        aria-current={eligibilityActive ? "page" : undefined}
+        className={`rounded-full px-3 py-2 transition hover:bg-white hover:text-primary hover:shadow-soft ${eligibilityActive ? "bg-white text-primary shadow-soft ring-1 ring-[rgba(24,185,67,0.18)]" : ""}`}
+      >
+        Eligibility Match
+      </Link>
 
       <Link
         href="/pricing"

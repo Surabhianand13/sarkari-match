@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { UserRound } from "lucide-react";
+import type { Route } from "next";
+import { safeNextPath } from "@/lib/auth/next-path";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -33,7 +35,7 @@ export default function SignupPage() {
       setError(data.error ?? "Could not create your account.");
       return;
     }
-    router.push("/dashboard/profile");
+    router.push(safeNextPath(new URLSearchParams(window.location.search).get("next"), "/dashboard/profile") as Route);
     router.refresh();
   }
 
@@ -55,7 +57,7 @@ export default function SignupPage() {
           <button disabled={loading} className="min-h-12 rounded-full bg-[linear-gradient(135deg,#18B943,#0D9488)] px-5 py-3 font-black text-white shadow-green disabled:opacity-60">
             {loading ? "Creating account..." : "Create account"}
           </button>
-          <Link href="/login" className="text-center text-sm font-black text-primary">Already have an account? Login</Link>
+          <Link href={`/login${typeof window !== "undefined" ? window.location.search : ""}` as Route} className="text-center text-sm font-black text-primary">Already have an account? Login</Link>
         </form>
       </div>
     </div>

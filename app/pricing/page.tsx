@@ -3,8 +3,9 @@ import { ShieldCheck } from "lucide-react";
 import { PricingCard, SectionHeading } from "@/components/design-system";
 import { T } from "@/components/i18n/t";
 import { buildMetadata } from "@/lib/seo";
+import { discountPercent, formatPrice, getPublishedSeries } from "@/lib/tests/catalog";
 
-export const metadata = buildMetadata({ title: 'Pricing: Free, Founding Pass ₹49 and Pro Plans', description: 'Simple pricing for Sarkari Match by PW. Start free, claim the one-time ₹49 Founding Pass for 3 months of Pro, or choose a Pro plan. No automatic renewal on the Founding Pass.', path: '/pricing' });
+export const metadata = buildMetadata({ title: 'Pricing: Mock Test Series and Notification Pro', description: 'Pricing for Sarkari Match by PW. Pay once for a mock test series, take a free sample test first, and add Notification Pro plans only if you want reminders.', path: '/pricing' });
 
 type PricingSearchParams = Promise<{ billing?: string }>;
 
@@ -14,10 +15,28 @@ export default async function PricingPage({ searchParams }: { searchParams?: Pri
   const proPlusEnabled = process.env.NEXT_PUBLIC_ENABLE_PRO_PLUS === "true";
   const whatsappEnabled = process.env.NEXT_PUBLIC_ENABLE_WHATSAPP === "true";
   const annual = billing === "annual";
+  const series = await getPublishedSeries();
   return (
     <div className="bg-surface">
       <div className="mx-auto max-w-7xl px-4 py-10">
-        <SectionHeading eyebrow="Pricing" title="Simple plans for serious notification matching" body="No hidden charges. Founding Pass is a one-time ₹49 offer for 3 months of Pro access with no automatic renewal." align="center" />
+        <SectionHeading eyebrow="Test series" title="Pay once for a mock test series" body="Take the free sample test first. Series are one-time payments with no automatic renewal." align="center" />
+        <div className="mb-14 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {series.length === 0 && <p className="rounded-2xl bg-white p-5 text-sm font-semibold text-muted shadow-soft md:col-span-2 lg:col-span-3">Test series pricing appears here as soon as a series is published. <Link href="/tests" className="text-primary underline">See test series</Link>.</p>}
+          {series.map((item) => (
+            <PricingCard
+              key={item.id}
+              title={item.title}
+              price={formatPrice(item.pricePaise)}
+              priceNote={item.mrpPaise && discountPercent(item.pricePaise, item.mrpPaise) > 0 ? `${formatPrice(item.mrpPaise)} · ${discountPercent(item.pricePaise, item.mrpPaise)}% off` : undefined}
+              body={`${item.testCount} tests and ${item.questionCount} questions with solutions and analysis.`}
+              features={["One-time payment", "Solutions for every question", "Section and topic analysis"]}
+              featured
+              actionHref={`/tests/${item.examSlug}/${item.slug}`}
+              actionLabel="View the series"
+            />
+          ))}
+        </div>
+        <SectionHeading eyebrow="Notification Pro" title="Optional plans for notification matching" body="Free accounts already get matched notifications. Pro adds reminders and full match explanations. The Founding Pass is a one-time ₹49 offer for 3 months of Pro with no automatic renewal." align="center" />
         <div className="mx-auto mb-6 flex w-fit rounded-full bg-white p-1 shadow-soft">
           <Link href="/pricing" className={`rounded-full px-4 py-2 text-sm font-black ${!annual ? "bg-primary text-white" : "text-muted hover:text-primary"}`}>Monthly</Link>
           <Link href="/pricing?billing=annual" className={`rounded-full px-4 py-2 text-sm font-black ${annual ? "bg-primary text-white" : "text-muted hover:text-primary"}`}>Annual</Link>

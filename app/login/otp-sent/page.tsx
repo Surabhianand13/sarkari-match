@@ -4,11 +4,14 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
+import type { Route } from "next";
+import { safeNextPath } from "@/lib/auth/next-path";
 
 function OtpVerifyForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const identifier = searchParams.get("identifier") ?? "";
+  const next = safeNextPath(searchParams.get("next"), "/dashboard");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -33,7 +36,7 @@ function OtpVerifyForm() {
       setError(data.error ?? "Could not verify the code.");
       return;
     }
-    router.push("/dashboard");
+    router.push(next as Route);
     router.refresh();
   }
 

@@ -6,6 +6,7 @@ const footerGroups = [
   {
     title: "Explore",
     links: [
+      ["SSC CGL Test Series", "/tests"],
       ["Govt Job Notifications", "/jobs"],
       ["Qualifications", "/jobs/qualification"],
       ["State Govt Notifications", "/jobs/state"],

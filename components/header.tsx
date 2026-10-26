@@ -30,7 +30,7 @@ export function Header() {
           </Link>
           <LanguageToggle />
           <HeaderAuthActions />
-          <ButtonLink href="/eligibility" className="hidden sm:inline-flex"><T k="find_matches" /></ButtonLink>
+          <ButtonLink href="/tests" className="hidden sm:inline-flex"><T k="cta_free_sample" /></ButtonLink>
           <Link href="/menu" className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-white text-primary shadow-soft lg:hidden" aria-label="Open menu">
             <Menu size={20} aria-hidden="true" />
           </Link>

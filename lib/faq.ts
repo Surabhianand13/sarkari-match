@@ -30,3 +30,38 @@ export const homeFaq = [
       "Yes. You can run the eligibility check without signing in and see how many notifications match. Signing in saves your profile, matches and saved notifications, and Pro unlocks the full rule-by-rule explanation."
   }
 ] as const;
+
+export const testSeriesFaq = [
+  {
+    question: "Who writes the questions?",
+    answer: "Questions are written by subject experts with 15+ years of experience in preparing candidates for government exams. They follow the latest exam pattern and syllabus."
+  },
+  {
+    question: "How are the questions checked?",
+    answer: "Every question is independently solved and checked by AI for difficulty level, exam relevance, a single correct answer and a sound solution. A person then reviews and approves it before it appears in a test. Nothing is published automatically."
+  },
+  {
+    question: "Do the tests follow the real exam pattern?",
+    answer: "Full-length tests follow the official SSC CGL Tier I pattern: 100 questions, 200 marks, 60 minutes and 0.50 negative marking per wrong answer. Always check the latest SSC notification for any change."
+  },
+  {
+    question: "Are the questions copied from past papers?",
+    answer: "No. Questions are original. Past papers are used only to understand the pattern, topics and difficulty."
+  },
+  {
+    question: "Can I try a test before paying?",
+    answer: "Yes. Each series has a free sample test. Create a free account, take the sample test and see your score with full solutions."
+  },
+  {
+    question: "Can I attempt a test more than once?",
+    answer: "Yes. After you submit, you can start the test again. Your attempts and scores are saved in your dashboard."
+  },
+  {
+    question: "What do I get after a test?",
+    answer: "Your score, accuracy, section-wise and topic-wise analysis, and a step-by-step solution for every question."
+  },
+  {
+    question: "What is the refund policy?",
+    answer: "Please read our refund policy page before purchasing. It explains when a refund is available."
+  }
+] as const;
