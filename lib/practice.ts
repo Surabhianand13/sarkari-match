@@ -1,8 +1,11 @@
 import { getDb, type Db } from "@/lib/db";
+import { IST_DAY, hasAnyPaidAccess } from "@/lib/offers";
 
 export { LEVELS, SESSION_SIZE, PROMOTE_AT, SESSIONS_TO_PROMOTE } from "@/lib/practice-shared";
 export type { Level, PracticeQuestion, PracticeSession, SubjectSummary } from "@/lib/practice-shared";
 import { LEVELS, PROMOTE_AT, SESSION_SIZE, SESSIONS_TO_PROMOTE, type Level, type PracticeSession, type SubjectSummary } from "@/lib/practice-shared";
+
+export const FREE_SESSIONS_PER_DAY = 1;
 
 const difficultyFor: Record<Level, string> = { beginner: "easy", intermediate: "moderate", advanced: "hard" };
 const fallbackOrder: Record<string, string[]> = { easy: ["moderate", "hard"], moderate: ["easy", "hard"], hard: ["moderate", "easy"] };
@@ -42,12 +45,16 @@ async function pickQuestions(db: Db, subject: string, topic: string | null, diff
   return rows.rows.map((row) => row.id);
 }
 
-export async function startSession(userId: string, subject: string, topic: string | null): Promise<{ ok: true; sessionId: string } | { ok: false; reason: "no_questions" }> {
+export async function startSession(userId: string, subject: string, topic: string | null): Promise<{ ok: true; sessionId: string } | { ok: false; reason: "no_questions" | "daily_limit" }> {
   const db = await getDb();
   if (!db) return { ok: false, reason: "no_questions" };
 
   const open = (await db.query<{ id: string }>("select id from practice_sessions where user_id = $1 and subject = $2 and status = 'in_progress' and ($3::text is null or topic = $3) order by created_at desc limit 1", [userId, subject, topic])).rows[0];
   if (open) return { ok: true, sessionId: open.id };
+
+  // Free accounts get one new practice session a day; an Exam Pass removes the limit.
+  const started = Number((await db.query<{ n: string }>(`select count(*) as n from practice_sessions where user_id = $1 and (created_at at time zone 'Asia/Kolkata')::date = ${IST_DAY}`, [userId])).rows[0].n);
+  if (started >= FREE_SESSIONS_PER_DAY && !(await hasAnyPaidAccess(userId, db))) return { ok: false, reason: "daily_limit" };
 
   const levelRow = (await db.query<{ level: Level }>("select level from practice_levels where user_id = $1 and subject = $2", [userId, subject])).rows[0];
   const level: Level = levelRow?.level ?? "beginner";

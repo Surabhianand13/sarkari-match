@@ -22,7 +22,7 @@ const notificationLinks = [
   ["Eligibility match", "/eligibility"]
 ] as const;
 
-const plainLinks = [["Practice", "/practice"], ["Blog", "/blog"], ["Pricing", "/pricing"]] as const;
+const plainLinks = [["Practice", "/practice"], ["Blog", "/blog"]] as const;
 
 function isActive(pathname: string, href: string) {
   if (href === "/jobs") return pathname.startsWith("/jobs") || pathname.startsWith("/eligibility");

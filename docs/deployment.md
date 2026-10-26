@@ -11,8 +11,10 @@
 
 ## Test series: payments, access and question bank
 
-- Set `TEST_CHECKOUT_URL` (your payment page) and `ACCESS_GRANT_SECRET` (random, 32+ characters). The Buy button sends learners to `TEST_CHECKOUT_URL?series=<slug>&ref=<signed token>`; the token is valid for 2 hours.
-- After a successful payment your server unlocks the series: `POST /api/internal/grant-access` with `Authorization: Bearer <ACCESS_GRANT_SECRET>` and JSON `{"paymentRef": "<your payment id>", "ref": "<token from the URL>"}`, or `{"paymentRef", "email", "seriesSlug"}`. Calls are idempotent on `paymentRef`, so webhook retries are safe. Admins can also grant access by hand in Admin > Subscriptions.
+- Set `TEST_CHECKOUT_URL` (your payment page) and `ACCESS_GRANT_SECRET` (random, 32+ characters). The Buy buttons send learners to `TEST_CHECKOUT_URL?product=pass|guide&series=<slug>|exam=<slug>&amount=<paise>&ref=<signed token>`; the token is valid for 2 hours and carries the quoted amount (including any second-exam discount).
+- After a successful payment your server unlocks it: `POST /api/internal/grant-access` with `Authorization: Bearer <ACCESS_GRANT_SECRET>` and JSON `{"paymentRef": "<your payment id>", "ref": "<token from the URL>", "amountPaise": <amount paid>}`, or `{"paymentRef", "email", "product": "pass", "seriesSlug"}` / `{"paymentRef", "email", "product": "guide", "examSlug"}`. A payment below the quoted amount is refused. Calls are idempotent on `paymentRef`, so webhook retries are safe. Access ends after the exam's validity (default 12 months). Admins can also grant by hand in Admin > Paid learners.
+- Each exam's offer (Pass validity, second-exam discount, AI Study Guide price, daily AI limits) and exam pattern are set in Admin > Exams and offers. See `docs/offering.md`.
+- AI Study Guide: needs `ANTHROPIC_API_KEY` (or `AI_PROVIDER=mock` in development). Models via `GUIDE_MODEL_FAST` / `GUIDE_MODEL_DEEP`.
 - Price, MRP and publishing are controlled in Admin > Tests. Only published series with at least one published test appear on the site.
 - Question bank at scale: load questions with `pnpm questions:import file.jsonl` (batched, skips exact duplicates, lands as `needs_review`; use `--status approved` only for content your experts already reviewed). Publishing stays a separate admin step. The admin queue is paginated and indexed (migration 0004).
 - Reviews, expert profiles and stats shown on the site live in `lib/trust.ts`. Only add what you can substantiate.

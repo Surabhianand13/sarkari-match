@@ -7,7 +7,8 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { SeriesBuyBox } from "@/components/tests/series-buy-box";
 import { ExpertsSection, PatternTable, ProcessSteps, ReviewsSection, StatsBand, TrustBadges } from "@/components/tests/trust-blocks";
-import { discountPercent, formatPrice, getSeries, getSeriesTests } from "@/lib/tests/catalog";
+import { getExamOffer } from "@/lib/offers";
+import { discountPercent, formatPrice, getExam, getSeries, getSeriesTests } from "@/lib/tests/catalog";
 import { testSeriesFaq } from "@/lib/faq";
 import { breadcrumbJsonLd, buildMetadata, courseJsonLd, faqJsonLd, productJsonLd } from "@/lib/seo";
 
@@ -31,6 +32,8 @@ export default async function SeriesPage({ params }: { params: Params }) {
   const series = await getSeries(exam, slug);
   if (!series) notFound();
   const tests = await getSeriesTests(series.id);
+  const examRow = await getExam(series.examSlug);
+  const offer = examRow ? await getExamOffer(examRow.id) : null;
   const path = `/tests/${series.examSlug}/${series.slug}`;
   const crumbs = [{ name: "Home", path: "/" }, { name: "Test series", path: "/tests" }, { name: series.examName, path: `/tests/${series.examSlug}` }, { name: series.title, path }];
   const sample = tests.find((test) => test.isFreeSample);
@@ -61,6 +64,8 @@ export default async function SeriesPage({ params }: { params: Params }) {
             discount={discountPercent(series.pricePaise, series.mrpPaise)}
             perks={["Detailed solution for every question", "Score, accuracy and section-wise analysis", "Attempt each test again whenever you like", "Works on mobile and desktop"]}
             firstTestHref={tests[0] ? `${path}/${tests[0].slug}` : null}
+            validityMonths={Math.round((offer?.passValidityDays ?? 365) / 30)}
+            guideLabel={offer?.guideEnabled && offer.guidePricePaise !== null ? `An AI tutor that knows your results, ${formatPrice(offer.guidePricePaise)} for ${Math.round(offer.guideValidityDays / 30)} months.` : null}
           />
         </div>
 

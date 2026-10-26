@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import { hasFeature, numericEntitlement } from "@/lib/entitlements/plans";
 
 describe("entitlements", () => {
-  it("limits free saved notifications", () => {
-    expect(numericEntitlement("free", "saved_jobs_limit")).toBe(3);
+  it("keeps the exam and job matcher free, including the full explanation", () => {
+    expect(hasFeature("free", "basic_matching")).toBe(true);
+    expect(hasFeature("free", "unlimited_matching")).toBe(true);
+    expect(hasFeature("free", "full_match_explanation")).toBe(true);
   });
 
-  it("grants founding pro explanations", () => {
-    expect(hasFeature("founding_pro_3m", "full_match_explanation")).toBe(true);
+  it("gives free accounts a generous saved notifications limit", () => {
+    expect(numericEntitlement("free", "saved_jobs_limit")).toBe(50);
   });
 });

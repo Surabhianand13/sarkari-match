@@ -33,6 +33,9 @@ describe("adaptive practice", () => {
     for (const file of readdirSync(join(process.cwd(), "db/migrations")).sort()) await db.exec(readFileSync(join(process.cwd(), "db/migrations", file), "utf8"));
     userId = (await createUser({ email: "learner@example.com", passwordHash: "x" }))!.id;
     const exam = (await db.query<{ id: string }>("insert into exams (slug, name) values ('ssc-cgl','SSC CGL') returning id")).rows[0].id;
+    // A paid Pass lifts the free practice limit so the level rules can be played repeatedly.
+    const series = (await db.query<{ id: string }>("insert into test_series (exam_id, slug, title, price_paise, status) values ($1,'paid','Paid',99900,'published') returning id", [exam])).rows[0].id;
+    await db.query("insert into test_access (user_id, series_id, source) values ($1,$2,'purchase')", [userId, series]);
     for (const difficulty of ["easy", "moderate", "hard"]) {
       for (let i = 0; i < 12; i++) {
         await db.query(
@@ -79,5 +82,25 @@ describe("adaptive practice", () => {
     expect(await getSession(other, mine.sessionId)).toBeNull();
     const result = await answerQuestion(other, mine.sessionId, "00000000-0000-4000-8000-000000000000", "A");
     expect(result.ok).toBe(false);
+  });
+
+  it("limits free accounts to one new practice session a day and lifts the limit with a Pass", async () => {
+    const { createUser } = await import("@/lib/auth/users");
+    const { startSession, getSession, answerQuestion } = await import("@/lib/practice");
+    const { getDb } = await import("@/lib/db");
+    const db = (await getDb())!;
+    const free = (await createUser({ email: "free-learner@example.com", passwordHash: "x" }))!.id;
+
+    const first = await startSession(free, "Quantitative Aptitude", null);
+    if (!first.ok) throw new Error("no session");
+    expect(await startSession(free, "Quantitative Aptitude", null)).toMatchObject({ ok: true, sessionId: first.sessionId }); // an open session is reused
+    const session = (await getSession(free, first.sessionId))!;
+    for (const question of session.questions) await answerQuestion(free, first.sessionId, question.id, "A");
+
+    expect(await startSession(free, "Quantitative Aptitude", null)).toEqual({ ok: false, reason: "daily_limit" });
+
+    const seriesId = (await db.query<{ id: string }>("select id from test_series where slug = 'paid'")).rows[0].id;
+    await db.query("insert into test_access (user_id, series_id, source) values ($1,$2,'purchase')", [free, seriesId]);
+    expect((await startSession(free, "Quantitative Aptitude", null)).ok).toBe(true);
   });
 });

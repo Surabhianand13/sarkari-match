@@ -26,7 +26,9 @@ export function SupportWidget({ whatsappNumber, assistant }: { whatsappNumber: s
   const end = useRef<HTMLDivElement>(null);
   const hidden = hiddenPrefixes.some((prefix) => pathname.startsWith(prefix));
 
-  useEffect(() => end.current?.scrollIntoView({ behavior: "smooth" }), [messages, open]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, open]);
 
   if (hidden || (!whatsappNumber && !assistant)) return null;
 

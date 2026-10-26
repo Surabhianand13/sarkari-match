@@ -1,7 +1,7 @@
 import { BadgeCheck, Bot, PenLine, ShieldCheck, Star } from "lucide-react";
 import { CountUp } from "@/components/motion/count-up";
 import { trust } from "@/lib/trust";
-import { examPattern } from "@/lib/exams/ssc-cgl";
+import { getExamPattern } from "@/lib/exams/pattern";
 
 export function TrustBadges({ className = "" }: { className?: string }) {
   const icons = [PenLine, Bot, ShieldCheck];
@@ -87,8 +87,8 @@ export function ExpertsSection() {
   );
 }
 
-export function PatternTable({ examSlug }: { examSlug: string }) {
-  const pattern = examPattern(examSlug);
+export async function PatternTable({ examSlug }: { examSlug: string }) {
+  const pattern = await getExamPattern(examSlug);
   if (!pattern) return null;
   return (
     <div className="overflow-hidden rounded-3xl border border-border bg-white shadow-soft">
@@ -104,7 +104,7 @@ export function PatternTable({ examSlug }: { examSlug: string }) {
           <tr className="bg-surface font-black text-primary"><td className="px-5 py-3">Total</td><td className="px-5 py-3">{pattern.questions}</td><td className="px-5 py-3">{pattern.maxMarks}</td></tr>
         </tbody>
       </table>
-      <p className="px-5 py-3 text-xs font-semibold text-muted">{pattern.minutes} minutes. {pattern.marksPerQuestion} marks per question, {pattern.negativeMarks} negative marks for each wrong answer. Check the latest SSC notification for any change.</p>
+      <p className="px-5 py-3 text-xs font-semibold text-muted">{pattern.minutes} minutes. {pattern.marksPerQuestion} marks per question, {pattern.negativeMarks} negative marks for each wrong answer. Always check the latest official notification for any change.</p>
     </div>
   );
 }

@@ -14,6 +14,7 @@ export async function POST(request: Request) {
   const parsed = schema.safeParse(await readJson(request));
   if (!parsed.success) return jsonError("Choose a subject.", 400);
   const result = await startSession(user.id, parsed.data.subject, parsed.data.topic || null);
+  if (!result.ok && result.reason === "daily_limit") return NextResponse.json({ error: "You have used today's free practice session. Get an Exam Pass for unlimited practice, or come back tomorrow.", reason: "limit" }, { status: 429 });
   if (!result.ok) return jsonError("No questions are available for that choice yet.", 409);
   return NextResponse.json({ sessionId: result.sessionId });
 }

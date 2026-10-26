@@ -8,4 +8,5 @@ export function revalidatePublicContent() {
   revalidatePath("/llms.txt");
   revalidatePath("/llms-full.txt");
   revalidatePath("/tests", "layout");
+  revalidatePath("/pricing");
 }

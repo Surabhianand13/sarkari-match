@@ -10,7 +10,7 @@ export type Progress = {
 };
 
 // Everything on the progress page is computed from the learner's own submitted tests and practice answers.
-export async function getProgress(userId: string): Promise<Progress> {
+export async function getProgress(userId: string, examId: string | null = null): Promise<Progress> {
   const db = await getDb();
   const empty: Progress = { activity: [], trend: [], subjects: [], weakTopics: [], totals: { tests: 0, practiceSessions: 0, questionsAnswered: 0 } };
   if (!db) return empty;
@@ -24,7 +24,8 @@ export async function getProgress(userId: string): Promise<Progress> {
        ) d group by day order by day`, [userId]),
     db.query<{ title: string; percent: string | null; submitted_at: string }>(
       `select t.title, (a.result_json->>'percentage') as percent, a.submitted_at::text as submitted_at
-         from test_attempts a join tests t on t.id = a.test_id where a.user_id = $1 and a.status = 'submitted' order by a.submitted_at desc limit 8`, [userId]),
+         from test_attempts a join tests t on t.id = a.test_id join test_series ts on ts.id = t.series_id
+        where a.user_id = $1 and a.status = 'submitted' and ($2::uuid is null or ts.exam_id = $2) order by a.submitted_at desc limit 8`, [userId, examId]),
     db.query<{ subject: string; topic: string; attempted: string; correct: string }>(
       `select q.subject, q.topic, count(*) as attempted, count(*) filter (where x.correct) as correct from (
          select aa.question_id, (aa.selected_option = q2.correct_option) as correct from attempt_answers aa
@@ -33,10 +34,10 @@ export async function getProgress(userId: string): Promise<Progress> {
          union all
          select pa.question_id, pa.is_correct from practice_answers pa join practice_sessions ps on ps.id = pa.session_id
           where ps.user_id = $1 and pa.selected_option is not null
-       ) x join questions q on q.id = x.question_id group by q.subject, q.topic`, [userId])
+       ) x join questions q on q.id = x.question_id where ($2::uuid is null or q.exam_id = $2) group by q.subject, q.topic`, [userId, examId])
   ]);
 
-  const tests = Number((await db.query<{ n: string }>("select count(*) as n from test_attempts where user_id = $1 and status = 'submitted'", [userId])).rows[0].n);
+  const tests = Number((await db.query<{ n: string }>("select count(*) as n from test_attempts a join tests t on t.id = a.test_id join test_series ts on ts.id = t.series_id where a.user_id = $1 and a.status = 'submitted' and ($2::uuid is null or ts.exam_id = $2)", [userId, examId])).rows[0].n);
   const practiceSessions = Number((await db.query<{ n: string }>("select count(*) as n from practice_sessions where user_id = $1 and status = 'completed'", [userId])).rows[0].n);
 
   const bySubject = new Map<string, { attempted: number; correct: number }>();

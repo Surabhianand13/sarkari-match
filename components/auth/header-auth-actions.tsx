@@ -53,6 +53,7 @@ export function HeaderAuthActions() {
           <p className="truncate px-3 py-2 text-xs font-bold text-muted">{user.email ?? label}</p>
           <Link href={"/dashboard/tests" as Route} className={itemClass}>My tests</Link>
           <Link href={"/dashboard/progress" as Route} className={itemClass}>My progress</Link>
+          <Link href={"/dashboard/billing" as Route} className={itemClass}>My plans</Link>
           <Link href={"/practice" as Route} className={itemClass}>Practice</Link>
           <Link href={"/dashboard" as Route} className={itemClass}>Dashboard</Link>
           {isAdmin && <Link href={"/admin" as Route} className={itemClass}>Admin panel</Link>}

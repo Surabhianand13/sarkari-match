@@ -82,28 +82,6 @@ export function VerificationBadge() {
   );
 }
 
-export function FoundingOfferBanner() {
-  return (
-    <section className="bg-[linear-gradient(90deg,#082653,#0B2D63_48%,#0D9488)] text-white">
-      <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="offer-shimmer mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-white/15 ring-1 ring-white/20">
-            <Star size={17} aria-hidden="true" />
-          </span>
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#B9F8CD]">Founding Offer</p>
-            <p className="text-sm font-black sm:text-base">Get 3 Months of SarkariMatch Pro for ₹49</p>
-            <p className="mt-0.5 text-xs text-white/75">Limited founding offer. No auto-renewal.</p>
-          </div>
-        </div>
-        <ButtonLink href="/pricing" variant="secondary" className="w-full bg-white/95 text-primary sm:w-auto">
-          Claim Offer <ArrowRight size={16} aria-hidden="true" />
-        </ButtonLink>
-      </div>
-    </section>
-  );
-}
-
 export function SearchCommandBar({ compact = false }: { compact?: boolean }) {
   return (
     <div className="search-shell">

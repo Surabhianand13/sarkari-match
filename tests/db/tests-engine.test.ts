@@ -111,8 +111,8 @@ describe("attempt lifecycle", () => {
 describe("checkout reference", () => {
   it("round-trips and rejects tampering", async () => {
     const { signCheckoutRef, verifyCheckoutRef } = await import("@/lib/tests/checkout-ref");
-    const ref = await signCheckoutRef("u1", "s1");
-    expect(await verifyCheckoutRef(ref)).toEqual({ userId: "u1", seriesId: "s1" });
+    const ref = await signCheckoutRef({ userId: "u1", product: "pass", targetId: "s1", amountPaise: 79900 });
+    expect(await verifyCheckoutRef(ref)).toEqual({ userId: "u1", product: "pass", targetId: "s1", amountPaise: 79900 });
     expect(await verifyCheckoutRef(ref.slice(0, -3) + "abc")).toBeNull();
   });
 });
