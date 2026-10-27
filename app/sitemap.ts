@@ -4,7 +4,7 @@ import { jobsForDepartment, jobsForQualification, jobsForState } from "@/lib/dat
 import { getJobs } from "@/lib/data/jobs";
 import { absoluteUrl } from "@/lib/brand";
 import { getPublishedPosts } from "@/lib/blog";
-import { getPublishedSeries, getSeriesTests } from "@/lib/tests/catalog";
+import { getPublishedSeries, getSampleTests } from "@/lib/tests/catalog";
 
 export const revalidate = 3600;
 
@@ -60,7 +60,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   for (const item of series) {
     exams.add(item.examSlug);
     testPages.push({ url: absoluteUrl(`/tests/${item.examSlug}/${item.slug}`), lastModified: safeDate(item.publishedAt ?? undefined), changeFrequency: "weekly", priority: 0.95 });
-    for (const test of await getSeriesTests(item.id)) testPages.push({ url: absoluteUrl(`/tests/${item.examSlug}/${item.slug}/${test.slug}`), changeFrequency: "weekly", priority: 0.8 });
+    for (const test of await getSampleTests(item.id)) testPages.push({ url: absoluteUrl(`/tests/${item.examSlug}/${item.slug}/${test.slug}`), changeFrequency: "weekly", priority: 0.8 });
   }
   for (const exam of exams) testPages.push({ url: absoluteUrl(`/tests/${exam}`), changeFrequency: "weekly", priority: 0.9 });
 

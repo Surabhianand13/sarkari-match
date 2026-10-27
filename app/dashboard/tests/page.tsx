@@ -3,15 +3,27 @@ import type { Route } from "next";
 import { EmptyState, SectionHeading } from "@/components/design-system";
 import { requireUser } from "@/lib/auth/guards";
 import { listAccessibleSeries, listAttempts } from "@/lib/tests/attempts";
+import { getNextTests } from "@/lib/tests/next";
 
 export const metadata = { title: "My tests", robots: { index: false, follow: false } };
 
 export default async function MyTestsPage() {
   const user = await requireUser();
-  const [attempts, series] = await Promise.all([listAttempts(user.id), listAccessibleSeries(user.id)]);
+  const [attempts, series, next] = await Promise.all([listAttempts(user.id), listAccessibleSeries(user.id), getNextTests(user.id)]);
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
       <SectionHeading eyebrow="Test series" title="My tests" body="Your purchased series and every attempt, with scores and solutions." />
+      {next.length > 0 && (
+        <div className="mb-6 grid gap-3 sm:grid-cols-2">
+          {next.map((item) => (
+            <Link key={item.seriesSlug} href={`/tests/${item.examSlug}/${item.seriesSlug}/${item.testSlug}` as Route} className="rounded-2xl border-2 border-[rgba(24,185,67,0.35)] bg-mint/50 p-4 shadow-soft">
+              <p className="text-xs font-black uppercase tracking-wide text-success">Up next</p>
+              <p className="mt-1 font-black text-primary">{item.title}</p>
+              <p className="text-xs font-semibold text-muted">{item.seriesTitle}</p>
+            </Link>
+          ))}
+        </div>
+      )}
       {series.length > 0 && (
         <div className="mb-6 grid gap-3 sm:grid-cols-2">
           {series.map((item) => (

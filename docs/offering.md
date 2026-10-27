@@ -43,3 +43,15 @@ The pricing page, series page, checkout, grant API and the AI Study Guide pick t
 ## Payment integration
 
 Your payment page receives `?product=pass|guide&series=<slug>|exam=<slug>&amount=<paise>&ref=<signed>` from `TEST_CHECKOUT_URL`. After a successful payment, call `POST /api/internal/grant-access` with `Authorization: Bearer ACCESS_GRANT_SECRET` and `{ "paymentRef", "ref", "amountPaise" }`. The grant is refused if `amountPaise` is lower than the quoted amount in `ref`, and it is idempotent on `paymentRef`.
+
+## SSC CGL content plan: 500 full-length tests, 1,00,000 questions, subject tests, all levels
+
+- **Series structure:** one SSC CGL series (one Pass, ₹999) organised by type and level: Beginner, Intermediate and Advanced full-length mocks, plus subject tests and topic tests. The series page shows each group with its count and a "Browse all" page (30 per page).
+- **Levels:** Beginner is mostly easy questions, Intermediate mostly moderate, Advanced mostly moderate and hard. The default mixes are in `lib/tests/builder.ts` (`LEVEL_MIX`); they can be overridden per build in code.
+- **Making the tests:** Admin > Test builder. Choose a series, a type and a level, how many tests (up to 100 at a time), the sections (`Name | subject | questions | topic`) and how many tests a single question may appear in. Press **Preview** first: it shows how many tests can be built and the bank's easy/moderate/hard counts per subject. **Create tests** adds them as drafts, all or nothing. **Publish drafts in bulk** publishes a whole group at once.
+- **No repeats:** a question never appears twice in one test, and questions rotate least-used first, so all of them are used before any is reused. With 25,000 questions per subject and 500 tests of 25 questions per subject, every question can be used once (`maxReuse` = 1).
+- **Speed:** planning 170 four-section tests from 25,000 questions per subject takes about 40 ms.
+- **Learners:** "Up next" on My tests suggests the first test they have not submitted, working from Beginner up, full-length before subject tests.
+- **Search:** only the series and the free sample test are in the sitemap; the other test pages are `noindex`, so hundreds of near-identical pages are not treated as thin content.
+- **Series page counts:** "questions" on a series is the published question bank for the exam, not the number of question slots in tests.
+- **Database size:** about 1,00,000 questions with solutions is roughly 300-400 MB. Neon's free plan is 0.5 GB, so move to a paid plan before the bulk import.

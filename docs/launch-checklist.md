@@ -69,7 +69,8 @@ Create an account, verify `sarkarimatch.com`, create an API key, set `RESEND_API
 - Add real reviews and expert details in `lib/trust.ts` if you want those sections.
 
 ## 9. When the paid series is ready (not day one)
-1. Load questions for all four SSC CGL sections (Admin > Question factory or `pnpm questions:import`), review and publish them.
+1. Load questions for all four SSC CGL sections (Admin > Question factory or `pnpm questions:import`), review and publish them. Move the Neon database to a paid plan before importing about 1,00,000 questions (free is 0.5 GB).
+   Then build the tests in Admin > Test builder (preview, create as drafts, publish in bulk). See `docs/offering.md`.
 2. Admin > Exams and offers > SSC CGL: Guide on and price; Admin > Test series: create the series (₹999) with a free sample test, publish.
 3. Build the payment page; set `TEST_CHECKOUT_URL` and give it `ACCESS_GRANT_SECRET`. Test in the provider's test mode end to end, including a payment below the quoted amount (must be refused).
 4. Set `ANTHROPIC_API_KEY` (with a monthly spend limit in the Anthropic console) to turn on the AI Study Guide and the support assistant.

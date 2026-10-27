@@ -1,5 +1,5 @@
 import { examFamilies, type ExamFamily, type ExamFamilyIcon } from "@/lib/exams/directory";
-import { getPublishedSeries } from "@/lib/tests/catalog";
+import { getLiveExams } from "@/lib/tests/catalog";
 
 const norm = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -16,9 +16,8 @@ export function familyIconForSlug(slug: string): ExamFamilyIcon {
 
 // The menu, home page and test-series page list only exams that have a published series. Everything else in the directory is "coming soon".
 export async function getExamFamilies(): Promise<ExamFamily[]> {
-  const series = await getPublishedSeries();
   const liveExams = new Map<string, { name: string; slug: string }>();
-  for (const item of series) liveExams.set(item.examSlug, { name: item.examName, slug: item.examSlug });
+  for (const exam of await getLiveExams()) liveExams.set(exam.slug, exam);
   const liveNames = new Set([...liveExams.values()].map((exam) => norm(exam.name)));
 
   return examFamilies.map((family) => {

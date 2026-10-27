@@ -19,7 +19,9 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   return buildMetadata({
     title: `${test.title}: ${series.title}`,
     description: `${test.title}: ${test.questionCount} questions in ${test.durationMinutes} minutes with ${test.negativeMarks} negative marking. Full solutions and analysis after you submit.`,
-    path: `/tests/${series.examSlug}/${series.slug}/${test.slug}`
+    path: `/tests/${series.examSlug}/${series.slug}/${test.slug}`,
+    // Hundreds of near-identical test pages would look thin to search engines, so only the free sample test is indexed.
+    noindex: !test.isFreeSample
   });
 }
 
