@@ -1,4 +1,4 @@
-# Launch checklist: Render only (free plan)
+# Launch checklist: Render (website + database) with Cloudflare in front
 
 Soft launch: the exam and job matcher, blog and waitlist go live first; the paid series follows.
 
@@ -8,13 +8,14 @@ Soft launch: the exam and job matcher, blog and waitlist go live first; the paid
 |---|---|---|
 | Website (Next.js) | Render **Free** web service, Singapore | Free |
 | Database (Postgres) | Render **Free** Postgres, Singapore | Free for 30 days, then paid (see below) |
+| DNS, HTTPS, cache, bot protection, email forwarding, keep-alive | **Cloudflare** | Free |
 | Sign-in emails | Resend (optional) | Free tier |
 | AI Study Guide and assistant | Anthropic API (later) | Pay as you use |
 
 ## Two limits of the free plan you must plan for
 
 1. **The free database expires 30 days after it is created.** Put a reminder on day 25. In the Render dashboard open `sarkarimatch-db` and upgrade it to a paid plan (the Basic plan is a few dollars a month); that keeps your data. If you let it expire you lose it.
-2. **The free website sleeps after 15 minutes without visitors** and takes about a minute to wake, so the first visitor after a quiet spell waits. Options, cheapest first: accept it for the soft launch; add a free uptime monitor (for example UptimeRobot) that opens `https://<your-site>/api/ping` every 5 minutes; or move the web service to the Starter plan, which never sleeps.
+2. **The free website sleeps after 15 minutes without visitors** and takes about a minute to wake. Cloudflare handles this two ways: its cache serves most pages without waking Render (step 5, rule 6), and a free keep-alive worker pings the site every 10 minutes (step 5, rule 7). If you want it never to sleep, move the web service to the Starter plan.
 
 Free web services also have no Shell and no pre-deploy command, so migrations run during the build and the first admin is created from your own computer.
 
@@ -34,24 +35,38 @@ DATABASE_URL='PASTE_URL' pnpm db:create-admin
 
 ## 3. Environment settings
 Service > **Environment** > add, then save (saving redeploys):
-- `NEXT_PUBLIC_SUPPORT_EMAIL`: a real inbox you read (for example your Gmail), shown on the contact and legal pages.
+- `NEXT_PUBLIC_SUPPORT_EMAIL`: leave the default `support@sarkarimatch.com` once Cloudflare Email Routing (step 5, rule 10) forwards it to your inbox; until then set it to an inbox you read.
 - `NEXT_PUBLIC_LEGAL_NAME`, `NEXT_PUBLIC_SUPPORT_PHONE`, `NEXT_PUBLIC_BUSINESS_ADDRESS`, `NEXT_PUBLIC_GRIEVANCE_OFFICER`.
 - `NEXT_PUBLIC_WHATSAPP_NUMBER` (digits with country code), optional.
 - `RESEND_API_KEY` and `EMAIL_FROM` for sign-in emails (see step 6).
 - Leave `TEST_CHECKOUT_URL` and `ANTHROPIC_API_KEY` out until the paid series is ready.
 
-## 4. Your domain (sarkarimatch.com)
-1. Service > **Settings > Custom Domains** > add `sarkarimatch.com` and `www.sarkarimatch.com`. Render shows the DNS records it wants.
-2. At the company where you bought the domain, add exactly those records (usually a `CNAME` for `www`, and an `A` or `ALIAS` record for the root).
-3. Wait until Render shows both domains as verified. Render issues the HTTPS certificate itself and redirects `www` and the root to each other.
+## 4. Add the domain to Render
+1. Service > **Settings > Custom Domains** > add `sarkarimatch.com` and `www.sarkarimatch.com`. Render shows the DNS records it wants. Keep them for step 5.
+
+## 5. Cloudflare
+Do rule 1 and 2 as early as you can: changing nameservers can take from minutes to a few hours.
+1. dash.cloudflare.com > **Add a domain** > `sarkarimatch.com` > **Free** plan.
+2. At the company where you bought the domain, replace its nameservers with the two Cloudflare gives you. Wait until Cloudflare shows the site as **Active**.
+3. **DNS > Records:** add the records Render showed in step 4 (usually `CNAME @` and `CNAME www` pointing to `sarkarimatch-web.onrender.com`; if Render asks for an `A` record for the root, add that instead). Set them to **DNS only** (grey cloud). When Render shows both domains verified with a certificate, switch both to **Proxied** (orange cloud).
+4. **SSL/TLS > Overview:** mode **Full (strict)**. **Edge Certificates:** turn on **Always Use HTTPS**.
+5. **Rules > Redirect Rules:** use the template **Redirect from WWW to Root**.
+6. **Caching > Cache Rules > Create rule** ("Cache public pages"). Expression:
+   `(http.host eq "sarkarimatch.com") and not starts_with(http.request.uri.path, "/api") and not starts_with(http.request.uri.path, "/admin") and not starts_with(http.request.uri.path, "/dashboard") and not starts_with(http.request.uri.path, "/login") and not starts_with(http.request.uri.path, "/signup") and not starts_with(http.request.uri.path, "/checkout") and not starts_with(http.request.uri.path, "/guide") and not starts_with(http.request.uri.path, "/practice/") and not starts_with(http.request.uri.path, "/tests/attempt")`
+   Then: **Eligible for cache**; Edge TTL **Use cache-control header if present, bypass cache if not**; Browser TTL **Respect origin**. The site marks personal pages as never-cache and public pages as cacheable for 5 to 10 minutes, so most visitors are served by Cloudflare and never wake Render.
+7. **Keep-alive worker:** Workers & Pages > Create > Worker, name `sarkarimatch-keepalive`, deploy, **Edit code**, paste `infra/cloudflare/keepalive/worker.js`, deploy. Settings > Variables: `TARGET_URL` = `https://sarkarimatch.com` (use the onrender.com address until the domain works). Settings > Triggers > Cron Triggers: `*/10 * * * *`. Open the worker's address: it should say `.../api/ping -> 200`.
+8. **Turnstile (free bot check):** Turnstile > Add widget > your domain > Managed. Copy the site key and secret key into Render's Environment tab as `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` and save. It protects signup and the waitlist.
+9. **Security > Settings:** Bot Fight Mode on. **Security > Bots:** set the AI crawlers and scrapers option to **allow**, so Google and AI search can read the site.
+10. **Email > Email Routing:** create `support@sarkarimatch.com` and forward it to your own inbox. Click the verification email. (The site already shows this address.)
+11. **Analytics & Logs > Web Analytics:** add the site and turn it on (free, no cookies).
 
 ## 5. Search and monitoring
-- Google Search Console: add the domain (verify with the DNS TXT record it gives you at your registrar) and submit `https://sarkarimatch.com/sitemap.xml`. Same in Bing Webmaster Tools.
+- Google Search Console: add the domain (verify with the DNS TXT record it gives you, added in Cloudflare > DNS) and submit `https://sarkarimatch.com/sitemap.xml`. Same in Bing Webmaster Tools.
 - Uptime monitor on `https://sarkarimatch.com/api/health` (checks the database too).
 - Before the database expires or you load a lot of data, take a backup (`pg_dump` with the External Database URL).
 
 ## 6. Sign-in emails (Resend, optional)
-Create an account, verify `sarkarimatch.com` (it gives DNS records to add at your registrar), create an API key, and set `RESEND_API_KEY` and `EMAIL_FROM` (for example `Sarkari Match <hello@sarkarimatch.com>`).
+Create an account, verify `sarkarimatch.com` (it gives DNS records: add them in Cloudflare > DNS, set to DNS only), create an API key, and set `RESEND_API_KEY` and `EMAIL_FROM` (for example `Sarkari Match <hello@sarkarimatch.com>`).
 
 ## 7. Content before people arrive (the matcher is the day-one product)
 - Load 15 to 30 real, verified govt notifications (Admin > CSV import, or Admin > Posts). With none, `/jobs` is empty.
@@ -71,5 +86,5 @@ Create an account, verify `sarkarimatch.com` (it gives DNS records to add at you
 - Open the site on a phone. Check `/robots.txt`, `/sitemap.xml`, `/llms.txt`.
 - Read the Terms, Privacy and Refund pages once and confirm they match how you will operate (they are drafts, not legal advice).
 
-## Optional later: Cloudflare and Neon
-The repo also has a Cloudflare keep-alive worker and Turnstile support (`infra/cloudflare`), and the database layer works with Neon. They are not needed for Render-only hosting.
+## Optional later
+If you want a database that never expires without paying Render, the database layer also works with a free Neon Postgres: set `DATABASE_URL` in Render to the Neon address and remove the database from `render.yaml`. Not needed for this plan.

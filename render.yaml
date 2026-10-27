@@ -1,4 +1,6 @@
 # Render Blueprint on the FREE plan: one web service and one Postgres database, both on Render, both in Singapore.
+# Cloudflare sits in front for DNS, HTTPS, caching and bot protection, and a Cloudflare Worker keeps the free web service
+# awake (see infra/cloudflare and docs/launch-checklist.md).
 #
 # Free limits to know:
 # - The web service sleeps after 15 minutes without traffic and takes about a minute to wake.
