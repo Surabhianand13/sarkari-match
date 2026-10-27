@@ -1,6 +1,11 @@
 # Render Blueprint on the FREE plan: one web service. The database is a free Neon Postgres (Render's own free
 # database expires after 30 days, so it cannot hold real data). Cloudflare sits in front for DNS, caching and bot
 # protection, and a Cloudflare Worker keeps the free web service awake (see infra/cloudflare).
+#
+# Only DATABASE_URL is asked for when you create the Blueprint. Add the optional settings later in the service's
+# Environment tab (see docs/launch-checklist.md): NEXT_PUBLIC_LEGAL_NAME, NEXT_PUBLIC_SUPPORT_PHONE,
+# NEXT_PUBLIC_BUSINESS_ADDRESS, NEXT_PUBLIC_GRIEVANCE_OFFICER, NEXT_PUBLIC_WHATSAPP_NUMBER, RESEND_API_KEY, EMAIL_FROM,
+# NEXT_PUBLIC_TURNSTILE_SITE_KEY, TURNSTILE_SECRET_KEY, TEST_CHECKOUT_URL, ANTHROPIC_API_KEY.
 services:
   - type: web
     name: sarkarimatch-web
@@ -17,38 +22,15 @@ services:
         value: 24
       - key: NEXT_PUBLIC_SITE_URL
         value: https://sarkarimatch.com
-      # The Neon connection string (Neon dashboard > Connect, direct connection, with sslmode=require).
+      # The Neon connection string (Neon dashboard > Connect, direct connection, ends with sslmode=require).
       - key: DATABASE_URL
         sync: false
       - key: AUTH_SECRET
         generateValue: true
       - key: ACCESS_GRANT_SECRET
         generateValue: true
-      - key: TEST_CHECKOUT_URL
-        sync: false
+      - key: NEXT_PUBLIC_SUPPORT_EMAIL
+        value: support@sarkarimatch.com
       # Hides the 1 lakh+ / 5,000+ numbers on the site. Set to false (and redeploy) once those figures are true.
       - key: NEXT_PUBLIC_HIDE_PLATFORM_STATS
         value: "true"
-      - key: NEXT_PUBLIC_LEGAL_NAME
-        sync: false
-      - key: NEXT_PUBLIC_SUPPORT_EMAIL
-        value: support@sarkarimatch.com
-      - key: NEXT_PUBLIC_SUPPORT_PHONE
-        sync: false
-      - key: NEXT_PUBLIC_BUSINESS_ADDRESS
-        sync: false
-      - key: NEXT_PUBLIC_GRIEVANCE_OFFICER
-        sync: false
-      - key: NEXT_PUBLIC_WHATSAPP_NUMBER
-        sync: false
-      # Cloudflare Turnstile (free bot check on signup and the waitlist). Optional: both empty means it is off.
-      - key: NEXT_PUBLIC_TURNSTILE_SITE_KEY
-        sync: false
-      - key: TURNSTILE_SECRET_KEY
-        sync: false
-      - key: ANTHROPIC_API_KEY
-        sync: false
-      - key: RESEND_API_KEY
-        sync: false
-      - key: EMAIL_FROM
-        sync: false
