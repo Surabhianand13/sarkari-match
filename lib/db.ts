@@ -14,10 +14,12 @@ export interface Db {
 
 const globalForDb = globalThis as unknown as { __smDb?: Promise<Db | null> };
 
+// Hosted Postgres (Render, Neon) needs TLS. A URL that asks for it with sslmode also turns it on.
 function shouldUseSsl(url: string) {
   if (process.env.PGSSLMODE === "require") return true;
   try {
-    return new URL(url).hostname.endsWith(".render.com");
+    const parsed = new URL(url);
+    return parsed.hostname.endsWith(".render.com") || parsed.hostname.endsWith(".neon.tech") || /^(require|verify-ca|verify-full)$/.test(parsed.searchParams.get("sslmode") ?? "");
   } catch {
     return false;
   }
@@ -91,8 +93,11 @@ async function open(): Promise<Db | null> {
     ssl: shouldUseSsl(url) ? { rejectUnauthorized: false } : undefined,
     max: 10,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 8000
+    connectionTimeoutMillis: 10000,
+    keepAlive: true
   });
+  // Serverless Postgres (Neon) closes idle connections when it scales to zero. Without a listener that would crash the process.
+  pool.on("error", (error) => console.warn("Idle database connection closed:", error.message));
   return wrapPool(pool);
 }
 

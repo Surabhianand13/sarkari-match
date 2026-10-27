@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { UserRound } from "lucide-react";
 import type { Route } from "next";
+import { Turnstile, turnstileConfigured } from "@/components/turnstile";
 import { safeNextPath } from "@/lib/auth/next-path";
 
 export default function SignupPage() {
@@ -12,6 +13,7 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [token, setToken] = useState("");
 
   async function handleSignup(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -26,7 +28,8 @@ export default function SignupPage() {
         name: String(formData.get("name") ?? "").trim(),
         email: String(formData.get("email") ?? "").trim(),
         phone: String(formData.get("phone") ?? "").trim() || undefined,
-        password: String(formData.get("password") ?? "")
+        password: String(formData.get("password") ?? ""),
+        turnstileToken: token
       })
     });
     const data = (await response.json().catch(() => ({}))) as { error?: string };
@@ -52,9 +55,10 @@ export default function SignupPage() {
           <label className="grid gap-2 font-bold text-primary">Email<input name="email" type="email" autoComplete="email" required className="min-h-12 rounded-2xl border border-border px-3 py-2 font-semibold" /></label>
           <label className="grid gap-2 font-bold text-primary">Phone<input name="phone" type="tel" autoComplete="tel" className="min-h-12 rounded-2xl border border-border px-3 py-2 font-semibold" /></label>
           <label className="grid gap-2 font-bold text-primary">Create password<input name="password" type="password" autoComplete="new-password" required minLength={8} className="min-h-12 rounded-2xl border border-border px-3 py-2 font-semibold" /></label>
+          {turnstileConfigured && <Turnstile onToken={setToken} />}
           {error ? <p className="text-sm font-bold text-error">{error}</p> : null}
           {notice ? <p className="text-sm font-bold text-success">{notice}</p> : null}
-          <button disabled={loading} className="min-h-12 rounded-full bg-[linear-gradient(135deg,#18B943,#0D9488)] px-5 py-3 font-black text-white shadow-green disabled:opacity-60">
+          <button disabled={loading || (turnstileConfigured && !token)} className="min-h-12 rounded-full bg-[linear-gradient(135deg,#18B943,#0D9488)] px-5 py-3 font-black text-white shadow-green disabled:opacity-60">
             {loading ? "Creating account..." : "Create account"}
           </button>
           <Link href={`/login${typeof window !== "undefined" ? window.location.search : ""}` as Route} className="text-center text-sm font-black text-primary">Already have an account? Login</Link>

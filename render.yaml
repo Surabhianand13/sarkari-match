@@ -1,23 +1,25 @@
-# Render Blueprint: web service + Postgres. Cloudflare sits in front for DNS, caching and protection.
+# Render Blueprint on the FREE plan: one web service. The database is a free Neon Postgres (Render's own free
+# database expires after 30 days, so it cannot hold real data). Cloudflare sits in front for DNS, caching and bot
+# protection, and a Cloudflare Worker keeps the free web service awake (see infra/cloudflare).
 services:
   - type: web
     name: sarkarimatch-web
     runtime: node
-    plan: starter
+    plan: free
     region: singapore
-    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm build
+    # Migrations run before the build so the pages built here can read the database. Free plans have no pre-deploy command or shell.
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm db:migrate && pnpm build
     startCommand: pnpm start
-    healthCheckPath: /api/health
-    preDeployCommand: pnpm db:migrate
+    # /api/ping does not touch the database, so health checks do not keep the free database awake.
+    healthCheckPath: /api/ping
     envVars:
       - key: NODE_VERSION
         value: 24
       - key: NEXT_PUBLIC_SITE_URL
         value: https://sarkarimatch.com
+      # The Neon connection string (Neon dashboard > Connect, direct connection, with sslmode=require).
       - key: DATABASE_URL
-        fromDatabase:
-          name: sarkarimatch-db
-          property: connectionString
+        sync: false
       - key: AUTH_SECRET
         generateValue: true
       - key: ACCESS_GRANT_SECRET
@@ -39,14 +41,14 @@ services:
         sync: false
       - key: NEXT_PUBLIC_WHATSAPP_NUMBER
         sync: false
+      # Cloudflare Turnstile (free bot check on signup and the waitlist). Optional: both empty means it is off.
+      - key: NEXT_PUBLIC_TURNSTILE_SITE_KEY
+        sync: false
+      - key: TURNSTILE_SECRET_KEY
+        sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: EMAIL_FROM
         sync: false
-
-databases:
-  - name: sarkarimatch-db
-    plan: basic-256mb
-    region: singapore
