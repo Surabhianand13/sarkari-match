@@ -12,6 +12,7 @@ import { PrepLaunchpad } from "@/components/home/prep-launchpad";
 import { NotificationTile } from "@/components/home/notification-tile";
 import { StatsShowcase } from "@/components/home/stats-showcase";
 import { T } from "@/components/i18n/t";
+import { WaitlistForm } from "@/components/waitlist-form";
 import { Reveal } from "@/components/motion/reveal";
 import { JsonLd } from "@/components/seo/json-ld";
 import { ExpertsSection, PatternTable, ProcessSteps, ReviewsSection, TrustBadges } from "@/components/tests/trust-blocks";
@@ -19,7 +20,7 @@ import { assistantEnabled } from "@/lib/assistant";
 import { getBanners } from "@/lib/banners";
 import { formatDate, getPublishedPosts, readingMinutes } from "@/lib/blog";
 import { getJobs } from "@/lib/data/jobs";
-import { examFamilies } from "@/lib/exams/directory";
+import { getExamFamilies } from "@/lib/exams/live";
 import { testSeriesFaq } from "@/lib/faq";
 import { brand } from "@/lib/brand";
 import { buildMetadata, faqJsonLd, organizationJsonLd, productJsonLd, websiteJsonLd } from "@/lib/seo";
@@ -37,17 +38,18 @@ export const metadata = {
 };
 
 export default async function HomePage() {
-  const [series, jobs, banners, posts] = await Promise.all([getPublishedSeries(), getJobs(), getBanners(true), getPublishedPosts(3)]);
+  const [series, jobs, banners, posts, examFamilies] = await Promise.all([getPublishedSeries(), getJobs(), getBanners(true), getPublishedPosts(3), getExamFamilies()]);
   const featured = series.find((item) => item.examSlug === "ssc-cgl") ?? series[0] ?? null;
   const seriesPath = featured ? `/tests/${featured.examSlug}/${featured.slug}` : "/tests";
   const discount = featured ? discountPercent(featured.pricePaise, featured.mrpPaise) : 0;
   const chips = examFamilies.slice(0, 6).flatMap((family) => (family.exams.length ? family.exams.map((exam) => ({ name: exam.name, href: exam.href })) : [{ name: family.name.replace(" Exams", "") }]));
+  const launched = series.length > 0;
   const aiSupport = assistantEnabled();
   const whatsapp = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/\D/g, "") || null;
 
   const smallFeatures = [
     { Icon: ClipboardCheck, title: "Real exam window", body: "Timed like the real paper, with section tabs, a question palette and mark for review." },
-    { Icon: Target, title: "Free diagnostic", body: "Start with the free sample test. Your result shows where you stand, section by section." },
+    { Icon: Target, title: launched ? "Free diagnostic" : "Know where you stand", body: launched ? "Start with the free sample test. Your result shows where you stand, section by section." : "Your results show where you stand, section by section, and what to fix first." },
     { Icon: BookOpenCheck, title: "Every solution explained", body: "A step-by-step solution for every question, unlocked when you submit." },
     aiSupport
       ? { Icon: Headphones, title: "AI help, any time", body: "Ask the assistant about the series, practice or exam pattern at any hour. Payments and account issues go to a person." }
@@ -60,7 +62,7 @@ export default async function HomePage() {
         data={[
           organizationJsonLd(),
           websiteJsonLd(),
-          faqJsonLd(testSeriesFaq),
+          ...(launched ? [faqJsonLd(testSeriesFaq)] : []),
           ...(featured ? [productJsonLd({ name: featured.title, description: `${featured.title}: mock tests that follow the real exam pattern, with solutions and analysis.`, path: seriesPath, pricePaise: featured.pricePaise, mrpPaise: featured.mrpPaise })] : [])
         ]}
       />
@@ -74,9 +76,9 @@ export default async function HomePage() {
         </>
       )}
 
-      <Marquee />
+      <Marquee launched={launched} />
 
-      <PrepLaunchpad seriesPath={seriesPath} />
+      <PrepLaunchpad seriesPath={seriesPath} families={examFamilies} />
 
       <section className="mx-auto max-w-7xl px-4 pt-14 sm:pt-20">
         <Reveal>
@@ -251,6 +253,7 @@ export default async function HomePage() {
         </section>
       )}
 
+      {launched && (
       <section className="bg-surface">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:py-20 lg:grid-cols-[0.8fr_1.2fr]">
           <Reveal className="lg:sticky lg:top-28 lg:self-start">
@@ -278,6 +281,7 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
       <section className="px-4 py-14 sm:py-20">
         <div className="relative isolate mx-auto max-w-7xl overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#050F26,#0B2D63_50%,#0D6E6E)] px-6 py-12 text-center text-white shadow-lift sm:px-12 sm:py-16">
@@ -285,12 +289,16 @@ export default async function HomePage() {
           <div className="pointer-events-none absolute -left-16 bottom-0 -z-10 size-72 rounded-full bg-brand-green/30 blur-3xl animate-float" />
           <div className="pointer-events-none absolute -right-16 -top-10 -z-10 size-72 rounded-full bg-teal/40 blur-3xl animate-float-slow" />
           <p className="text-xs font-black uppercase tracking-[0.2em] text-[#B9F8CD]">Ready when you are</p>
-          <h2 className="mx-auto mt-3 max-w-3xl text-balance text-3xl font-black tracking-tight sm:text-5xl">See where you stand with a free sample test</h2>
-          <p className="mx-auto mt-4 max-w-2xl text-white/75">Create a free account, take a full sample test in the real exam window, and get your score with solutions and analysis.</p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 min-[420px]:flex-row">
-            <Link href="/tests" className="sheen relative inline-flex min-h-12 items-center justify-center overflow-hidden rounded-full bg-white px-7 text-sm font-black text-primary">Try the free sample test</Link>
-            <Link href="/practice" className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/40 px-7 text-sm font-black text-white hover:bg-white/10">Start practising</Link>
-          </div>
+          <h2 className="mx-auto mt-3 max-w-3xl text-balance text-3xl font-black tracking-tight sm:text-5xl">{launched ? "See where you stand with a free sample test" : "Be first to try SSC CGL mock tests"}</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-white/75">{launched ? "Create a free account, take a full sample test in the real exam window, and get your score with solutions and analysis." : "Leave your email and we will tell you the day the tests open. Meanwhile, the exam and job matcher is free to use."}</p>
+          {launched ? (
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 min-[420px]:flex-row">
+              <Link href="/tests" className="sheen relative inline-flex min-h-12 items-center justify-center overflow-hidden rounded-full bg-white px-7 text-sm font-black text-primary">Try the free sample test</Link>
+              <Link href="/practice" className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/40 px-7 text-sm font-black text-white hover:bg-white/10">Start practising</Link>
+            </div>
+          ) : (
+            <div className="mt-8 flex justify-center"><WaitlistForm dark source="home-footer" label="Notify me at launch" /></div>
+          )}
           <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm font-bold text-white/80">
             {["No card needed to start", "Pay once, no auto-renewal", "Solutions for every question"].map((point) => <li key={point} className="flex items-center gap-2"><CheckCircle2 size={16} className="text-[#7CE9A0]" aria-hidden="true" />{point}</li>)}
           </ul>

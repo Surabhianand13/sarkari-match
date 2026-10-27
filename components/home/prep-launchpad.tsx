@@ -1,17 +1,19 @@
 import Link from "next/link";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { MockDemo } from "@/components/home/mock-demo";
+import { WaitlistForm } from "@/components/waitlist-form";
 import { T } from "@/components/i18n/t";
 import { CountUp } from "@/components/motion/count-up";
 import { Reveal } from "@/components/motion/reveal";
-import { examFamilies } from "@/lib/exams/directory";
+import type { ExamFamily } from "@/lib/exams/directory";
 import { trust } from "@/lib/trust";
 
 // Light "start here" section: exam chips, two clear actions, the headline numbers as a stats strip, and a self-playing mock test.
-export function PrepLaunchpad({ seriesPath }: { seriesPath: string }) {
-  const chips: Array<{ name: string; href?: string }> = examFamilies.slice(0, 6).flatMap((family) =>
+export function PrepLaunchpad({ seriesPath, families }: { seriesPath: string; families: ExamFamily[] }) {
+  const chips: Array<{ name: string; href?: string }> = families.slice(0, 6).flatMap((family) =>
     family.exams.length ? family.exams.map((exam) => ({ name: exam.name, href: exam.href })) : [{ name: family.name.replace(" Exams", "") }]
   );
+  const hasLive = families.some((family) => !family.comingSoon);
   return (
     <section className="relative isolate overflow-hidden bg-[linear-gradient(180deg,#FFFFFF,#EFF9F3_55%,#FFFFFF)]">
       <div className="pointer-events-none absolute -left-24 top-8 -z-10 size-80 rounded-full bg-brand-green/15 blur-3xl animate-float-slow" />
@@ -36,14 +38,22 @@ export function PrepLaunchpad({ seriesPath }: { seriesPath: string }) {
               </li>
             ))}
           </ul>
-          <div className="mt-7 flex flex-col gap-3 min-[460px]:flex-row">
-            <Link href={seriesPath as never} className="sheen relative inline-flex min-h-14 items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#18B943,#0D9488)] px-7 text-base font-black text-white shadow-green transition hover:-translate-y-0.5">
-              <T k="cta_free_sample" /> <ArrowRight size={18} aria-hidden="true" />
-            </Link>
-            <Link href="/practice" className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-border bg-white px-7 text-base font-black text-primary shadow-soft transition hover:-translate-y-0.5 hover:border-primary">
-              Start practising
-            </Link>
-          </div>
+          {hasLive ? (
+            <div className="mt-7 flex flex-col gap-3 min-[460px]:flex-row">
+              <Link href={seriesPath as never} className="sheen relative inline-flex min-h-14 items-center justify-center gap-2 overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#18B943,#0D9488)] px-7 text-base font-black text-white shadow-green transition hover:-translate-y-0.5">
+                <T k="cta_free_sample" /> <ArrowRight size={18} aria-hidden="true" />
+              </Link>
+              <Link href="/practice" className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-border bg-white px-7 text-base font-black text-primary shadow-soft transition hover:-translate-y-0.5 hover:border-primary">
+                Start practising
+              </Link>
+            </div>
+          ) : (
+            <div className="mt-7 grid gap-3">
+              <WaitlistForm source="home-launchpad" label="Notify me at launch" />
+              <p className="text-sm font-semibold text-muted">SSC CGL mock tests are launching soon. Meanwhile, <Link href="/eligibility" className="font-black text-primary underline">check which govt jobs you are eligible for</Link>.</p>
+            </div>
+          )}
+          {trust.stats.length > 0 && (
           <dl className="mt-9 grid grid-cols-2 overflow-hidden rounded-3xl border border-border bg-white/80 shadow-soft backdrop-blur sm:grid-cols-4 sm:divide-x sm:divide-border" aria-label="Platform numbers">
             {trust.stats.map((stat, i) => (
               <div key={stat.label} className={`px-4 py-4 text-center sm:px-3 ${i % 2 === 0 ? "border-r border-border sm:border-r-0" : ""} ${i < 2 ? "border-b border-border sm:border-b-0" : ""}`}>
@@ -56,6 +66,7 @@ export function PrepLaunchpad({ seriesPath }: { seriesPath: string }) {
               <dt className="mt-1.5 text-[0.7rem] font-black uppercase tracking-[0.12em] text-muted">checked questions</dt>
             </div>
           </dl>
+          )}
         </Reveal>
         <Reveal delay={150}><MockDemo /></Reveal>
       </div>

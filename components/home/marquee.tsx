@@ -12,10 +12,10 @@ const items = [
 ] as const;
 
 // Slow, continuous strip of what the platform offers. Content is duplicated so the loop has no gap; the copy is hidden from screen readers.
-export function Marquee() {
+export function Marquee({ launched = true }: { launched?: boolean }) {
   const row = (hidden: boolean) => (
     <ul className="flex shrink-0 items-center gap-10 pr-10" aria-hidden={hidden || undefined}>
-      {items.map(([Icon, label]) => (
+      {items.filter(([, label]) => launched || label !== "Free sample test").map(([Icon, label]) => (
         <li key={label} className="flex items-center gap-2.5 whitespace-nowrap text-sm font-black text-primary">
           <Icon size={18} className="text-brand-green" aria-hidden="true" /> {label}
         </li>

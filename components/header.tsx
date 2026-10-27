@@ -7,8 +7,10 @@ import { HeaderNav } from "@/components/header-nav";
 import { LanguageToggle } from "@/components/i18n/language-toggle";
 import { T } from "@/components/i18n/t";
 import { brand } from "@/lib/brand";
+import { getExamFamilies } from "@/lib/exams/live";
 
-export function Header() {
+export async function Header() {
+  const families = await getExamFamilies();
   return (
     <header className="sticky top-0 z-40 border-b border-white/70 bg-white/85 shadow-[0_8px_30px_rgba(11,45,99,0.06)] backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2.5">
@@ -22,14 +24,18 @@ export function Header() {
             className="h-12 w-auto max-w-none shrink-0 object-contain sm:h-14"
           />
         </Link>
-        <HeaderNav />
+        <HeaderNav families={families} />
         <div className="flex items-center gap-1 sm:gap-2">
           <Link href="/jobs" className="inline-flex size-11 items-center justify-center rounded-md text-primary hover:bg-background lg:hidden" aria-label="Search govt job notifications">
             <Search size={20} aria-hidden="true" />
           </Link>
           <LanguageToggle />
           <HeaderAuthActions />
-          <ButtonLink href="/tests" className="hidden whitespace-nowrap sm:inline-flex"><T k="cta_free_sample" /></ButtonLink>
+          {families.some((family) => !family.comingSoon) ? (
+            <ButtonLink href="/tests" className="hidden whitespace-nowrap sm:inline-flex"><T k="cta_free_sample" /></ButtonLink>
+          ) : (
+            <ButtonLink href="/eligibility" className="hidden whitespace-nowrap sm:inline-flex">Check eligibility</ButtonLink>
+          )}
           <Link href="/menu" className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-white text-primary shadow-soft lg:hidden" aria-label="Open menu">
             <Menu size={20} aria-hidden="true" />
           </Link>

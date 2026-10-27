@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, CalendarCheck, Gauge, TrendingUp } from "lucide-react";
 import { ButtonLink } from "@/components/design-system";
 import { TestPreview } from "@/components/home/test-preview";
+import { WaitlistForm } from "@/components/waitlist-form";
 import { T } from "@/components/i18n/t";
 import { discountPercent, formatPrice } from "@/lib/tests/catalog";
 
@@ -18,7 +19,7 @@ export function Hero({ featured, seriesPath, chips }: { featured: Featured; seri
         <div>
           <p className="inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-[#B9F8CD] backdrop-blur"><T k="hero_eyebrow" /></p>
           <h1 className="mt-5 max-w-xl text-balance text-[2.2rem] font-black leading-[1.07] tracking-tight sm:text-5xl lg:text-6xl"><T k="hero_title" /></h1>
-          <p className="mt-5 max-w-xl text-pretty text-base font-medium leading-7 text-white/75 sm:text-lg sm:leading-8"><T k="hero_subtitle" /></p>
+          <p className="mt-5 max-w-xl text-pretty text-base font-medium leading-7 text-white/75 sm:text-lg sm:leading-8">{featured ? <T k="hero_subtitle" /> : "Full-length SSC CGL mock tests with solutions and analysis are launching soon. Leave your email and we will tell you the day they open."}</p>
           <ul className="mt-6 flex flex-wrap gap-2" aria-label="Exams">
             {chips.map((chip) => (
               <li key={chip.name}>
@@ -34,10 +35,14 @@ export function Hero({ featured, seriesPath, chips }: { featured: Featured; seri
               <span className="pb-1 text-sm font-bold text-white/60">one-time · {featured.testCount} tests · {featured.questionCount} questions</span>
             </p>
           )}
+          {featured ? (
           <div className="mt-7 flex flex-col gap-3 min-[420px]:flex-row">
             <ButtonLink href={seriesPath} className="sheen relative w-full overflow-hidden min-[420px]:w-auto"><T k="cta_view_series" /> <ArrowRight size={17} aria-hidden="true" /></ButtonLink>
             <ButtonLink href="/tests" variant="secondary" className="w-full min-[420px]:w-auto"><T k="cta_free_sample" /></ButtonLink>
           </div>
+          ) : (
+            <div className="mt-7"><WaitlistForm dark source="home-hero" label="Notify me at launch" /></div>
+          )}
         </div>
         <div className="relative">
           <div className="animate-float-slow"><TestPreview /></div>

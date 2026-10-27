@@ -14,7 +14,7 @@ const groups: NavGroup[] = [
   { title: "Main", items: [["Dashboard", "/admin", LayoutDashboard]] },
   { title: "Test platform", items: [["Exams and offers", "/admin/exams", Layers], ["Test series", "/admin/tests", ClipboardList], ["Question review", "/admin/questions", ListChecks], ["Question factory", "/admin/factory", Wand2]] },
   { title: "Notifications", items: [["Organisations", "/admin/organisations", Building2], ["Recruitments", "/admin/recruitments", Briefcase], ["Posts", "/admin/posts", FileText], ["CSV import", "/admin/import", FileSpreadsheet]] },
-  { title: "Business", items: [["Paid learners", "/admin/subscriptions", Users], ["Payments", "/admin/payments", CreditCard], ["Reports", "/admin/reports", BarChart3]] },
+  { title: "Business", items: [["Paid learners", "/admin/subscriptions", Users], ["Payments", "/admin/payments", CreditCard], ["Reports", "/admin/reports", BarChart3], ["Waitlist", "/admin/waitlist", Users]] },
   { title: "Content", items: [["Homepage banners", "/admin/banners", ImageIcon], ["Blog", "/admin/blog", BookOpen]] },
   { title: "System", items: [["Audit log", "/admin/audit-log", History]] }
 ];

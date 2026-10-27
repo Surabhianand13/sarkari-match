@@ -19,7 +19,7 @@ export const trust = {
   ],
   // Numbers supplied by the business. They are shown as marketing claims, so keep them true and be ready to
   // show evidence. `count` drives the animated counter on the home page.
-  stats: [
+  stats: process.env.NEXT_PUBLIC_HIDE_PLATFORM_STATS === "true" ? [] : [
     { value: "1 lakh+", count: 100000, suffix: "+", label: "active learners" },
     { value: "1 lakh+", count: 100000, suffix: "+", label: "practice questions" },
     { value: "5,000+", count: 5000, suffix: "+", label: "mock tests" }

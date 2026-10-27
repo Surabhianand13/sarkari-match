@@ -2,8 +2,9 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowRight } from "lucide-react";
 import { JsonLd } from "@/components/seo/json-ld";
+import { WaitlistForm } from "@/components/waitlist-form";
 import { TrustBadges } from "@/components/tests/trust-blocks";
-import { examFamilies } from "@/lib/exams/directory";
+import { getExamFamilies } from "@/lib/exams/live";
 import { discountPercent, formatPrice, getPublishedSeries } from "@/lib/tests/catalog";
 import { breadcrumbJsonLd, buildMetadata, itemListJsonLd } from "@/lib/seo";
 
@@ -16,7 +17,7 @@ export const metadata = buildMetadata({
 });
 
 export default async function TestsHubPage() {
-  const series = await getPublishedSeries();
+  const [series, examFamilies] = await Promise.all([getPublishedSeries(), getExamFamilies()]);
   const crumbs = [{ name: "Home", path: "/" }, { name: "Test series", path: "/tests" }];
   return (
     <div className="bg-surface">
@@ -31,9 +32,9 @@ export default async function TestsHubPage() {
         <aside aria-label="Exam categories">
           <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-muted">Exam categories</p>
           <ul className="flex gap-2 overflow-x-auto pb-1 lg:grid lg:overflow-visible">
-            {examFamilies.map((family, index) => (
+            {examFamilies.map((family) => (
               <li key={family.name} className="shrink-0">
-                <div className={`flex items-center justify-between gap-3 whitespace-nowrap rounded-2xl border px-4 py-3 text-sm font-black ${index === 0 ? "border-[rgba(24,185,67,0.4)] bg-mint text-primary" : "border-border bg-white text-muted"}`}>
+                <div className={`flex items-center justify-between gap-3 whitespace-nowrap rounded-2xl border px-4 py-3 text-sm font-black ${!family.comingSoon ? "border-[rgba(24,185,67,0.4)] bg-mint text-primary" : "border-border bg-white text-muted"}`}>
                   {family.name}
                   {family.comingSoon && <span className="rounded-full bg-surface px-2 py-0.5 text-[0.65rem] uppercase tracking-wide">Soon</span>}
                 </div>
@@ -43,7 +44,7 @@ export default async function TestsHubPage() {
         </aside>
 
         <div>
-          <h2 className="text-2xl font-black text-primary">SSC Exams</h2>
+          <h2 className="text-2xl font-black text-primary">Available test series</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             {series.map((item) => {
               const discount = discountPercent(item.pricePaise, item.mrpPaise);
@@ -63,7 +64,13 @@ export default async function TestsHubPage() {
                 </Link>
               );
             })}
-            {!series.length && <p className="rounded-3xl bg-white p-6 text-muted shadow-soft md:col-span-2">Test series are being prepared. Check back soon.</p>}
+            {!series.length && (
+              <div className="rounded-3xl bg-white p-6 shadow-soft md:col-span-2">
+                <p className="text-lg font-black text-primary">SSC CGL mock tests are launching soon</p>
+                <p className="mt-1 text-sm text-muted">Leave your email and we will tell you the day they open.</p>
+                <div className="mt-4"><WaitlistForm source="tests-page" /></div>
+              </div>
+            )}
           </div>
 
           <h2 className="mt-10 text-2xl font-black text-primary">More exams on the way</h2>

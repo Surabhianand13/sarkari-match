@@ -6,7 +6,7 @@ import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import { Banknote, BookOpen, ChevronDown, ChevronRight, Cog, Compass, GraduationCap, Landmark, Search, Shield, Siren, TrainFront } from "lucide-react";
 import type { ElementType } from "react";
-import { examFamilies, type ExamFamilyIcon } from "@/lib/exams/directory";
+import type { ExamFamily, ExamFamilyIcon } from "@/lib/exams/directory";
 
 const familyIcons: Record<ExamFamilyIcon, ElementType> = {
   ssc: BookOpen, railway: TrainFront, teaching: GraduationCap, civil: Landmark, banking: Banknote,
@@ -31,11 +31,11 @@ function isActive(pathname: string, href: string) {
 
 const pill = (active: boolean) => `inline-flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-2.5 transition hover:bg-surface xl:px-4 hover:text-primary ${active ? "bg-mint text-primary" : ""}`;
 
-export function HeaderNav() {
+export function HeaderNav({ families }: { families: ExamFamily[] }) {
   const pathname = usePathname();
   return (
     <nav aria-label="Primary" className="hidden items-center gap-1 text-[0.95rem] font-black text-muted lg:flex">
-      <ExamsMegaMenu active={isActive(pathname, "/tests")} />
+      <ExamsMegaMenu active={isActive(pathname, "/tests")} families={families} />
       <div className="group relative">
         <Link href="/jobs" aria-current={isActive(pathname, "/jobs") ? "page" : undefined} className={pill(isActive(pathname, "/jobs"))}>
           Govt Notifications <ChevronDown size={15} aria-hidden="true" className="transition group-hover:rotate-180" />
@@ -58,9 +58,10 @@ export function HeaderNav() {
 }
 
 // Categories down the left; hovering (or focusing) one shows its exams on the right. Only live exams link anywhere.
-function ExamsMegaMenu({ active }: { active: boolean }) {
-  const [selected, setSelected] = useState(examFamilies[0].slug);
-  const current = examFamilies.find((family) => family.slug === selected) ?? examFamilies[0];
+function ExamsMegaMenu({ active, families }: { active: boolean; families: ExamFamily[] }) {
+  const firstLive = families.find((family) => !family.comingSoon) ?? families[0];
+  const [selected, setSelected] = useState(firstLive.slug);
+  const current = families.find((family) => family.slug === selected) ?? firstLive;
   return (
     <div className="group">
       <Link href="/tests" aria-current={active ? "page" : undefined} className={pill(active)}>
@@ -69,7 +70,7 @@ function ExamsMegaMenu({ active }: { active: boolean }) {
       <div className="invisible absolute inset-x-0 top-full z-50 px-4 pt-2 opacity-0 transition duration-150 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
         <div className="mx-auto grid max-h-[72vh] max-w-6xl overflow-hidden rounded-3xl border border-border bg-white text-primary shadow-lift md:grid-cols-[17rem_1fr]">
           <ul className="overflow-y-auto border-r border-border bg-white p-2" role="tablist" aria-label="Exam categories">
-            {examFamilies.map((item) => {
+            {families.map((item) => {
               const Icon = familyIcons[item.icon];
               const on = item.slug === current.slug;
               return (
