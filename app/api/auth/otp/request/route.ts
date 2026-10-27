@@ -5,12 +5,13 @@ import { generateOtpCode, OTP_TTL_MINUTES, storeOtp } from "@/lib/auth/otp";
 import { checkRateLimit } from "@/lib/auth/rate-limit";
 import { normalizeEmail } from "@/lib/auth/users";
 import { getDb } from "@/lib/db";
-import { createEmailProvider } from "@/lib/email/provider";
+import { createEmailProvider, emailAvailable } from "@/lib/email/provider";
 
 const schema = z.object({ email: z.string().trim().email().max(254) });
 
 export async function POST(request: Request) {
   if (!(await getDb())) return jsonError("OTP sign-in is not configured yet.", 503);
+  if (!emailAvailable()) return jsonError("Sign-in by email code is not available yet. Please use your password.", 503);
   const parsed = schema.safeParse(await readJson(request));
   if (!parsed.success) return jsonError("Enter a valid email address.", 400);
   const email = normalizeEmail(parsed.data.email);

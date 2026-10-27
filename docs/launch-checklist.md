@@ -9,7 +9,7 @@ Soft launch: the exam and job matcher, blog and waitlist go live first; the paid
 | Website (Next.js) | Render **Free** web service, Singapore | Free |
 | Database (Postgres) | Render **Free** Postgres, Singapore | Free for 30 days, then paid (see below) |
 | DNS, HTTPS, cache, bot protection, email forwarding, keep-alive | **Cloudflare** | Free |
-| Sign-in emails | Resend (optional) | Free tier |
+| Email (sign-in codes, support address) | Later, not set up yet | - |
 | AI Study Guide and assistant | Anthropic API (later) | Pay as you use |
 
 ## Two limits of the free plan you must plan for
@@ -35,10 +35,9 @@ DATABASE_URL='PASTE_URL' pnpm db:create-admin
 
 ## 3. Environment settings
 Service > **Environment** > add, then save (saving redeploys):
-- `NEXT_PUBLIC_SUPPORT_EMAIL`: leave the default `support@sarkarimatch.com` once Cloudflare Email Routing (step 5, rule 10) forwards it to your inbox; until then set it to an inbox you read.
+- `NEXT_PUBLIC_SUPPORT_EMAIL`: the address shown on the contact and legal pages. Email is not set up yet, so set this to an inbox you already read (for example your Gmail) instead of the default `support@sarkarimatch.com`, which has no mailbox yet.
 - `NEXT_PUBLIC_LEGAL_NAME`, `NEXT_PUBLIC_SUPPORT_PHONE`, `NEXT_PUBLIC_BUSINESS_ADDRESS`, `NEXT_PUBLIC_GRIEVANCE_OFFICER`.
 - `NEXT_PUBLIC_WHATSAPP_NUMBER` (digits with country code), optional.
-- `RESEND_API_KEY` and `EMAIL_FROM` for sign-in emails (see step 6).
 - Leave `TEST_CHECKOUT_URL` and `ANTHROPIC_API_KEY` out until the paid series is ready.
 
 ## 4. Add the domain to Render
@@ -57,16 +56,14 @@ Do rule 1 and 2 as early as you can: changing nameservers can take from minutes 
 7. **Keep-alive worker:** Workers & Pages > Create > Worker, name `sarkarimatch-keepalive`, deploy, **Edit code**, paste `infra/cloudflare/keepalive/worker.js`, deploy. Settings > Variables: `TARGET_URL` = `https://sarkarimatch.com` (use the onrender.com address until the domain works). Settings > Triggers > Cron Triggers: `*/10 * * * *`. Open the worker's address: it should say `.../api/ping -> 200`.
 8. **Turnstile (free bot check):** Turnstile > Add widget > your domain > Managed. Copy the site key and secret key into Render's Environment tab as `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` and save. It protects signup and the waitlist.
 9. **Security > Settings:** Bot Fight Mode on. **Security > Bots:** set the AI crawlers and scrapers option to **allow**, so Google and AI search can read the site.
-10. **Email > Email Routing:** create `support@sarkarimatch.com` and forward it to your own inbox. Click the verification email. (The site already shows this address.)
-11. **Analytics & Logs > Web Analytics:** add the site and turn it on (free, no cookies).
+10. **Analytics & Logs > Web Analytics:** add the site and turn it on (free, no cookies).
 
-## 5. Search and monitoring
+Email (Cloudflare Email Routing, Resend) is left for later: see the last section.
+
+## 6. Search and monitoring
 - Google Search Console: add the domain (verify with the DNS TXT record it gives you, added in Cloudflare > DNS) and submit `https://sarkarimatch.com/sitemap.xml`. Same in Bing Webmaster Tools.
 - Uptime monitor on `https://sarkarimatch.com/api/health` (checks the database too).
 - Before the database expires or you load a lot of data, take a backup (`pg_dump` with the External Database URL).
-
-## 6. Sign-in emails (Resend, optional)
-Create an account, verify `sarkarimatch.com` (it gives DNS records: add them in Cloudflare > DNS, set to DNS only), create an API key, and set `RESEND_API_KEY` and `EMAIL_FROM` (for example `Sarkari Match <hello@sarkarimatch.com>`).
 
 ## 7. Content before people arrive (the matcher is the day-one product)
 - Load 15 to 30 real, verified govt notifications (Admin > CSV import, or Admin > Posts). With none, `/jobs` is empty.
@@ -85,6 +82,11 @@ Create an account, verify `sarkarimatch.com` (it gives DNS records: add them in 
 - Sign up, sign in, sign out, eligibility matcher, blog, waitlist form.
 - Open the site on a phone. Check `/robots.txt`, `/sitemap.xml`, `/llms.txt`.
 - Read the Terms, Privacy and Refund pages once and confirm they match how you will operate (they are drafts, not legal advice).
+
+## Later: email
+Not set up yet, on purpose. Until it is, learners sign in with email and password only: the "Sign in with OTP" option is hidden automatically.
+1. Cloudflare > Email > Email Routing: create `support@sarkarimatch.com` and forward it to your inbox (then set `NEXT_PUBLIC_SUPPORT_EMAIL` back to it).
+2. Resend: create an account, verify `sarkarimatch.com` (add its DNS records in Cloudflare, set to DNS only), create an API key, and set `RESEND_API_KEY` and `EMAIL_FROM` (for example `Sarkari Match <hello@sarkarimatch.com>`) in Render. The OTP option then appears by itself.
 
 ## Optional later
 If you want a database that never expires without paying Render, the database layer also works with a free Neon Postgres: set `DATABASE_URL` in Render to the Neon address and remove the database from `render.yaml`. Not needed for this plan.

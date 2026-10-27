@@ -51,6 +51,11 @@ export class ResendEmailProvider implements EmailProvider {
   }
 }
 
+// True when emails are really sent. In development the codes are printed to the console, so sign-in by code stays usable there.
+export function emailAvailable(env = process.env) {
+  return Boolean(env.RESEND_API_KEY && env.EMAIL_FROM) || env.NODE_ENV !== "production";
+}
+
 export function createEmailProvider(env = process.env): EmailProvider {
   if (env.RESEND_API_KEY && env.EMAIL_FROM) {
     return new ResendEmailProvider(env.RESEND_API_KEY, env.EMAIL_FROM, env.EMAIL_REPLY_TO);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { KeyRound, MessageSquareText, ShieldCheck } from "lucide-react";
@@ -20,6 +20,14 @@ export default function LoginPage() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [otpAvailable, setOtpAvailable] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/methods", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data: { otp?: boolean }) => setOtpAvailable(Boolean(data.otp)))
+      .catch(() => {});
+  }, []);
 
   async function handlePasswordLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -64,7 +72,7 @@ export default function LoginPage() {
           <p className="mt-3 leading-7 text-white/75">Return to saved notifications, profile matches and deadline reminders.</p>
           <div className="mt-6 grid gap-3 text-sm font-semibold text-white/78">
             <p className="rounded-2xl bg-white/12 p-4">Use password when you already created credentials.</p>
-            <p className="rounded-2xl bg-white/12 p-4">Use an email OTP when you want a quick sign-in without a password.</p>
+            {otpAvailable && <p className="rounded-2xl bg-white/12 p-4">Use an email OTP when you want a quick sign-in without a password.</p>}
           </div>
         </section>
 
@@ -88,6 +96,7 @@ export default function LoginPage() {
             </div>
           </form>
 
+          {otpAvailable && (
           <form onSubmit={handleOtpRequest} className="rounded-[2rem] border border-border bg-white p-5 shadow-lift">
             <div className="flex items-center gap-3">
               <span className="flex size-11 items-center justify-center rounded-2xl bg-cyan-soft text-teal"><MessageSquareText size={20} aria-hidden="true" /></span>
@@ -104,6 +113,7 @@ export default function LoginPage() {
               </button>
             </div>
           </form>
+          )}
 
           <p className="text-center text-sm font-bold text-muted">
             New here? <Link href="/signup" className="font-black text-primary">Create an account</Link>
