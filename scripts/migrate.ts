@@ -2,6 +2,7 @@ import "./_env";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getDb } from "../lib/db";
+import { lockdownPublicTables } from "../lib/db-security";
 
 async function main() {
   const db = await getDb();
@@ -18,6 +19,8 @@ async function main() {
     });
     console.log(`applied ${file}`);
   }
+  const { secured } = await lockdownPublicTables(db);
+  if (secured) console.log(`secured ${secured} tables (row level security on)`);
   console.log("migrations up to date");
   process.exit(0);
 }

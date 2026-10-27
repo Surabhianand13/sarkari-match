@@ -14,12 +14,12 @@ export interface Db {
 
 const globalForDb = globalThis as unknown as { __smDb?: Promise<Db | null> };
 
-// Hosted Postgres (Render, Neon) needs TLS. A URL that asks for it with sslmode also turns it on.
+// Hosted Postgres (Render, Neon, Supabase) needs TLS. A URL that asks for it with sslmode also turns it on.
 function shouldUseSsl(url: string) {
   if (process.env.PGSSLMODE === "require") return true;
   try {
     const parsed = new URL(url);
-    return parsed.hostname.endsWith(".render.com") || parsed.hostname.endsWith(".neon.tech") || /^(require|verify-ca|verify-full)$/.test(parsed.searchParams.get("sslmode") ?? "");
+    return parsed.hostname.endsWith(".render.com") || parsed.hostname.endsWith(".neon.tech") || parsed.hostname.endsWith(".supabase.com") || parsed.hostname.endsWith(".supabase.co") || /^(require|verify-ca|verify-full)$/.test(parsed.searchParams.get("sslmode") ?? "");
   } catch {
     return false;
   }

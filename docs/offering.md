@@ -54,4 +54,4 @@ Your payment page receives `?product=pass|guide&series=<slug>|exam=<slug>&amount
 - **Learners:** "Up next" on My tests suggests the first test they have not submitted, working from Beginner up, full-length before subject tests.
 - **Search:** only the series and the free sample test are in the sitemap; the other test pages are `noindex`, so hundreds of near-identical pages are not treated as thin content.
 - **Series page counts:** "questions" on a series is the published question bank for the exam, not the number of question slots in tests.
-- **Database size:** about 1,00,000 questions with solutions is roughly 300-400 MB. Neon's free plan is 0.5 GB, so move to a paid plan before the bulk import.
+- **Database size:** about 1,00,000 questions with solutions is roughly 300-400 MB. Supabase's free plan is 500 MB, so move to Pro before the bulk import.

@@ -3,7 +3,7 @@ main = "worker.js"
 compatibility_date = "2026-10-01"
 
 [triggers]
-crons = ["*/10 * * * *"]
+crons = ["*/10 * * * *", "0 6 * * *"]
 
 [vars]
 # Ping the Render address directly if the custom domain is not connected yet, for example https://sarkarimatch-web.onrender.com

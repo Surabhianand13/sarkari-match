@@ -1,11 +1,9 @@
-# Render Blueprint on the FREE plan: one web service and one Postgres database, both on Render, both in Singapore.
-# Cloudflare sits in front for DNS, HTTPS, caching and bot protection, and a Cloudflare Worker keeps the free web service
-# awake (see infra/cloudflare and docs/launch-checklist.md).
+# Render Blueprint on the FREE plan: one web service. The database is a separate, standalone Supabase project for Sarkari Match
+# (free plan, no 30-day expiry). Cloudflare sits in front for DNS, HTTPS, caching and bot protection, and a Cloudflare Worker keeps
+# the free web service awake and touches the database once a day (see infra/cloudflare and docs/launch-checklist.md).
 #
-# Free limits to know:
-# - The web service sleeps after 15 minutes without traffic and takes about a minute to wake.
-# - The free Postgres database EXPIRES 30 days after it is created. Upgrade it to a paid plan in the Render dashboard
-#   before then to keep your data (see docs/launch-checklist.md).
+# Free limit to know: the web service sleeps after 15 minutes without traffic and takes about a minute to wake (Cloudflare's cache and
+# keep-alive worker soften this).
 #
 # Optional settings are added later in the service's Environment tab: NEXT_PUBLIC_SUPPORT_EMAIL (your real support inbox),
 # NEXT_PUBLIC_LEGAL_NAME, NEXT_PUBLIC_SUPPORT_PHONE, NEXT_PUBLIC_BUSINESS_ADDRESS, NEXT_PUBLIC_GRIEVANCE_OFFICER,
@@ -25,26 +23,15 @@ services:
         value: 24
       - key: NEXT_PUBLIC_SITE_URL
         value: https://sarkarimatch.com
+      # The Supabase "Session pooler" connection string (port 5432) of the Sarkari Match project, with your database password filled in.
       - key: DATABASE_URL
-        fromDatabase:
-          name: sarkarimatch-db
-          property: connectionString
+        sync: false
       - key: AUTH_SECRET
         generateValue: true
       - key: ACCESS_GRANT_SECRET
         generateValue: true
-      # Replace with a real inbox you can read (for example a Gmail address) until you set up email on your own domain.
       - key: NEXT_PUBLIC_SUPPORT_EMAIL
         value: support@sarkarimatch.com
       # Hides the 1 lakh+ / 5,000+ numbers on the site. Set to false (and redeploy) once those figures are true.
       - key: NEXT_PUBLIC_HIDE_PLATFORM_STATS
         value: "true"
-
-databases:
-  - name: sarkarimatch-db
-    plan: free
-    region: singapore
-    # Open to your own computer so you can create the admin and load seed data once. Tighten or remove after setup.
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: everywhere (password protected)

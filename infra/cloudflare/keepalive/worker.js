@@ -1,18 +1,19 @@
-// Cloudflare Worker (free plan). Every 10 minutes it asks the site for /api/ping so the free Render web service
-// (which sleeps after 15 minutes without traffic) stays awake. /api/ping does not touch the database, so the
-// free database can still sleep when nobody is using the site.
+// Cloudflare Worker (free plan) with two schedules:
+//  - every 10 minutes: GET /api/ping keeps the free Render web service awake. It does not touch the database.
+//  - once a day: GET /api/health runs a tiny query, so a free Supabase project sees activity and is not paused after a quiet week.
 export default {
-  async scheduled(_event, env, ctx) {
-    ctx.waitUntil(ping(env));
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(run(env, event.cron === "0 6 * * *" ? "/api/health" : "/api/ping"));
   },
-  // Visiting the worker URL in a browser runs the same check, which helps while setting it up.
+  // Visiting the worker URL in a browser runs the same checks, which helps while setting it up.
   async fetch(_request, env) {
-    return new Response(await ping(env), { headers: { "content-type": "text/plain" } });
+    const results = [await run(env, "/api/ping"), await run(env, "/api/health")];
+    return new Response(results.join("\n"), { headers: { "content-type": "text/plain" } });
   }
 };
 
-async function ping(env) {
-  const target = (env.TARGET_URL || "https://sarkarimatch.com").replace(/\/$/, "") + "/api/ping";
+async function run(env, path) {
+  const target = (env.TARGET_URL || "https://sarkarimatch.com").replace(/\/$/, "") + path;
   try {
     const response = await fetch(target, { headers: { "user-agent": "sarkarimatch-keepalive" }, cf: { cacheTtl: 0 } });
     return `${target} -> ${response.status}`;
