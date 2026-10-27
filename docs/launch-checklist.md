@@ -34,7 +34,7 @@ DATABASE_URL='postgres://...' pnpm db:create-admin
 
 ## 4. Render (website)
 1. render.com > New > **Blueprint** > pick the repo. It creates `sarkarimatch-web` on the Free plan.
-2. Paste the Neon string as `DATABASE_URL`. Fill the business details (`NEXT_PUBLIC_LEGAL_NAME`, `NEXT_PUBLIC_SUPPORT_PHONE`, `NEXT_PUBLIC_BUSINESS_ADDRESS`, `NEXT_PUBLIC_GRIEVANCE_OFFICER`) and `RESEND_API_KEY` / `EMAIL_FROM`. Leave `TEST_CHECKOUT_URL` and `ANTHROPIC_API_KEY` empty until the paid series is ready.
+2. Paste the Neon string as `DATABASE_URL` (the only value it asks for). After the first deploy, open the service's **Environment** tab and add, as needed: `NEXT_PUBLIC_LEGAL_NAME`, `NEXT_PUBLIC_SUPPORT_PHONE`, `NEXT_PUBLIC_BUSINESS_ADDRESS`, `NEXT_PUBLIC_GRIEVANCE_OFFICER`, `NEXT_PUBLIC_WHATSAPP_NUMBER`, `RESEND_API_KEY`, `EMAIL_FROM`, then later `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`. Leave `TEST_CHECKOUT_URL` and `ANTHROPIC_API_KEY` out until the paid series is ready. Saving the Environment tab redeploys.
 3. After the deploy, open `https://<service>.onrender.com/api/health`: it should show `"database":"ok"`.
 4. Settings > Custom Domains: add `sarkarimatch.com` and `www.sarkarimatch.com`.
 5. If the free build runs out of memory, tell me: the fix is a lighter build or the Starter plan.
