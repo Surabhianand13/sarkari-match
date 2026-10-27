@@ -1,11 +1,13 @@
-# Render Blueprint on the FREE plan: one web service. The database is a free Neon Postgres (Render's own free
-# database expires after 30 days, so it cannot hold real data). Cloudflare sits in front for DNS, caching and bot
-# protection, and a Cloudflare Worker keeps the free web service awake (see infra/cloudflare).
+# Render Blueprint on the FREE plan: one web service and one Postgres database, both on Render, both in Singapore.
 #
-# Only DATABASE_URL is asked for when you create the Blueprint. Add the optional settings later in the service's
-# Environment tab (see docs/launch-checklist.md): NEXT_PUBLIC_LEGAL_NAME, NEXT_PUBLIC_SUPPORT_PHONE,
-# NEXT_PUBLIC_BUSINESS_ADDRESS, NEXT_PUBLIC_GRIEVANCE_OFFICER, NEXT_PUBLIC_WHATSAPP_NUMBER, RESEND_API_KEY, EMAIL_FROM,
-# NEXT_PUBLIC_TURNSTILE_SITE_KEY, TURNSTILE_SECRET_KEY, TEST_CHECKOUT_URL, ANTHROPIC_API_KEY.
+# Free limits to know:
+# - The web service sleeps after 15 minutes without traffic and takes about a minute to wake.
+# - The free Postgres database EXPIRES 30 days after it is created. Upgrade it to a paid plan in the Render dashboard
+#   before then to keep your data (see docs/launch-checklist.md).
+#
+# Optional settings are added later in the service's Environment tab: NEXT_PUBLIC_SUPPORT_EMAIL (your real support inbox),
+# NEXT_PUBLIC_LEGAL_NAME, NEXT_PUBLIC_SUPPORT_PHONE, NEXT_PUBLIC_BUSINESS_ADDRESS, NEXT_PUBLIC_GRIEVANCE_OFFICER,
+# NEXT_PUBLIC_WHATSAPP_NUMBER, RESEND_API_KEY, EMAIL_FROM, TEST_CHECKOUT_URL, ANTHROPIC_API_KEY.
 services:
   - type: web
     name: sarkarimatch-web
@@ -15,22 +17,32 @@ services:
     # Migrations run before the build so the pages built here can read the database. Free plans have no pre-deploy command or shell.
     buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm db:migrate && pnpm build
     startCommand: pnpm start
-    # /api/ping does not touch the database, so health checks do not keep the free database awake.
     healthCheckPath: /api/ping
     envVars:
       - key: NODE_VERSION
         value: 24
       - key: NEXT_PUBLIC_SITE_URL
         value: https://sarkarimatch.com
-      # The Neon connection string (Neon dashboard > Connect, direct connection, ends with sslmode=require).
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: sarkarimatch-db
+          property: connectionString
       - key: AUTH_SECRET
         generateValue: true
       - key: ACCESS_GRANT_SECRET
         generateValue: true
+      # Replace with a real inbox you can read (for example a Gmail address) until you set up email on your own domain.
       - key: NEXT_PUBLIC_SUPPORT_EMAIL
         value: support@sarkarimatch.com
       # Hides the 1 lakh+ / 5,000+ numbers on the site. Set to false (and redeploy) once those figures are true.
       - key: NEXT_PUBLIC_HIDE_PLATFORM_STATS
         value: "true"
+
+databases:
+  - name: sarkarimatch-db
+    plan: free
+    region: singapore
+    # Open to your own computer so you can create the admin and load seed data once. Tighten or remove after setup.
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: everywhere (password protected)

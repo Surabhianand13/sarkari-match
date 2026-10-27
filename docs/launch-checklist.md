@@ -1,4 +1,4 @@
-# Launch checklist: free-tier setup (Render free + Neon free + Cloudflare)
+# Launch checklist: Render only (free plan)
 
 Soft launch: the exam and job matcher, blog and waitlist go live first; the paid series follows.
 
@@ -7,77 +7,69 @@ Soft launch: the exam and job matcher, blog and waitlist go live first; the paid
 | Part | Where | Cost |
 |---|---|---|
 | Website (Next.js) | Render **Free** web service, Singapore | Free |
-| Database (Postgres) | **Neon** free (0.5 GB, scales to zero) | Free |
-| DNS, HTTPS, CDN cache, bot protection, email forwarding, keep-alive | **Cloudflare** | Free |
-| Sign-in emails | Resend | Free tier |
-| AI Study Guide and assistant | Anthropic API | Pay as you use |
+| Database (Postgres) | Render **Free** Postgres, Singapore | Free for 30 days, then paid (see below) |
+| Sign-in emails | Resend (optional) | Free tier |
+| AI Study Guide and assistant | Anthropic API (later) | Pay as you use |
 
-**Why Neon and not Render's free database:** a free Render database expires after 30 days. A free Render web service also goes to sleep after 15 minutes without traffic and takes about a minute to wake. Two parts of the setup below deal with that: the Cloudflare cache and the Cloudflare keep-alive worker.
+## Two limits of the free plan you must plan for
 
-**Limits to know:** Render free gives 750 instance hours a month (one always-awake service uses about 744). Neon free gives 0.5 GB of storage, so move to a paid plan before loading lakhs of questions. Free Render services have no Shell and no pre-deploy command, so migrations run during the build and the first admin and seed data are created from your own computer (step 3).
+1. **The free database expires 30 days after it is created.** Put a reminder on day 25. In the Render dashboard open `sarkarimatch-db` and upgrade it to a paid plan (the Basic plan is a few dollars a month); that keeps your data. If you let it expire you lose it.
+2. **The free website sleeps after 15 minutes without visitors** and takes about a minute to wake, so the first visitor after a quiet spell waits. Options, cheapest first: accept it for the soft launch; add a free uptime monitor (for example UptimeRobot) that opens `https://<your-site>/api/ping` every 5 minutes; or move the web service to the Starter plan, which never sleeps.
 
-## 1. GitHub
-Repo: `Surabhianand13/sarkari-match`, deploy branch `main`.
+Free web services also have no Shell and no pre-deploy command, so migrations run during the build and the first admin is created from your own computer.
 
-## 2. Neon (database)
-1. neon.com > sign up > Create project (region Singapore, `ap-southeast-1`, or the closest).
-2. Dashboard > Connect: copy the **direct** connection string (it ends with `sslmode=require`). Keep it private.
+## 1. Render
+1. render.com > sign up with GitHub and allow access to the `sarkari-match` repo.
+2. New + > **Blueprint** > pick the repo > **Deploy Blueprint**. It creates the web service `sarkarimatch-web` and the database `sarkarimatch-db`, both free, both in Singapore. No values are needed.
+3. Wait 5 to 10 minutes. The build log should show "migrations up to date" and "Compiled successfully".
+4. Open the service's address (`https://sarkarimatch-web.onrender.com`) and then `/api/health`: it should show `"database":"ok"`.
 
-## 3. Create your admin and seed data (from your computer)
-In the project folder (Node 24), with the Neon string in place of `postgres://...`:
+## 2. Create your admin and seed data (from your computer)
+In the Render dashboard open `sarkarimatch-db` > **Connections** and copy the **External Database URL**. In the project folder (Node 24, `nvm use v24.11.1`), with that URL in place of `PASTE_URL`:
 ```bash
-DATABASE_URL='postgres://...' pnpm db:migrate
-DATABASE_URL='postgres://...' pnpm db:seed
-DATABASE_URL='postgres://...' pnpm db:create-admin
+DATABASE_URL='PASTE_URL' pnpm db:seed
+DATABASE_URL='PASTE_URL' pnpm db:create-admin
 ```
-`db:seed` loads taxonomies and the starter blog articles (sample notifications are skipped). `db:create-admin` asks for your email and password.
+`db:seed` loads taxonomies and the starter blog articles (sample notifications are skipped). `db:create-admin` asks for your email and a password of at least 12 characters: this is your production admin login. (Migrations already ran during the build.)
 
-## 4. Render (website)
-1. render.com > New > **Blueprint** > pick the repo. It creates `sarkarimatch-web` on the Free plan.
-2. Paste the Neon string as `DATABASE_URL` (the only value it asks for). After the first deploy, open the service's **Environment** tab and add, as needed: `NEXT_PUBLIC_LEGAL_NAME`, `NEXT_PUBLIC_SUPPORT_PHONE`, `NEXT_PUBLIC_BUSINESS_ADDRESS`, `NEXT_PUBLIC_GRIEVANCE_OFFICER`, `NEXT_PUBLIC_WHATSAPP_NUMBER`, `RESEND_API_KEY`, `EMAIL_FROM`, then later `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`. Leave `TEST_CHECKOUT_URL` and `ANTHROPIC_API_KEY` out until the paid series is ready. Saving the Environment tab redeploys.
-3. After the deploy, open `https://<service>.onrender.com/api/health`: it should show `"database":"ok"`.
-4. Settings > Custom Domains: add `sarkarimatch.com` and `www.sarkarimatch.com`.
-5. If the free build runs out of memory, tell me: the fix is a lighter build or the Starter plan.
+## 3. Environment settings
+Service > **Environment** > add, then save (saving redeploys):
+- `NEXT_PUBLIC_SUPPORT_EMAIL`: a real inbox you read (for example your Gmail), shown on the contact and legal pages.
+- `NEXT_PUBLIC_LEGAL_NAME`, `NEXT_PUBLIC_SUPPORT_PHONE`, `NEXT_PUBLIC_BUSINESS_ADDRESS`, `NEXT_PUBLIC_GRIEVANCE_OFFICER`.
+- `NEXT_PUBLIC_WHATSAPP_NUMBER` (digits with country code), optional.
+- `RESEND_API_KEY` and `EMAIL_FROM` for sign-in emails (see step 6).
+- Leave `TEST_CHECKOUT_URL` and `ANTHROPIC_API_KEY` out until the paid series is ready.
 
-## 5. Cloudflare
-1. **Add the site** `sarkarimatch.com` (change the nameservers at your registrar if it is registered elsewhere).
-2. **DNS:** `CNAME @ -> <service>.onrender.com` and `CNAME www -> <service>.onrender.com`. After Render verifies the domain and issues its certificate, turn the proxy (orange cloud) on.
-3. **SSL/TLS:** mode **Full (strict)**; turn on **Always Use HTTPS**.
-4. **Redirect Rule:** `www.sarkarimatch.com` to `https://sarkarimatch.com` (permanent).
-5. **Cache Rule (this is what makes the free site fast):** Caching > Cache Rules > Create rule.
-   - If: hostname equals `sarkarimatch.com` and the path does **not** start with `/api`, `/admin`, `/dashboard`, `/login`, `/signup`, `/checkout`, `/guide`, `/practice/`, `/tests/attempt`.
-   - Then: **Eligible for cache**, Edge TTL: **Use cache-control header if present**, Browser TTL: respect origin.
-   - The site marks personal pages as not cacheable and public pages as cacheable for 5 to 10 minutes, so most visitors are served from Cloudflare and never wake Render.
-6. **Keep-alive worker:** Workers & Pages > Create > Worker. Paste `infra/cloudflare/keepalive/worker.js`, set the variable `TARGET_URL` to `https://sarkarimatch.com` (or the onrender.com address until the domain is connected), and add a Cron Trigger `*/10 * * * *`. Visit the worker's URL once to check it answers `.../api/ping -> 200`.
-7. **Turnstile (free bot check):** Turnstile > Add site > your domain > Managed. Put the **site key** in Render as `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and the **secret key** as `TURNSTILE_SECRET_KEY`, then redeploy. It protects signup and the waitlist. Leave both empty to switch it off.
-8. **Security:** Bot Fight Mode on. **Turn off "Block AI bots" / AI crawl control** so Google, Bing, ChatGPT, Claude and Perplexity can read the site.
-9. **Email Routing:** create `support@sarkarimatch.com` and forward it to your inbox (the site shows this address).
-10. **Web Analytics (free, no cookies):** Analytics > Web Analytics > enable for the site.
-11. **Resend DNS:** add the SPF and DKIM records Resend gives you here so sign-in emails are delivered.
+## 4. Your domain (sarkarimatch.com)
+1. Service > **Settings > Custom Domains** > add `sarkarimatch.com` and `www.sarkarimatch.com`. Render shows the DNS records it wants.
+2. At the company where you bought the domain, add exactly those records (usually a `CNAME` for `www`, and an `A` or `ALIAS` record for the root).
+3. Wait until Render shows both domains as verified. Render issues the HTTPS certificate itself and redirects `www` and the root to each other.
 
-## 6. Email sending (Resend)
-Create an account, verify `sarkarimatch.com`, create an API key, set `RESEND_API_KEY` and `EMAIL_FROM` (for example `Sarkari Match <hello@sarkarimatch.com>`) in Render.
+## 5. Search and monitoring
+- Google Search Console: add the domain (verify with the DNS TXT record it gives you at your registrar) and submit `https://sarkarimatch.com/sitemap.xml`. Same in Bing Webmaster Tools.
+- Uptime monitor on `https://sarkarimatch.com/api/health` (checks the database too).
+- Before the database expires or you load a lot of data, take a backup (`pg_dump` with the External Database URL).
 
-## 7. Search and monitoring
-- Google Search Console: add the domain (verify with a DNS TXT record in Cloudflare) and submit `https://sarkarimatch.com/sitemap.xml`. Do the same in Bing Webmaster Tools.
-- Uptime monitor (for example UptimeRobot, free) on `https://sarkarimatch.com/api/health`. Use `/api/health` here, not for the keep-alive: it checks the database too.
-- Neon free keeps only a short restore window. Take a manual backup (`pg_dump`) before big changes.
+## 6. Sign-in emails (Resend, optional)
+Create an account, verify `sarkarimatch.com` (it gives DNS records to add at your registrar), create an API key, and set `RESEND_API_KEY` and `EMAIL_FROM` (for example `Sarkari Match <hello@sarkarimatch.com>`).
 
-## 8. Content before people arrive
+## 7. Content before people arrive (the matcher is the day-one product)
 - Load 15 to 30 real, verified govt notifications (Admin > CSV import, or Admin > Posts). With none, `/jobs` is empty.
 - Upload homepage banners (Admin > Homepage banners): 1800x600 desktop, 900x1200 mobile.
 - Add real reviews and expert details in `lib/trust.ts` if you want those sections.
 
-## 9. When the paid series is ready (not day one)
-1. Load questions for all four SSC CGL sections (Admin > Question factory or `pnpm questions:import`), review and publish them. Move the Neon database to a paid plan before importing about 1,00,000 questions (free is 0.5 GB).
-   Then build the tests in Admin > Test builder (preview, create as drafts, publish in bulk). See `docs/offering.md`.
-2. Admin > Exams and offers > SSC CGL: Guide on and price; Admin > Test series: create the series (₹999) with a free sample test, publish.
-3. Build the payment page; set `TEST_CHECKOUT_URL` and give it `ACCESS_GRANT_SECRET`. Test in the provider's test mode end to end, including a payment below the quoted amount (must be refused).
-4. Set `ANTHROPIC_API_KEY` (with a monthly spend limit in the Anthropic console) to turn on the AI Study Guide and the support assistant.
-5. Set `NEXT_PUBLIC_HIDE_PLATFORM_STATS` to `false` only when the learner, question and test numbers shown are true, then redeploy.
-6. Move the database to a paid plan before loading lakhs of questions, and consider the Render Starter plan so the site never sleeps.
+## 8. When the paid series is ready (not day one)
+1. Upgrade the database to a paid plan with enough space (about 1,00,000 questions with solutions is roughly 300 to 400 MB) and consider the Starter web plan so the site never sleeps.
+2. Load questions for all four SSC CGL sections (Admin > Question factory or `pnpm questions:import`), review and publish them. Build tests in Admin > Test builder (preview, create as drafts, publish in bulk). See `docs/offering.md`.
+3. Admin > Exams and offers > SSC CGL: Guide on and price; Admin > Test series: create the series (₹999) with a free sample test, publish.
+4. Build the payment page; set `TEST_CHECKOUT_URL` and give it `ACCESS_GRANT_SECRET`. Test in the provider's test mode end to end, including a payment below the quoted amount (must be refused).
+5. Set `ANTHROPIC_API_KEY` (with a monthly spend limit in the Anthropic console) to turn on the AI Study Guide and the support assistant.
+6. Set `NEXT_PUBLIC_HIDE_PLATFORM_STATS` to `false` only when the learner, question and test numbers shown are true, then redeploy.
 
-## 10. Final checks
+## 9. Final checks
 - Sign up, sign in, sign out, eligibility matcher, blog, waitlist form.
 - Open the site on a phone. Check `/robots.txt`, `/sitemap.xml`, `/llms.txt`.
 - Read the Terms, Privacy and Refund pages once and confirm they match how you will operate (they are drafts, not legal advice).
+
+## Optional later: Cloudflare and Neon
+The repo also has a Cloudflare keep-alive worker and Turnstile support (`infra/cloudflare`), and the database layer works with Neon. They are not needed for Render-only hosting.
