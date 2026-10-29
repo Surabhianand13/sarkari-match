@@ -84,6 +84,14 @@ async function openPglite(location: string): Promise<Db> {
   };
 }
 
+// Supabase's free session pooler allows ~15 clients in total. `next build` renders pages in several workers at once,
+// so each process keeps only a few connections. DB_POOL_MAX overrides this.
+function poolSize() {
+  const configured = Number(process.env.DB_POOL_MAX);
+  if (Number.isInteger(configured) && configured > 0) return configured;
+  return process.env.NEXT_PHASE === "phase-production-build" ? 2 : 5;
+}
+
 async function open(): Promise<Db | null> {
   const url = process.env.DATABASE_URL;
   if (!url) return null;
@@ -91,7 +99,7 @@ async function open(): Promise<Db | null> {
   const pool = new Pool({
     connectionString: url,
     ssl: shouldUseSsl(url) ? { rejectUnauthorized: false } : undefined,
-    max: 10,
+    max: poolSize(),
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
     keepAlive: true
