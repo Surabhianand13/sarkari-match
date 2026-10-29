@@ -30,14 +30,14 @@ export type FactorySummary = {
   errors: string[];
 };
 
-type Candidate = { draft: QuestionDraft; verificationExpression?: string | null; template?: { name: string; seed: number } };
+export type Candidate = { draft: QuestionDraft; verificationExpression?: string | null; template?: { name: string; seed: number } };
 
 // Subjects where a correct-looking answer still needs a person to check the facts.
-const alwaysHumanCheck = ["general awareness", "general knowledge", "current affairs", "computer knowledge", "static gk"];
+export const alwaysHumanCheck = ["general awareness", "general knowledge", "current affairs", "computer knowledge", "static gk"];
 
 const LLM_CHUNK = 5;
 
-function parseJsonObject(raw: string): unknown {
+export function parseJsonObject(raw: string): unknown {
   const cleaned = raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
   try {
     return JSON.parse(cleaned);
@@ -49,7 +49,7 @@ function parseJsonObject(raw: string): unknown {
   }
 }
 
-async function ensureExam(db: Db, name: string) {
+export async function ensureExam(db: Db, name: string) {
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   const found = await db.query<{ id: string }>("select id from exams where slug = $1", [slug]);
   if (found.rows[0]) return found.rows[0].id;
@@ -57,7 +57,7 @@ async function ensureExam(db: Db, name: string) {
   return created.rows[0].id;
 }
 
-function* templateCandidates(input: FactoryInput): Generator<Candidate> {
+export function* templateCandidates(input: FactoryInput): Generator<Candidate> {
   const templates = templatesForTopic(input.topic);
   if (!templates.length) return;
   const difficulties: Difficulty[] = input.difficulty === "mixed" ? ["easy", "moderate", "hard"] : [input.difficulty];

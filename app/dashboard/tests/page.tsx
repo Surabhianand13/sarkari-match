@@ -4,15 +4,16 @@ import { EmptyState, SectionHeading } from "@/components/design-system";
 import { requireUser } from "@/lib/auth/guards";
 import { listAccessibleSeries, listAttempts } from "@/lib/tests/attempts";
 import { getNextTests } from "@/lib/tests/next";
+import { getLevels, getSubjects } from "@/lib/practice";
 
 export const metadata = { title: "My tests", robots: { index: false, follow: false } };
 
 export default async function MyTestsPage() {
   const user = await requireUser();
-  const [attempts, series, next] = await Promise.all([listAttempts(user.id), listAccessibleSeries(user.id), getNextTests(user.id)]);
+  const [attempts, series, next, subjects, levels] = await Promise.all([listAttempts(user.id), listAccessibleSeries(user.id), getNextTests(user.id), getSubjects(), getLevels(user.id)]);
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
-      <SectionHeading eyebrow="Test series" title="My tests" body="Your purchased series and every attempt, with scores and solutions." />
+      <SectionHeading eyebrow="My learning" title="Test series and question bank" body="Full-length and subject tests with scores and solutions, plus the question bank for practice by subject and topic." />
       {next.length > 0 && (
         <div className="mb-6 grid gap-3 sm:grid-cols-2">
           {next.map((item) => (
@@ -34,6 +35,25 @@ export default async function MyTestsPage() {
           ))}
         </div>
       )}
+      <section className="mb-8" aria-label="Question bank">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+          <h2 className="text-xl font-black text-primary">Question bank</h2>
+          <Link href="/practice" className="text-sm font-black text-primary underline">Open the question bank</Link>
+        </div>
+        {subjects.length ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {subjects.map((item) => (
+              <Link key={item.subject} href="/practice" className="rounded-2xl bg-white p-4 shadow-soft">
+                <p className="font-black text-primary">{item.subject}</p>
+                <p className="text-xs font-semibold text-muted">{item.questions.toLocaleString("en-IN")} questions · {item.topics.length} topic{item.topics.length === 1 ? "" : "s"} · {levels[item.subject]?.level ?? "beginner"} level</p>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-2xl bg-white p-4 text-sm font-semibold text-muted shadow-soft">Questions are being added. They will appear here by subject and topic.</p>
+        )}
+      </section>
+      <h2 className="mb-3 text-xl font-black text-primary">Your attempts</h2>
       {attempts.length ? (
         <ul className="grid gap-3">
           {attempts.map((attempt) => (

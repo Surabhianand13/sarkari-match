@@ -5,41 +5,36 @@ import { writeAudit } from "@/lib/admin/audit";
 import { integer, text } from "@/lib/admin/forms";
 import { goTo, withMessage } from "@/lib/admin/nav";
 import { requireAdmin } from "@/lib/auth/guards";
-import { createProvider } from "@/lib/question-factory/providers";
-import { runBatch, type FactoryInput } from "@/lib/question-factory/pipeline";
+import { createBatch, type AiMode, type RunInput } from "@/lib/question-factory/engine";
+import { providerStatus } from "@/lib/question-factory/providers";
 
 const BASE = "/admin/factory";
 
-export async function runFactoryBatch(formData: FormData) {
+const MAX_BY_MODE: Record<AiMode, number> = { rules: 2000, queue: 500, api: 1000 };
+
+export async function startFactoryRun(formData: FormData) {
   const admin = await requireAdmin();
-  const strategy = text(formData, "strategy") === "llm" ? "llm" : "template";
-  const count = Math.min(Math.max(integer(formData, "count") ?? 20, 1), strategy === "template" ? 300 : 25);
-  const subject = text(formData, "subject") || "Quantitative Aptitude";
-  const input: FactoryInput = {
+  const mode = (["rules", "queue", "api"].includes(text(formData, "mode")) ? text(formData, "mode") : "queue") as AiMode;
+  const difficulty = (["easy", "moderate", "hard"].includes(text(formData, "difficulty")) ? text(formData, "difficulty") : "mixed") as RunInput["difficulty"];
+  const input: RunInput = {
     exam: text(formData, "exam") || "SSC CGL",
     tier: text(formData, "tier") || "Tier I",
-    subject,
+    subject: text(formData, "subject") || "Quantitative Aptitude",
     topic: text(formData, "topic") || undefined,
-    difficulty: (["easy", "moderate", "hard"].includes(text(formData, "difficulty")) ? text(formData, "difficulty") : "mixed") as FactoryInput["difficulty"],
-    count,
-    strategy,
+    difficulty,
+    count: Math.min(Math.max(integer(formData, "count") ?? 20, 1), MAX_BY_MODE[mode]),
+    mode,
+    provider: mode === "api" ? text(formData, "provider") || providerStatus().find((provider) => provider.ready)?.id : undefined,
     createdBy: admin.id
   };
 
+  let id: string;
   try {
     const db = await adminDb();
-    const generatorId = text(formData, "generator");
-    const solverId = text(formData, "solver");
-    const summary = await runBatch(input, {
-      db,
-      generator: strategy === "llm" && generatorId ? createProvider(generatorId) : undefined,
-      solver: solverId ? createProvider(solverId) : undefined
-    });
-    await writeAudit(db, { actorId: admin.id, action: "factory.batch", entityType: "question_batch", entityId: summary.batchId, after: summary });
-    const parts = [`${summary.stored} questions created`, `${summary.autoPassed} passed checks`, `${summary.needsReview} need review`, `${summary.autoFailed} failed checks`, `${summary.duplicates} duplicates skipped`];
-    goTo(withMessage(BASE, summary.errors.length && !summary.stored ? "error" : "notice", `${parts.join(", ")}.${summary.errors[0] ? ` First problem: ${summary.errors[0]}` : ""}`));
+    id = await createBatch(db, input);
+    await writeAudit(db, { actorId: admin.id, action: "factory.run", entityType: "question_batch", entityId: id, after: input });
   } catch (error) {
-    if (error && typeof error === "object" && "digest" in error) throw error;
     goTo(withMessage(BASE, "error", messageFrom(error)));
   }
+  goTo(`${BASE}/${id!}`);
 }

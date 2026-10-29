@@ -12,7 +12,7 @@ type NavGroup = { title: string; items: Array<[string, string, ElementType]> };
 
 const groups: NavGroup[] = [
   { title: "Main", items: [["Dashboard", "/admin", LayoutDashboard]] },
-  { title: "Test platform", items: [["Exams and offers", "/admin/exams", Layers], ["Test series", "/admin/tests", ClipboardList], ["Test builder", "/admin/tests/builder", Wand2], ["Question review", "/admin/questions", ListChecks], ["Question factory", "/admin/factory", Wand2]] },
+  { title: "Test platform", items: [["Exams and offers", "/admin/exams", Layers], ["Test series", "/admin/tests", ClipboardList], ["Test builder", "/admin/tests/builder", Wand2], ["Question review", "/admin/questions", ListChecks], ["Question factory", "/admin/factory", Wand2], ["Factory sources", "/admin/factory/sources", FileText]] },
   { title: "Notifications", items: [["Organisations", "/admin/organisations", Building2], ["Recruitments", "/admin/recruitments", Briefcase], ["Posts", "/admin/posts", FileText], ["CSV import", "/admin/import", FileSpreadsheet]] },
   { title: "Business", items: [["Paid learners", "/admin/subscriptions", Users], ["Payments", "/admin/payments", CreditCard], ["Reports", "/admin/reports", BarChart3], ["Waitlist", "/admin/waitlist", Users]] },
   { title: "Content", items: [["Homepage banners", "/admin/banners", ImageIcon], ["Blog", "/admin/blog", BookOpen]] },
