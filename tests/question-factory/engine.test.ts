@@ -214,3 +214,76 @@ describe("language rules and chat hand-off", () => {
     expect(() => parseChatAnswers("no list here")).toThrow();
   });
 });
+
+describe("re-checking existing questions", () => {
+  const thin = "The sum is 100 and one quarter of it is 25.";
+  const topic = "Recheck topic";
+
+  async function insertExisting(stem: string, options: Record<"A" | "B" | "C" | "D", string>, correct: string, explanation: string, status: string, source: string, expression: string | null) {
+    const { ensureExam } = await import("@/lib/question-factory/pipeline");
+    const { contentHash } = await import("@/lib/tests/question-schema");
+    const examId = await ensureExam(db, "SSC CGL");
+    const notes = expression ? { verification_expression: expression } : {};
+    const result = await db.query<{ id: string }>(
+      `insert into questions (exam_id, tier, subject, topic, difficulty, stem, options, correct_option, explanation, est_time_seconds, source_type, validation_status, validation_notes, content_hash)
+       values ($1, 'Tier I', 'Quantitative Aptitude', $2, 'moderate', $3, $4, $5, $6, 60, $7, $8, $9, $10) returning id`,
+      [examId, topic, stem, JSON.stringify(options), correct, explanation, source, status, JSON.stringify(notes), contentHash({ question: stem, options })]
+    );
+    return result.rows[0].id;
+  }
+
+  it("rewrites a weak solution without changing the question, and leaves published, human-written and approved questions alone", async () => {
+    const opts = { A: "20", B: "25", C: "30", D: "35" };
+    const weakId = await insertExisting("Recheck alpha: one quarter of the sum of 45 and 55 equals which number?", opts, "B", thin, "needs_review", "original_ai_generated", "(45 + 55) / 4");
+    const goodId = await insertExisting("Recheck beta: half of the sum of 30 and 70 equals which number?", { A: "40", B: "45", C: "50", D: "55" }, "C", worked("C", "50"), "auto_passed", "original_ai_generated", "(30 + 70) / 2");
+    const publishedId = await insertExisting("Recheck gamma: a tenth of the sum of 60 and 40 equals which number?", { A: "5", B: "10", C: "15", D: "20" }, "B", thin, "published", "original_ai_generated", "(60 + 40) / 10");
+    const humanId = await insertExisting("Recheck delta: a fifth of the sum of 60 and 40 equals which number?", { A: "10", B: "15", C: "20", D: "25" }, "C", thin, "needs_review", "human_authored", "(60 + 40) / 5");
+    const approvedId = await insertExisting("Recheck epsilon: a twentieth of the sum of 60 and 40 equals which number?", { A: "2", B: "3", C: "4", D: "5" }, "D", thin, "approved", "original_ai_generated", "(60 + 40) / 20");
+
+    const { recheckQuestions } = await import("@/lib/question-factory/engine");
+    const { id, count } = await recheckQuestions(db, { exam: "SSC CGL", tier: "Tier I", subject: "Quantitative Aptitude", topic, mode: "queue", limit: 100, includeApproved: false });
+    expect(count).toBe(2);
+
+    const keys: Record<string, string> = { [`Recheck alpha: one quarter of the sum of 45 and 55 equals which number?`]: "B", [`Recheck beta: half of the sum of 30 and 70 equals which number?`]: "C" };
+    const done = await drain(id, (task) => {
+      const stem = /Question: (.*)\n/.exec(task.request.prompt)?.[1] ?? "";
+      if (task.stage === "solve") return { answer: keys[stem] ?? "A", reasoning: "worked out", ambiguous: false };
+      if (task.stage === "review") return { ok: true, issues: [], question: stem, steps_ok: true, step_errors: [], in_syllabus: true, level: "as_expected", reason: "Fine." };
+      if (task.stage === "fix") return { explanation: worked("B", "25") };
+      throw new Error(`Unexpected stage ${task.stage}`);
+    });
+    expect(done.status).toBe("completed");
+
+    type Row = { id: string; validation_status: string; stem: string; explanation: string; fix_attempts: number; batch_id: string | null; correct_option: string };
+    const read = async (qid: string) => (await db.query<Row>("select id, validation_status, stem, explanation, fix_attempts, batch_id, correct_option from questions where id = $1", [qid])).rows[0];
+
+    const weak = await read(weakId);
+    expect(weak.validation_status).toBe("auto_passed");
+    expect(weak.fix_attempts).toBe(1);
+    expect(weak.stem).toContain("Recheck alpha");
+    expect(weak.correct_option).toBe("B");
+    expect(weak.explanation).toContain("Answer: (B) 25");
+
+    const good = await read(goodId);
+    expect(good.validation_status).toBe("auto_passed");
+    expect(good.fix_attempts).toBe(0);
+    expect(good.explanation).toBe(worked("C", "50"));
+
+    for (const untouched of [publishedId, humanId, approvedId]) {
+      const row = await read(untouched);
+      expect(row.batch_id).toBeNull();
+      expect(row.explanation).toBe(thin);
+    }
+    expect((await read(publishedId)).validation_status).toBe("published");
+    expect((await read(humanId)).validation_status).toBe("needs_review");
+    expect((await read(approvedId)).validation_status).toBe("approved");
+
+    const events = await db.query<{ message: string }>("select message from factory_events where batch_id = $1 and stage = 'fix'", [id]);
+    expect(events.rows.some((event) => /Rewrote the explanation/.test(event.message))).toBe(true);
+  });
+
+  it("refuses when nothing matches", async () => {
+    const { recheckQuestions } = await import("@/lib/question-factory/engine");
+    await expect(recheckQuestions(db, { exam: "SSC CGL", tier: "Tier I", subject: "Quantitative Aptitude", topic: "No such topic", mode: "queue", limit: 10, includeApproved: false })).rejects.toThrow(/No questions match/);
+  });
+});

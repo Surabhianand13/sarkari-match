@@ -68,13 +68,15 @@ export function reviewPrompt(input: { exam: string; tier: string; subject: strin
   };
 }
 
-export function fixPrompt(input: { exam: string; tier: string; question: string; options: Record<string, string>; correct_answer: string; explanation: string; subject: string; topic: string; difficulty: string; reasons: string[] }) {
+export function fixPrompt(input: { exam: string; tier: string; question: string; options: Record<string, string>; correct_answer: string; explanation: string; subject: string; topic: string; difficulty: string; reasons: string[]; explanationOnly?: boolean }) {
   const numeric = /quant/i.test(input.subject);
   return {
     system: "You are a senior question setter repairing a faulty exam question. Keep the same topic and difficulty. Respond with JSON only.",
     prompt: [
       `The question below failed checks: ${input.reasons.join("; ")}.`,
-      "Repair it so exactly one option is correct and the wording is clear. If it cannot be saved, replace it with a fresh original question on the same topic.",
+      input.explanationOnly
+        ? `Only the explanation needs work. Keep the question, the four options and the marked correct answer (${input.correct_answer}) exactly as they are, and rewrite only the explanation so every step is correct and it ends at the marked answer.`
+        : "Repair it so exactly one option is correct and the wording is clear. If it cannot be saved, replace it with a fresh original question on the same topic.",
       `Question: ${input.question}\nA) ${input.options.A}\nB) ${input.options.B}\nC) ${input.options.C}\nD) ${input.options.D}\nMarked correct: ${input.correct_answer}\nExplanation: ${input.explanation}`,
       EXPLANATION_FORMAT,
       numeric ? 'Include "verification_expression": a plain arithmetic expression whose value equals the number in the correct option.' : "",

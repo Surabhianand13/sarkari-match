@@ -3,6 +3,7 @@ import { AdminHeader, Card, Field, Flash, StatusPill, inputClass } from "@/compo
 import { QuestionForm } from "@/components/admin/question-form";
 import { setQuestionStatus } from "@/app/admin/questions/actions";
 import { adminDb } from "@/lib/admin/db";
+import { summariseChecks } from "@/lib/question-factory/checks-summary";
 import { canTransition, type ValidationStatus } from "@/lib/tests/question-schema";
 
 export const metadata = { title: "Question" };
@@ -80,7 +81,17 @@ export default async function QuestionPage({ params, searchParams }: { params: P
       </Card>
       {Object.keys(notes).length > 0 && (
         <Card title="Automatic checks">
-          <pre className="overflow-x-auto whitespace-pre-wrap rounded-xl bg-surface p-3 text-xs text-muted">{JSON.stringify(notes, null, 2)}</pre>
+          <ul className="grid gap-2">
+            {summariseChecks(notes).map((line, index) => (
+              <li key={index} className="flex gap-3 rounded-xl bg-surface p-3 text-sm">
+                <span className={`mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-black text-white ${line.state === "pass" ? "bg-success" : line.state === "fail" ? "bg-error" : line.state === "flag" ? "bg-warning" : "bg-muted"}`} aria-hidden="true">{line.state === "pass" ? "✓" : line.state === "fail" ? "✕" : line.state === "flag" ? "!" : "–"}</span>
+                <span><span className="font-black text-primary">{line.label}</span>{line.detail ? <span className="block text-xs font-semibold text-muted">{line.detail}</span> : null}</span>
+              </li>
+            ))}
+          </ul>
+          <details className="mt-3"><summary className="cursor-pointer text-xs font-black text-muted">Raw check data</summary>
+            <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-xl bg-surface p-3 text-xs text-muted">{JSON.stringify(notes, null, 2)}</pre>
+          </details>
         </Card>
       )}
       <Card title="Edit">

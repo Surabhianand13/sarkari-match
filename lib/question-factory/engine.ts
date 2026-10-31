@@ -6,7 +6,7 @@ import { alwaysHumanCheck, ensureExam, parseJsonObject, templateCandidates, type
 import { PROMPT_VERSION, fixPrompt, generationPrompt, reviewPrompt, solverPrompt } from "./prompts";
 import type { LlmProvider } from "./providers/types";
 import type { Difficulty } from "./templates";
-import { isNumericSubject, runCodeValidation, type ValidationCheck } from "./validator";
+import { isExplanationReason, isNumericSubject, runCodeValidation, type ValidationCheck } from "./validator";
 import { contentHash, optionKeys, questionDraftSchema, type OptionKey, type QuestionDraft, type ValidationStatus } from "@/lib/tests/question-schema";
 
 // The factory as a set of stage workers. A question is written, then solved independently, proofread, checked against the
@@ -69,7 +69,7 @@ export type RunInput = {
   createdBy?: string | null;
 };
 
-type BatchConfig = { mode: AiMode; strategy: "template" | "llm"; examName: string; tier: string; provider?: string };
+type BatchConfig = { mode: AiMode; strategy: "template" | "llm"; examName: string; tier: string; provider?: string; recheck?: boolean };
 
 export type Batch = {
   id: string;
@@ -97,6 +97,7 @@ type Notes = {
   flags?: string[];
   reasons?: string[];
   fix_history?: string[];
+  recheck?: { previous_status: string; previous_batch: string | null };
   error?: string;
 };
 
@@ -346,21 +347,27 @@ async function dedupeStage(env: Env, row: Row) {
 async function fixStage(env: Env, row: Row) {
   const notes = row.validation_notes;
   const reasons = notes.reasons?.length ? notes.reasons : ["Failed a check."];
+  // When only the written solution failed, the question, options and key stay exactly as they are.
+  const explanationOnly = reasons.every(isExplanationReason);
   const raw = await env.ai.complete(
     ctx(env, row, "fix"),
-    fixPrompt({ exam: env.batch.config.examName, tier: row.tier ?? env.batch.config.tier, question: row.stem, options: row.options, correct_answer: row.correct_option, explanation: row.explanation, subject: row.subject, topic: row.topic, difficulty: row.difficulty, reasons })
+    fixPrompt({ exam: env.batch.config.examName, tier: row.tier ?? env.batch.config.tier, question: row.stem, options: row.options, correct_answer: row.correct_option, explanation: row.explanation, subject: row.subject, topic: row.topic, difficulty: row.difficulty, reasons, explanationOnly })
   );
   const reply = parseJsonObject(raw) as Record<string, unknown>;
-  const parsed = questionDraftSchema.safeParse({ ...reply, exam: env.batch.config.examName, tier: row.tier ?? env.batch.config.tier, subject: row.subject, topic: row.topic, difficulty: row.difficulty, source_type: "original_ai_generated" });
+  const parsed = questionDraftSchema.safeParse(
+    explanationOnly
+      ? { ...rowDraft(env, row), explanation: reply.explanation }
+      : { ...reply, exam: env.batch.config.examName, tier: row.tier ?? env.batch.config.tier, subject: row.subject, topic: row.topic, difficulty: row.difficulty, source_type: "original_ai_generated" }
+  );
   if (!parsed.success) {
     await finish(env, row, "needs_review", { ...notes, flags: [...(notes.flags ?? []), "Fixer returned an unusable question."] });
     return logEvent(env.db, env.batch.id, row.id, "fix", "review", "The fixer could not repair this one. A person will look at it.");
   }
-  const expression = typeof reply.verification_expression === "string" ? reply.verification_expression : null;
-  const next: Notes = { verification_expression: expression, fix_history: [...(notes.fix_history ?? []), reasons[0]], flags: notes.flags };
+  const expression = explanationOnly ? notes.verification_expression ?? null : typeof reply.verification_expression === "string" ? reply.verification_expression : null;
+  const next: Notes = { verification_expression: expression, ...(notes.template ? { template: notes.template } : {}), ...(notes.recheck ? { recheck: notes.recheck } : {}), fix_history: [...(notes.fix_history ?? []), reasons[0]], flags: notes.flags };
   const result = await save(env, row, { stage: "solve", notes: next, draft: parsed.data, fixAttempts: row.fix_attempts + 1 });
   if (result === "duplicate") return logEvent(env.db, env.batch.id, row.id, "fix", "rejected", "The repaired question matched an existing one.");
-  await logEvent(env.db, env.batch.id, row.id, "fix", "fixed", `Rewrote the question. Reason: ${reasons[0]}`);
+  await logEvent(env.db, env.batch.id, row.id, "fix", "fixed", `${explanationOnly ? "Rewrote the explanation" : "Rewrote the question"}. Reason: ${reasons[0]}`);
 }
 
 async function processRow(env: Env, row: Row): Promise<"advanced" | "waiting"> {
@@ -594,6 +601,57 @@ export async function createBatch(db: Db, input: RunInput): Promise<string> {
   );
   await logEvent(db, created.rows[0].id, null, "write", "info", `Run started: ${input.count} questions for ${input.subject}${input.topic ? `, ${input.topic}` : ""}.`);
   return created.rows[0].id;
+}
+
+export type RecheckInput = {
+  exam: string;
+  tier: string;
+  subject: string;
+  topic?: string;
+  mode: Exclude<AiMode, "rules">;
+  provider?: string;
+  limit: number;
+  includeApproved: boolean;
+  createdBy?: string | null;
+};
+
+// Sends questions that already exist back through the factory's checks (arithmetic, solution check, solver, proofreading,
+// syllabus, repeats) in a new run. Published questions and questions in a published test are never touched, and neither are
+// human-written ones. A question that fails is repaired by the fixer, and an explanation-only failure keeps the question as is.
+export async function recheckQuestions(db: Db, input: RecheckInput): Promise<{ id: string; count: number }> {
+  if (input.mode === "api" && !input.provider) throw new Error("Choose which AI provider checks the questions.");
+  const statuses = input.includeApproved ? ["auto_passed", "needs_review", "approved"] : ["auto_passed", "needs_review"];
+  const picked = await db.query<{ id: string; subject: string }>(
+    `select q.id, q.subject from questions q join exams e on e.id = q.exam_id
+      where e.slug = $1 and lower(q.subject) = lower($2) and ($3 = '' or q.topic ilike $3 || '%')
+        and q.validation_status = any($4) and q.source_type in ('original_ai_generated', 'imported')
+        and (q.pipeline_stage is null or q.pipeline_stage = 'done')
+        and not exists (select 1 from test_questions tq join tests t on t.id = tq.test_id where tq.question_id = q.id and t.status = 'published')
+      order by q.created_at limit $5`,
+    [examSlug(input.exam), input.subject, (input.topic ?? "").trim(), statuses, input.limit]
+  );
+  if (!picked.rows.length) throw new Error("No questions match. Only AI-written questions in review (or approved ones, if you ticked that box) that are not in a published test can be re-checked.");
+
+  const config: BatchConfig = { mode: input.mode, strategy: "llm", examName: input.exam, tier: input.tier, provider: input.provider, recheck: true };
+  const created = await db.query<{ id: string }>(
+    `insert into question_batches (created_by, exam_slug, subject, topic, difficulty, requested_count, config, status)
+     values ($1, $2, $3, $4, 'mixed', $5, $6, 'running') returning id`,
+    [input.createdBy ?? null, examSlug(input.exam), picked.rows[0].subject, input.topic?.trim() || null, picked.rows.length, JSON.stringify(config)]
+  );
+  const id = created.rows[0].id;
+  // Keep the arithmetic expression (and template) so Quantitative questions can still be proved; everything else is re-earned.
+  await db.query(
+    `update questions set batch_id = $1, pipeline_stage = 'solve', validation_status = 'pending', fix_attempts = 0, claimed_at = null, waiting_ai = false,
+       validation_notes = jsonb_strip_nulls(jsonb_build_object(
+         'verification_expression', validation_notes->'verification_expression',
+         'template', validation_notes->'template',
+         'recheck', jsonb_build_object('previous_status', validation_status, 'previous_batch', batch_id))),
+       updated_at = now()
+     where id = any($2::uuid[])`,
+    [id, picked.rows.map((row) => row.id)]
+  );
+  await logEvent(db, id, null, "write", "info", `Re-check started: ${picked.rows.length} existing question${picked.rows.length === 1 ? "" : "s"} sent back through the checks.`);
+  return { id, count: picked.rows.length };
 }
 
 export async function cancelBatch(db: Db, batchId: string) {

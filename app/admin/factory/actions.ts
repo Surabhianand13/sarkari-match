@@ -5,7 +5,7 @@ import { writeAudit } from "@/lib/admin/audit";
 import { integer, text } from "@/lib/admin/forms";
 import { goTo, withMessage } from "@/lib/admin/nav";
 import { requireAdmin } from "@/lib/auth/guards";
-import { createBatch, type AiMode, type RunInput } from "@/lib/question-factory/engine";
+import { createBatch, recheckQuestions, type AiMode, type RunInput } from "@/lib/question-factory/engine";
 import { providerStatus } from "@/lib/question-factory/providers";
 import { MAX_TOPICS_PER_START, parseTopics } from "@/lib/question-factory/topics";
 
@@ -45,4 +45,33 @@ export async function startFactoryRun(formData: FormData) {
   }
   if (ids.length === 1) goTo(`${BASE}/${ids[0]}`);
   goTo(withMessage(BASE, "notice", `Started ${ids.length} runs, one per topic, ${base.count} questions each. Open each run to continue it.`));
+}
+
+// Sends existing review-queue questions back through the checks in a new run.
+export async function startRecheck(formData: FormData) {
+  const admin = await requireAdmin();
+  const mode = text(formData, "mode") === "api" ? "api" : "queue";
+  const provider = mode === "api" ? text(formData, "provider") || providerStatus().find((item) => item.ready)?.id : undefined;
+  const limit = Math.min(Math.max(integer(formData, "count") ?? 100, 1), MAX_BY_MODE[mode]);
+
+  let id: string;
+  try {
+    const db = await adminDb();
+    const result = await recheckQuestions(db, {
+      exam: text(formData, "exam") || "SSC CGL",
+      tier: text(formData, "tier") || "Tier I",
+      subject: text(formData, "subject") || "Quantitative Aptitude",
+      topic: text(formData, "topic").replace(/[%_\\]/g, "") || undefined,
+      mode,
+      provider,
+      limit,
+      includeApproved: formData.get("include_approved") === "on",
+      createdBy: admin.id
+    });
+    id = result.id;
+    await writeAudit(db, { actorId: admin.id, action: "factory.recheck", entityType: "question_batch", entityId: id, after: { questions: result.count, mode } });
+  } catch (error) {
+    goTo(withMessage(BASE, "error", messageFrom(error)));
+  }
+  goTo(`${BASE}/${id!}`);
 }

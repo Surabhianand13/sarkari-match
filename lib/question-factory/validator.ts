@@ -40,6 +40,12 @@ export function explanationProblem(explanation: string, key?: { correct: string;
   return null;
 }
 
+// True for a failure reason that is only about the written solution, so the fixer may rewrite the explanation and leave
+// the question, options and key exactly as they are.
+export function isExplanationReason(reason: string): boolean {
+  return /^(The explanation (is|has)|The Answer line|The "Why not the others"|The reviewer found an error in the explanation)/.test(reason.trim());
+}
+
 export function runCodeValidation(draft: QuestionDraft, verificationExpression?: string | null): { checks: ValidationCheck[]; conclusive: boolean } {
   const checks: ValidationCheck[] = [];
   const answerText = draft.options[draft.correct_answer];
