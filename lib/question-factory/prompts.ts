@@ -1,4 +1,15 @@
-export const PROMPT_VERSION = "qf-v2";
+export const PROMPT_VERSION = "qf-v3";
+
+// Every explanation uses this layout, one labelled line per part, so the learner sees a worked solution instead of a sentence.
+export const EXPLANATION_FORMAT = [
+  'The "explanation" is a worked solution for a learner who got it wrong. Write each part on its own line (separate lines with \\n inside the JSON string) using these labels:',
+  "Key idea: the rule, formula or fact the question tests, in one line.",
+  "Step 1: / Step 2: / Step 3: ... each step on its own line with the actual numbers or reasoning (at least two steps for calculations; for facts, give the context that proves the answer).",
+  "Answer: the correct option letter and its value, for example (B) 15%.",
+  "Why not the others: one short line per wrong option saying what mistake leads to it, for example (A) 12% uses the selling price as the base.",
+  "Shortcut: a faster method, only when a real one exists.",
+  "Keep it plain and exact. No filler, no repeating the question, no markdown symbols."
+].join("\n");
 
 export type PromptContext = { syllabus?: string; currentAffairs?: string; pyqSamples?: string[] };
 
@@ -23,7 +34,7 @@ export function generationPrompt(input: { exam: string; tier: string; subject: s
       "Rules:",
       "- Four options A, B, C, D. Exactly one correct. Distractors must be plausible results of common mistakes.",
       "- The correct option must not be guessable from option length or position. Vary the correct letter.",
-      "- The explanation shows the solution step by step.",
+      EXPLANATION_FORMAT,
       "- Stay inside the standard syllabus for this topic. No trick questions, no ambiguity.",
       contextBlock(input.context),
       numeric ? '- For every question add "verification_expression": a plain arithmetic expression (numbers, + - * / ^ and brackets only) whose value equals the number in the correct option, ignoring units and the words increase or decrease.' : "",
@@ -49,8 +60,10 @@ export function reviewPrompt(input: { exam: string; tier: string; subject: strin
       `Exam: ${input.exam} ${input.tier}. Subject: ${input.subject}. Topic: ${input.topic}. Intended difficulty: ${input.difficulty}.`,
       input.syllabus ? `Official syllabus:\n${input.syllabus.slice(0, 3500)}` : "No syllabus text is on file; judge by the standard syllabus for this exam.",
       `Question: ${input.question}\nA) ${input.options.A}\nB) ${input.options.B}\nC) ${input.options.C}\nD) ${input.options.D}\nExplanation: ${input.explanation}`,
-      'Return {"ok":true|false,"issues":["short description"],"question":"corrected question text","explanation":"corrected explanation text","in_syllabus":true|false,"level":"easier"|"as_expected"|"harder","reason":"one short sentence"}.',
-      'ok is false only if the wording is confusing in a way you cannot fix without changing the question. in_syllabus is false if the topic is outside the syllabus. level is "harder" only if clearly beyond the intended difficulty for this exam stage.'
+      'Return {"ok":true|false,"issues":["short description"],"question":"corrected question text","explanation":"corrected explanation text","steps_ok":true|false,"step_errors":["Step 2: what is wrong"],"in_syllabus":true|false,"level":"easier"|"as_expected"|"harder","reason":"one short sentence"}.',
+      'Check the explanation line by line as a careful teacher: redo every calculation and every fact in it. steps_ok is false if ANY step has a wrong number, a wrong rule, a wrong fact, a skipped jump that hides an error, or if the working does not end at the marked answer. List each problem in step_errors. Do not fix a wrong step silently: report it.',
+      'ok is false only if the wording is confusing in a way you cannot fix without changing the question. in_syllabus is false if the topic is outside the syllabus. level is "harder" only if clearly beyond the intended difficulty for this exam stage.',
+      'Keep the explanation as separate labelled lines (Key idea, Step 1, Step 2, Answer, Why not the others, Shortcut), separated by \\n. Fix wording or a wrong step, but never merge the lines into one paragraph and never shorten it to a single sentence. If a required line is missing, add it.'
     ].join("\n\n")
   };
 }
@@ -63,6 +76,7 @@ export function fixPrompt(input: { exam: string; tier: string; question: string;
       `The question below failed checks: ${input.reasons.join("; ")}.`,
       "Repair it so exactly one option is correct and the wording is clear. If it cannot be saved, replace it with a fresh original question on the same topic.",
       `Question: ${input.question}\nA) ${input.options.A}\nB) ${input.options.B}\nC) ${input.options.C}\nD) ${input.options.D}\nMarked correct: ${input.correct_answer}\nExplanation: ${input.explanation}`,
+      EXPLANATION_FORMAT,
       numeric ? 'Include "verification_expression": a plain arithmetic expression whose value equals the number in the correct option.' : "",
       `Return {"question":"","options":{"A":"","B":"","C":"","D":""},"correct_answer":"A|B|C|D","explanation":"","estimated_time_seconds":60,"verification_expression":""} for ${input.exam} ${input.tier}, subject ${input.subject}, topic ${input.topic}, ${input.difficulty}.`
     ].filter(Boolean).join("\n\n")

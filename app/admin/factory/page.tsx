@@ -45,7 +45,7 @@ export default async function FactoryPage({ searchParams }: { searchParams: Prom
             <input name="subject" list="factory-subjects" defaultValue="Quantitative Aptitude" className={inputClass} />
             <datalist id="factory-subjects">{subjects.map((subject) => <option key={subject} value={subject} />)}</datalist>
           </Field>
-          <Field label="Topic" hint={`Leave empty to cover the whole subject. No-AI templates cover: ${templateTopics.join(", ")}.`}><input name="topic" className={inputClass} /></Field>
+          <Field label="Topics" hint={`One topic per line (up to 20); each gets its own run. Leave empty to cover the whole subject. No-AI templates cover: ${templateTopics.join(", ")}.`}><textarea name="topic" rows={3} placeholder={"Percentage\nProfit and Loss\nSimple Interest"} className={inputClass} /></Field>
           <Field label="Difficulty">
             <select name="difficulty" defaultValue="mixed" className={inputClass}>
               <option value="mixed">Mixed</option>
@@ -54,7 +54,7 @@ export default async function FactoryPage({ searchParams }: { searchParams: Prom
               <option value="hard">Hard</option>
             </select>
           </Field>
-          <Field label="How many" hint="Up to 500 in the chat queue, 1,000 with an API, 2,000 without AI."><input name="count" type="number" min="1" max="2000" defaultValue={20} className={inputClass} /></Field>
+          <Field label="How many (per topic)" hint="Up to 500 in the chat queue, 1,000 with an API, 2,000 without AI."><input name="count" type="number" min="1" max="2000" defaultValue={20} className={inputClass} /></Field>
           <div className="flex items-end"><SubmitButton>Start run</SubmitButton></div>
         </form>
         <p className="mt-4 rounded-xl bg-surface px-4 py-3 text-sm font-semibold text-muted">

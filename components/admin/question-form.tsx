@@ -41,7 +41,7 @@ export function QuestionForm({ values = {}, lockExam = false }: { values?: Quest
           {["A", "B", "C", "D"].map((key) => <option key={key} value={key}>{key}</option>)}
         </select>
       </Field>
-      <div className="md:col-span-2"><Field label="Explanation / solution"><textarea name="explanation" required rows={4} defaultValue={values.explanation} className={inputClass} /></Field></div>
+      <div className="md:col-span-2"><Field label="Explanation / solution"><textarea name="explanation" required rows={9} defaultValue={values.explanation} className={inputClass} /></Field></div>
       <div className="md:col-span-2"><SubmitButton>Save question</SubmitButton></div>
     </form>
   );

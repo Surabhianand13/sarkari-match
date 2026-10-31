@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { LevelStepper } from "@/components/practice/level-stepper";
+import { SolutionText } from "@/components/solution-text";
 import type { Level, PracticeSession } from "@/lib/practice-shared";
 
 type Feedback = { correct: boolean; correctOption: string; explanation: string };
@@ -98,7 +99,7 @@ export function PracticeRunner({ session }: { session: PracticeSession }) {
         {current && (
           <div className="mt-5 rounded-2xl bg-surface p-4">
             <p className={`font-black ${current.correct ? "text-success" : "text-error"}`}>{current.correct ? "Correct" : `Not quite. The answer is ${current.correctOption}.`}</p>
-            <p className="mt-2 whitespace-pre-line text-sm leading-6 text-muted">{current.explanation}</p>
+            <div className="mt-2 text-sm leading-6 text-muted"><SolutionText text={current.explanation} /></div>
           </div>
         )}
       </div>

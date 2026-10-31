@@ -18,8 +18,11 @@ beforeAll(async () => {
 
 type Q = { question: string; options: Record<"A" | "B" | "C" | "D", string>; correct_answer: "A" | "B" | "C" | "D"; verification_expression?: string };
 
+// A worked solution that ends at the keyed option, which the explanation check requires.
+const worked = (letter: string, value: string) => `Key idea: work the steps out.\nStep 1: Read the values from the question.\nStep 2: Apply the rule to reach the keyed option.\nAnswer: (${letter}) ${value}\nWhy not the others: they come from common slips.`;
+
 const full = (q: Q, subject: string, topic: string) => ({
-  exam: "SSC CGL", tier: "Tier I", subject, topic, difficulty: "moderate", explanation: "Work this out step by step to reach the keyed option.", estimated_time_seconds: 60, ...q
+  exam: "SSC CGL", tier: "Tier I", subject, topic, difficulty: "moderate", explanation: worked(q.correct_answer, q.options[q.correct_answer]), estimated_time_seconds: 60, ...q
 });
 
 const quant: Q[] = [
@@ -47,9 +50,9 @@ function answerer(questions: Q[], subject: string, topic: string, overrides: Par
     }
     if (task.stage === "review") {
       const stem = /Question: (.*)\n/.exec(task.request.prompt)?.[1] ?? "";
-      return { ok: true, issues: [], question: stem, explanation: "Work this out step by step to reach the keyed option.", in_syllabus: true, level: "as_expected", reason: "Standard topic." };
+      return { ok: true, issues: [], question: stem, in_syllabus: true, level: "as_expected", reason: "Standard topic." };
     }
-    if (task.stage === "fix") return { ...repaired, explanation: "Fifteen percent of 400 is 60, so option C is correct." };
+    if (task.stage === "fix") return { ...repaired, explanation: "Key idea: find a percent of a number.\nStep 1: 15% of 400 = 15 x 400 / 100.\nStep 2: That is 60.\nAnswer: (C) 60\nWhy not the others: the other options come from mis-placing the decimal." };
     throw new Error(`Unexpected stage ${task.stage}`);
   };
 }
@@ -116,6 +119,29 @@ describe("runs on the chat work queue", () => {
     expect(events.rows.some((event) => event.stage === "fix" && event.outcome === "fixed")).toBe(true);
   });
 
+  it("sends a question to the fixer when the reviewer finds a wrong step in the explanation", async () => {
+    const { createBatch } = await import("@/lib/question-factory/engine");
+    const id = await createBatch(db, { exam: "SSC CGL", tier: "Tier I", subject: "Quantitative Aptitude", topic: "Sums", difficulty: "moderate", count: 1, mode: "queue" });
+    const one: Q = { question: "The sum of 45 and 55 is divided by 4. What is the result exactly?", options: { A: "20", B: "25", C: "30", D: "35" }, correct_answer: "B", verification_expression: "(45 + 55) / 4" };
+    let reviewed = 0;
+    const respond = answerer([one], "Quantitative Aptitude", "Sums", {
+      review: (task) => {
+        const stem = /Question: (.*)\n/.exec(task.request.prompt)?.[1] ?? "";
+        reviewed++;
+        // The first review finds a wrong step; the repaired version then passes.
+        return reviewed === 1 ? { ok: true, issues: [], question: stem, steps_ok: false, step_errors: ["Step 2: 100 / 4 is 25, not 20."] } : { ok: true, issues: [], question: stem, steps_ok: true, step_errors: [], in_syllabus: true, level: "as_expected", reason: "Fine." };
+      },
+      fix: () => ({ ...one, explanation: worked("B", "25") })
+    });
+    const done = await drain(id, respond);
+    expect(done.status).toBe("completed");
+    const row = (await db.query<{ validation_status: string; fix_attempts: number }>("select validation_status, fix_attempts from questions where batch_id = $1", [id])).rows[0];
+    expect(row.fix_attempts).toBe(1);
+    expect(row.validation_status).toBe("auto_passed");
+    const events = await db.query<{ message: string }>("select message from factory_events where batch_id = $1 and stage = 'review'", [id]);
+    expect(events.rows.some((event) => /error in the explanation/i.test(event.message))).toBe(true);
+  });
+
   it("sends a question to a person when the independent solver keeps disagreeing", async () => {
     const stubborn: Q = { question: "A tank fills in 6 hours and empties in 12 hours. How long does it take to fill when both pipes run?", options: { A: "10", B: "12", C: "14", D: "16" }, correct_answer: "B", verification_expression: "(6 * 12) / (12 - 6)" };
     const { createBatch } = await import("@/lib/question-factory/engine");
@@ -123,7 +149,7 @@ describe("runs on the chat work queue", () => {
     let n = 0;
     const respond = answerer([stubborn], "Quantitative Aptitude", "Pipes", {
       solve: () => ({ answer: "A", reasoning: "disagrees", ambiguous: false }),
-      fix: () => ({ ...stubborn, explanation: "Both pipes together fill the tank in twelve hours.", question: `${stubborn.question} Round ${++n}.` })
+      fix: () => ({ ...stubborn, explanation: "Key idea: add the rates of both pipes.\nStep 1: Pipe A fills 1/20 and pipe B fills 1/30 in an hour.\nStep 2: Together they fill 1/12 per hour, so twelve hours.\nAnswer: (B) 12 hours\nWhy not the others: they average or subtract the times.", question: `${stubborn.question} Round ${++n}.` })
     });
     const done = await drain(id, respond);
     expect(done.status).toBe("completed");

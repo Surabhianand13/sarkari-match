@@ -260,7 +260,12 @@ async function languageStage(env: Env, row: Row) {
         ctx(env, row, "review"),
         reviewPrompt({ exam: env.batch.config.examName, tier: row.tier ?? env.batch.config.tier, subject: row.subject, topic: row.topic, difficulty: row.difficulty, question, options, explanation: steps, syllabus: knowledge.syllabus })
       )
-    ) as { ok?: unknown; issues?: unknown; question?: unknown; explanation?: unknown; in_syllabus?: unknown; level?: unknown; reason?: unknown };
+    ) as { ok?: unknown; issues?: unknown; question?: unknown; explanation?: unknown; steps_ok?: unknown; step_errors?: unknown; in_syllabus?: unknown; level?: unknown; reason?: unknown };
+    // A reviewer who found a wrong step sends the question to the fixer; wording edits alone are never trusted to repair it.
+    if (reply.steps_ok === false) {
+      const errors = Array.isArray(reply.step_errors) ? reply.step_errors.map(String).filter(Boolean) : [];
+      return failOrFix(env, row, "review", [`The reviewer found an error in the explanation: ${errors.length ? errors.join("; ") : "a step is wrong."}`], { ...row.validation_notes, flags: [...(row.validation_notes.flags ?? [])] });
+    }
     // Only small edits are accepted: this stage may fix wording, never change what is asked.
     if (typeof reply.question === "string" && reply.question.trim() !== question && wordOverlap(reply.question, question) >= 0.7) {
       question = reply.question.trim();

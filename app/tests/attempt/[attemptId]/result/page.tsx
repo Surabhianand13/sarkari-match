@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { notFound } from "next/navigation";
 import { CheckCircle2, CircleSlash, XCircle } from "lucide-react";
 import { ButtonLink } from "@/components/design-system";
+import { SolutionText } from "@/components/solution-text";
 import { StartTestButton } from "@/components/tests/start-test-button";
 import { requireUser } from "@/lib/auth/guards";
 import { getResultData } from "@/lib/tests/attempts";
@@ -80,7 +81,7 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
                     );
                   })}
                 </ul>
-                <p className="mt-3 rounded-xl bg-surface p-3 text-sm leading-6 text-muted"><span className="font-black text-primary">Solution: </span>{solution.explanation}</p>
+                <div className="mt-3 rounded-xl bg-surface p-3 text-sm leading-6 text-muted"><p className="mb-1.5 text-xs font-black uppercase tracking-wide text-success">Solution</p><SolutionText text={solution.explanation} /></div>
               </li>
             ))}
           </ol>

@@ -13,8 +13,16 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
   const db = await adminDb();
   const statusFilter = status === "review" ? ["auto_passed", "needs_review"] : validationStatuses.includes(status as never) ? [status] : validationStatuses.slice();
-  const [counts, rows] = await Promise.all([
+  const [counts, bank, rows] = await Promise.all([
     db.query<{ validation_status: string; n: string }>("select validation_status, count(*) as n from questions group by 1"),
+    db.query<{ subject: string; topic: string; published: string; approved: string; review: string }>(
+      `select subject, topic,
+              count(*) filter (where validation_status = 'published') as published,
+              count(*) filter (where validation_status = 'approved') as approved,
+              count(*) filter (where validation_status in ('auto_passed', 'needs_review')) as review
+         from questions where validation_status in ('published', 'approved', 'auto_passed', 'needs_review')
+        group by subject, topic order by subject, topic`
+    ),
     db.query<{ id: string; stem: string; subject: string; topic: string; difficulty: string; validation_status: string; generator_model: string | null }>(
       `select id, stem, subject, topic, difficulty, validation_status, generator_model from questions
        where validation_status = any($1) and ($2 = '' or subject ilike $2 || '%') and ($3 = '' or topic ilike $3 || '%')
@@ -38,6 +46,23 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
           <Link key={key} href={`/admin/questions?status=${key}` as Route} className={`rounded-full px-3 py-1.5 text-xs font-black ${status === key ? "bg-primary text-white" : "bg-white text-primary shadow-soft"}`}>{label}</Link>
         ))}
       </div>
+      <details className="rounded-2xl bg-white p-4 shadow-soft">
+        <summary className="cursor-pointer text-sm font-black text-primary">Bank by topic ({bank.rows.length} topics)</summary>
+        <p className="mt-2 text-xs font-semibold text-muted">Published questions are what the Test builder can use. Approved ones still need Publish. Click a topic to see its questions.</p>
+        <div className="mt-3">
+          <DataTable headers={["Subject", "Topic", "Published", "Approved", "Needs review"]} empty="No questions yet.">
+            {bank.rows.map((row) => (
+              <tr key={`${row.subject}/${row.topic}`}>
+                <Td>{row.subject}</Td>
+                <Td><Link className="font-black text-primary underline" href={`/admin/questions?status=all&subject=${encodeURIComponent(row.subject)}&topic=${encodeURIComponent(row.topic)}` as Route}>{row.topic}</Link></Td>
+                <Td className="font-black text-success">{row.published}</Td>
+                <Td>{row.approved}</Td>
+                <Td>{row.review}</Td>
+              </tr>
+            ))}
+          </DataTable>
+        </div>
+      </details>
       <form method="get" className="flex flex-wrap gap-3">
         <input type="hidden" name="status" value={status} />
         <input name="subject" defaultValue={subject} placeholder="Subject (starts with)" className={`${inputClass} max-w-48`} />

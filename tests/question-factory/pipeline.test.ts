@@ -14,9 +14,12 @@ beforeAll(async () => {
   for (const file of readdirSync(join(process.cwd(), "db/migrations")).sort()) await db.exec(readFileSync(join(process.cwd(), "db/migrations", file), "utf8"));
 });
 
+// A worked solution that ends at the keyed option, which the explanation check requires.
+const worked = (letter: string, value: string) => `Key idea: work the steps out.\nStep 1: Read the values from the question.\nStep 2: Apply the rule to reach the keyed option.\nAnswer: (${letter}) ${value}\nWhy not the others: they come from common slips.`;
+
 const llmQuestion = (stem: string, correct: "A" | "B" | "C" | "D", expression: string) => ({
   exam: "SSC CGL", tier: "Tier I", subject: "Quantitative Aptitude", topic: "Percentage", difficulty: "moderate", question: stem,
-  options: { A: "10", B: "20", C: "30", D: "40" }, correct_answer: correct, explanation: "Work shown step by step here.", estimated_time_seconds: 60, verification_expression: expression
+  options: { A: "10", B: "20", C: "30", D: "40" }, correct_answer: correct, explanation: worked(correct, { A: "10", B: "20", C: "30", D: "40" }[correct]), estimated_time_seconds: 60, verification_expression: expression
 });
 
 describe("near-duplicate detection", () => {
@@ -93,7 +96,7 @@ describe("question factory pipeline", () => {
     const { getDb } = await import("@/lib/db");
     const { runBatch } = await import("@/lib/question-factory/pipeline");
     const db = (await getDb())!;
-    const q = { exam: "SSC CGL", tier: "Tier I", subject: "General Awareness", topic: "Polity", difficulty: "easy", question: "Which article of the Indian Constitution abolishes untouchability?", options: { A: "Article 14", B: "Article 17", C: "Article 19", D: "Article 21" }, correct_answer: "B", explanation: "Article 17 abolishes untouchability.", estimated_time_seconds: 30 };
+    const q = { exam: "SSC CGL", tier: "Tier I", subject: "General Awareness", topic: "Polity", difficulty: "easy", question: "Which article of the Indian Constitution abolishes untouchability?", options: { A: "Article 14", B: "Article 17", C: "Article 19", D: "Article 21" }, correct_answer: "B", explanation: "Key idea: the Constitution abolishes untouchability.\nStep 1: Article 17 abolishes untouchability and forbids its practice in any form.\nAnswer: (B) Article 17\nWhy not the others: Article 14 is equality before law, Article 19 is freedom, Article 21 is life and liberty.", estimated_time_seconds: 30 };
     const summary = await runBatch({ exam: "SSC CGL", subject: "General Awareness", topic: "Polity", difficulty: "easy", count: 1, strategy: "llm" }, { db, generator: mockGenerator([q]), solver: mockSolver(() => "B") });
     expect(summary).toMatchObject({ stored: 1, needsReview: 1, autoPassed: 0 });
   });

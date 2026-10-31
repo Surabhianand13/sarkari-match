@@ -10,9 +10,42 @@ export function isNumericSubject(subject: string) {
   return numericSubjects.includes(subject.trim().toLowerCase());
 }
 
+export const MIN_EXPLANATION_CHARS = 100;
+export const MIN_EXPLANATION_LINES = 3;
+
+const numbersIn = (text: string) => (text.replace(/,/g, "").match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+
+// A solution must read as a worked answer (several lines, an Answer line, enough text to teach something) and must agree
+// with the key: the Answer line names the keyed option and its value, and no wrong-option line praises the keyed one.
+export function explanationProblem(explanation: string, key?: { correct: string; options: Record<string, string> }): string | null {
+  const lines = explanation.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length < MIN_EXPLANATION_LINES) return `The explanation is too short or in one line. Write it as separate lines: Key idea, Step 1, Step 2, Answer, Why not the others.`;
+  if (explanation.trim().length < MIN_EXPLANATION_CHARS) return "The explanation is too thin to teach from. Show the working in full.";
+  const answerLine = lines.find((line) => /^answer\b/i.test(line));
+  if (!answerLine) return 'The explanation has no "Answer:" line stating the correct option and its value.';
+  if (!key) return null;
+
+  const letter = /^answer\s*:?\s*\(?([A-D])\b/i.exec(answerLine)?.[1]?.toUpperCase();
+  if (letter !== key.correct) return `The Answer line names option ${letter ?? "none"} but the key is ${key.correct}. The solution must end at the keyed option.`;
+  const keyedText = key.options[key.correct] ?? "";
+  const keyedNumber = /\d/.test(keyedText) ? firstNumber(keyedText) : null;
+  if (keyedNumber !== null && !numbersIn(answerLine.replace(/^answer\s*:?\s*\(?[A-D]\)?/i, "")).some((value) => Math.abs(value - keyedNumber) < 0.011))
+    return `The Answer line does not show the keyed value (${key.options[key.correct]}).`;
+
+  const wrongStart = lines.findIndex((line) => /^why not\b/i.test(line));
+  if (wrongStart >= 0) {
+    const praised = lines.slice(wrongStart + 1).some((line) => new RegExp(`^\\(${key.correct}\\)`, "i").test(line));
+    if (praised) return `The "Why not the others" part lists option ${key.correct}, which is the correct one.`;
+  }
+  return null;
+}
+
 export function runCodeValidation(draft: QuestionDraft, verificationExpression?: string | null): { checks: ValidationCheck[]; conclusive: boolean } {
   const checks: ValidationCheck[] = [];
   const answerText = draft.options[draft.correct_answer];
+
+  const thin = explanationProblem(draft.explanation, { correct: draft.correct_answer, options: draft.options });
+  checks.push({ name: "explanation_detailed", passed: !thin, detail: thin ?? undefined });
 
   const numericOptions = optionKeys.map((key) => firstNumber(draft.options[key]));
   const allNumeric = numericOptions.every((value) => value !== null);
