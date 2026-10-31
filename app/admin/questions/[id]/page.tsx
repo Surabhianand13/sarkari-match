@@ -2,7 +2,9 @@ import { notFound } from "next/navigation";
 import { AdminHeader, Card, Field, Flash, StatusPill, inputClass } from "@/components/admin/ui";
 import { QuestionForm } from "@/components/admin/question-form";
 import { Inline, Rich } from "@/components/rich-text";
+import { SetStimulus } from "@/components/set-stimulus";
 import { SolutionText } from "@/components/solution-text";
+import { toQuestionSet } from "@/lib/question-sets";
 import { setQuestionStatus } from "@/app/admin/questions/actions";
 import { adminDb } from "@/lib/admin/db";
 import { summariseChecks } from "@/lib/question-factory/checks-summary";
@@ -26,6 +28,7 @@ type QuestionRow = {
   generator_model: string | null;
   critic_model: string | null;
   prompt_version: string | null;
+  set_id: string | null;
 };
 
 const buttons: Array<[ValidationStatus, string, "primary" | "secondary" | "danger"]> = [
@@ -53,6 +56,10 @@ export default async function QuestionPage({ params, searchParams }: { params: P
   const { rows } = await db.query<QuestionRow>("select * from questions where id = $1", [id]);
   const q = rows[0];
   if (!q) notFound();
+  const dataSet = q.set_id
+    ? (await db.query<{ id: string; title: string; stimulus: string; chart: unknown; n: string }>(
+        "select s.id, s.title, s.stimulus, s.chart, (select count(*) from questions where set_id = s.id) as n from question_sets s where s.id = $1", [q.set_id])).rows[0]
+    : null;
   const status = q.validation_status;
   const notes = q.validation_notes ?? {};
   const allowed = buttons.filter(([to, label]) => canTransition(status, to) && !(label === "Unpublish" && status !== "published") && !(label === "Approve" && status === "published"));
@@ -82,6 +89,12 @@ export default async function QuestionPage({ params, searchParams }: { params: P
         </form>
       </Card>
       <Card title="How a learner sees it">
+        {dataSet && (
+          <>
+            <SetStimulus set={toQuestionSet(dataSet)} />
+            <p className="mb-3 text-xs font-semibold text-muted">This question is one of {dataSet.n} that share this data. Reject the questions of a set together if its data is wrong.</p>
+          </>
+        )}
         <Rich text={q.stem} className="text-lg font-bold leading-8 text-foreground" />
         <ul className="mt-3 grid gap-2 text-sm">
           {(["A", "B", "C", "D"] as const).map((key) => (

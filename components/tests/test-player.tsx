@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { Clock, LayoutGrid } from "lucide-react";
 import { Inline, Rich } from "@/components/rich-text";
+import { SetStimulus } from "@/components/set-stimulus";
 import type { PlayerData } from "@/lib/tests/attempts";
 
 type AnswerState = { selected: string | null; marked: boolean };
@@ -186,6 +187,7 @@ export function TestPlayer({ data }: { data: PlayerData }) {
       <div className="mx-auto grid max-w-6xl gap-5 px-4 py-5 lg:grid-cols-[1fr_17rem]">
         <section className="rounded-3xl bg-white p-5 shadow-soft sm:p-7" aria-live="polite">
           <p className="text-xs font-black uppercase tracking-wide text-muted">Question {index + 1} of {questions.length} · {current.section} · +{current.marks} / -{data.negativeMarks}</p>
+          {current.set && <div className="mt-3"><SetStimulus set={current.set} /></div>}
           <Rich text={current.stem} className="mt-3 text-lg font-bold leading-8 text-foreground" />
           <div className="mt-5 grid gap-3" role="radiogroup" aria-label="Options">
             {["A", "B", "C", "D"].map((key) => (

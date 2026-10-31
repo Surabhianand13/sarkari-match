@@ -15,7 +15,7 @@ export async function getSubjects(): Promise<SubjectSummary[]> {
   const db = await getDb();
   if (!db) return [];
   const result = await db.query<{ subject: string; topic: string; n: string }>(
-    "select subject, topic, count(*) as n from questions where validation_status = 'published' group by subject, topic order by subject, topic"
+    "select subject, topic, count(*) as n from questions where validation_status = 'published' and set_id is null group by subject, topic order by subject, topic"
   );
   const bySubject = new Map<string, SubjectSummary>();
   for (const row of result.rows) {
@@ -37,7 +37,7 @@ export async function getLevels(userId: string): Promise<Record<string, { level:
 // Picks random published questions for one difficulty. The offset trick avoids sorting the whole bank by random(),
 // which would be slow with lakhs of questions; ids are random UUIDs, so a window of ids is already a random sample.
 async function pickQuestions(db: Db, subject: string, topic: string | null, difficulty: string, count: number, exclude: string[]) {
-  const filter = "validation_status = 'published' and subject = $1 and ($2::text is null or topic = $2) and difficulty = $3 and not (id = any($4::uuid[]))";
+  const filter = "validation_status = 'published' and set_id is null and subject = $1 and ($2::text is null or topic = $2) and difficulty = $3 and not (id = any($4::uuid[]))";
   const total = Number((await db.query<{ n: string }>(`select count(*) as n from questions where ${filter}`, [subject, topic, difficulty, exclude])).rows[0].n);
   if (!total) return [];
   const offset = Math.floor(Math.random() * Math.max(0, total - count + 1));

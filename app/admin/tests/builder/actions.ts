@@ -23,11 +23,12 @@ const schema = z.object({
   sections: z.string().trim().min(3).max(4000)
 });
 
-// One section per line: Name | subject | questions | topic (topic is optional).
+// One section per line: Name | subject | questions | topic | sets. The topic and the word "sets" are optional; "sets" builds the
+// section from whole data sets (a table or chart with its questions).
 function parseSections(value: string) {
   return value.split("\n").map((line) => line.trim()).filter(Boolean).map((line) => {
-    const [name, subject, questions, topic] = line.split("|").map((part) => part.trim());
-    return { name, subject, questions: Number(questions), topic: topic || null };
+    const [name, subject, questions, topic, kind] = line.split("|").map((part) => part.trim());
+    return { name, subject, questions: Number(questions), topic: topic || null, sets: /^sets?$/i.test(kind ?? "") };
   });
 }
 
@@ -43,7 +44,7 @@ export async function runBuilder(formData: FormData) {
   const data = parsed.data!;
   const sections = parseSections(data.sections);
   if (!sections.length || sections.some((section) => !section.name || !section.subject || !Number.isInteger(section.questions) || section.questions < 1 || section.questions > 100)) {
-    goTo(`${BASE}?r=${encode({ form, error: "Sections go one per line as: Name | subject | number of questions | topic (topic optional). Subject must match a subject in the question bank." })}`);
+    goTo(`${BASE}?r=${encode({ form, error: "Sections go one per line as: Name | subject | number of questions | topic | sets (topic and the word sets are optional). Subject must match a subject in the question bank." })}`);
   }
   const input: BuildInput = {
     seriesId: data.series_id, kind: data.kind, level: data.level, count: data.count, titlePrefix: data.title_prefix, durationMinutes: data.duration,

@@ -35,6 +35,8 @@ export function summariseChecks(input: unknown): CheckLine[] {
 
   const figure = check("no_missing_figure");
   if (figure) lines.push({ label: "Needs no figure or picture", state: figure.passed ? "pass" : "fail", detail: figure.detail });
+  const grounded = check("uses_the_data");
+  if (grounded) lines.push({ label: "Working uses the data", state: grounded.passed ? "pass" : "fail", detail: grounded.detail });
   const formatting = [check("question_formatting"), check("solution_formatting")].find((item) => item && !item.passed) ?? check("question_formatting");
   if (formatting) lines.push({ label: "Tables and maths can be shown", state: formatting.passed ? "pass" : "fail", detail: formatting.detail });
 

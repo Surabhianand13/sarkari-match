@@ -73,7 +73,22 @@ export default async function FactoryPage({ searchParams }: { searchParams: Prom
               <option value="hard">Hard</option>
             </select>
           </Field>
-          <Field label="How many (per topic)" hint="Up to 500 in the chat queue, 1,000 with an API, 2,000 without AI."><input name="count" type="number" min="1" max="2000" defaultValue={20} className={inputClass} /></Field>
+          <Field label="Format" hint="Data sets: a table or chart with five questions that share it (Data Interpretation). They need the chat queue or an API.">
+            <select name="format" defaultValue="single" className={inputClass}>
+              <option value="single">Single questions</option>
+              <option value="set">Data sets (table or chart + 5 questions)</option>
+            </select>
+          </Field>
+          <Field label="Data shown as (data sets only)">
+            <select name="set_kind" defaultValue="mixed" className={inputClass}>
+              <option value="mixed">A mix of tables and charts</option>
+              <option value="table">Tables</option>
+              <option value="bar">Bar charts</option>
+              <option value="line">Line graphs</option>
+              <option value="pie">Pie charts</option>
+            </select>
+          </Field>
+          <Field label="How many (per topic)" hint="Questions, not sets: 20 gives about four sets of five. Up to 500 in the chat queue, 1,000 with an API, 2,000 without AI."><input name="count" type="number" min="1" max="2000" defaultValue={20} className={inputClass} /></Field>
           <div className="flex items-end"><SubmitButton>Start run</SubmitButton></div>
         </form>
         <p className="mt-4 rounded-xl bg-surface px-4 py-3 text-sm font-semibold text-muted">

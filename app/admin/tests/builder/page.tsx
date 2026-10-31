@@ -94,7 +94,7 @@ export default async function TestBuilderPage({ searchParams }: { searchParams: 
           <Field label="Negative marks per wrong answer"><input name="negative" type="number" step="0.01" min={0} defaultValue={v("negative", "0.5")} className={inputClass} /></Field>
           <Field label="Most tests one question may appear in" hint="1 = every question used once. Raise it when the bank is smaller than the tests need."><input name="max_reuse" type="number" min={1} max={20} defaultValue={v("max_reuse", "1")} className={inputClass} /></Field>
         </div>
-        <Field label="Sections" hint="One per line: Name | subject | number of questions | topic (topic optional). The subject must match a subject in the table below.">
+        <Field label="Sections" hint="One per line: Name | subject | number of questions | topic | sets. Topic and the word sets are optional. Write sets to build the section from whole data sets, for example: Data Interpretation | Quantitative Aptitude | 10 | Data Interpretation | sets. The subject must match a subject in the table below.">
           <textarea name="sections" rows={5} defaultValue={v("sections", defaultSections)} className={`${inputClass} font-mono`} />
         </Field>
         <div className="flex flex-wrap gap-3">

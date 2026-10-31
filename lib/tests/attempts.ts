@@ -1,5 +1,6 @@
 import { getDb, type Db } from "@/lib/db";
 import { canOpenTest } from "@/lib/tests/access";
+import { toQuestionSet, type QuestionSet } from "@/lib/question-sets";
 import { scoreAttempt, type ScorableQuestion, type ScoreResult } from "@/lib/tests/scoring";
 
 const GRACE_SECONDS = 5;
@@ -9,13 +10,19 @@ export type StartResult = { ok: true; attemptId: string } | { ok: false; reason:
 type TestRow = { id: string; series_id: string; duration_minutes: number; is_free_sample: boolean; status: string; negative_marks: string; default_marks: string };
 
 async function loadQuestions(db: Db, testId: string, defaultMarks: number) {
-  const { rows } = await db.query<{ id: string; stem: string; options: Record<string, string>; correct_option: string; explanation: string; subject: string; topic: string; marks: string | null; section: string | null; position: number; section_position: number | null }>(
-    `select q.id, q.stem, q.options, q.correct_option, q.explanation, q.subject, q.topic, tq.marks, ts.name as section, tq.position, ts.position as section_position
-     from test_questions tq join questions q on q.id = tq.question_id left join test_sections ts on ts.id = tq.section_id
+  const { rows } = await db.query<{ id: string; stem: string; options: Record<string, string>; correct_option: string; explanation: string; subject: string; topic: string; marks: string | null; section: string | null; position: number; section_position: number | null; set_id: string | null; set_title: string | null; set_stimulus: string | null; set_chart: unknown }>(
+    `select q.id, q.stem, q.options, q.correct_option, q.explanation, q.subject, q.topic, tq.marks, ts.name as section, tq.position, ts.position as section_position,
+            q.set_id, qs.title as set_title, qs.stimulus as set_stimulus, qs.chart as set_chart
+     from test_questions tq join questions q on q.id = tq.question_id left join test_sections ts on ts.id = tq.section_id left join question_sets qs on qs.id = q.set_id
      where tq.test_id = $1 order by coalesce(ts.position, 0), tq.position`,
     [testId]
   );
-  return rows.map((row) => ({ ...row, section: row.section ?? "All questions", marksValue: row.marks === null ? defaultMarks : Number(row.marks) }));
+  return rows.map((row) => ({
+    ...row,
+    section: row.section ?? "All questions",
+    marksValue: row.marks === null ? defaultMarks : Number(row.marks),
+    set: row.set_id ? toQuestionSet({ id: row.set_id, title: row.set_title ?? "", stimulus: row.set_stimulus ?? "", chart: row.set_chart }) : null
+  }));
 }
 
 export async function startAttempt(userId: string, testId: string): Promise<StartResult> {
@@ -40,7 +47,7 @@ export async function startAttempt(userId: string, testId: string): Promise<Star
   return { ok: true, attemptId: created.rows[0].id };
 }
 
-export type PlayerQuestion = { id: string; stem: string; options: Record<string, string>; section: string; marks: number };
+export type PlayerQuestion = { id: string; stem: string; options: Record<string, string>; section: string; marks: number; set: QuestionSet | null };
 
 export type PlayerData = {
   attemptId: string;
@@ -76,7 +83,7 @@ export async function getPlayerData(userId: string, attemptId: string): Promise<
     negativeMarks: Number(meta.negative_marks),
     deadlineAt: attempt.deadline_at,
     serverNow: new Date().toISOString(),
-    questions: questions.map((q) => ({ id: q.id, stem: q.stem, options: q.options, section: q.section, marks: q.marksValue })),
+    questions: questions.map((q) => ({ id: q.id, stem: q.stem, options: q.options, section: q.section, marks: q.marksValue, set: q.set })),
     answers: Object.fromEntries(saved.rows.map((row) => [row.question_id, { selected: row.selected_option, marked: row.marked_for_review }]))
   };
 }
@@ -127,7 +134,7 @@ export async function submitAttempt(userId: string, attemptId: string): Promise<
   return true;
 }
 
-export type SolutionRow = { id: string; section: string; stem: string; options: Record<string, string>; correct: string; selected: string | null; explanation: string; topic: string; marks: number; outcome: "correct" | "incorrect" | "unattempted" };
+export type SolutionRow = { id: string; section: string; stem: string; options: Record<string, string>; correct: string; selected: string | null; explanation: string; topic: string; marks: number; outcome: "correct" | "incorrect" | "unattempted"; set: QuestionSet | null };
 
 export type ResultData = {
   attemptId: string;
@@ -168,7 +175,7 @@ export async function getResultData(userId: string, attemptId: string): Promise<
     result: attempt.result_json,
     solutions: questions.map((q) => {
       const selected = given.get(q.id) ?? null;
-      return { id: q.id, section: q.section, stem: q.stem, options: q.options, correct: q.correct_option, selected, explanation: q.explanation, topic: `${q.subject} / ${q.topic}`, marks: q.marksValue, outcome: !selected ? "unattempted" : selected === q.correct_option ? "correct" : "incorrect" };
+      return { id: q.id, section: q.section, stem: q.stem, options: q.options, correct: q.correct_option, selected, explanation: q.explanation, topic: `${q.subject} / ${q.topic}`, marks: q.marksValue, outcome: !selected ? "unattempted" : selected === q.correct_option ? "correct" : "incorrect", set: q.set };
     })
   };
 }

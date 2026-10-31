@@ -3,9 +3,12 @@ import { findNearDuplicate } from "./dedupe";
 import { examSlug, knowledgeFor, topicInSyllabus, type Knowledge } from "./knowledge";
 import { proofread } from "./language-rules";
 import { alwaysHumanCheck, ensureExam, parseJsonObject, templateCandidates, type Candidate, type FactoryInput } from "./pipeline";
-import { PROMPT_VERSION, fixPrompt, generationPrompt, reviewPrompt, solverPrompt } from "./prompts";
+import { PROMPT_VERSION, QUESTIONS_PER_SET, fixPrompt, generationPrompt, generationSetPrompt, reviewPrompt, solverPrompt, type SetKind } from "./prompts";
 import type { LlmProvider } from "./providers/types";
 import type { Difficulty } from "./templates";
+import { createHash } from "node:crypto";
+import { parseChart } from "@/lib/chart";
+import { setContextText, setProblem, toQuestionSet, type QuestionSet } from "@/lib/question-sets";
 import { isExplanationReason, isNumericSubject, runCodeValidation, type ValidationCheck } from "./validator";
 import { contentHash, optionKeys, questionDraftSchema, type OptionKey, type QuestionDraft, type ValidationStatus } from "@/lib/tests/question-schema";
 
@@ -67,9 +70,12 @@ export type RunInput = {
   mode: AiMode;
   provider?: string;
   createdBy?: string | null;
+  // "set" writes data sets: a table or chart with five questions that share it.
+  format?: "single" | "set";
+  setKind?: SetKind;
 };
 
-type BatchConfig = { mode: AiMode; strategy: "template" | "llm"; examName: string; tier: string; provider?: string; recheck?: boolean };
+type BatchConfig = { mode: AiMode; strategy: "template" | "llm"; examName: string; tier: string; provider?: string; recheck?: boolean; format?: "single" | "set"; setKind?: SetKind };
 
 export type Batch = {
   id: string;
@@ -115,9 +121,10 @@ type Row = {
   validation_notes: Notes;
   fix_attempts: number;
   pipeline_stage: string;
+  set_id: string | null;
 };
 
-type Env = { db: Db; ai: AiPort; batch: Batch; knowledge: () => Promise<Knowledge> };
+type Env = { db: Db; ai: AiPort; batch: Batch; knowledge: () => Promise<Knowledge>; setFor: (row: Pick<Row, "set_id">) => Promise<QuestionSet | null> };
 
 export const MAX_FIXES = 2;
 const WRITE_CHUNK = { api: 5, queue: 10, rules: 50 } as const;
@@ -220,13 +227,14 @@ async function failOrFix(env: Env, row: Row, stage: string, reasons: string[], n
 async function solveStage(env: Env, row: Row) {
   const notes = row.validation_notes;
   const draft = rowDraft(env, row);
-  const { checks, conclusive } = runCodeValidation(draft, notes.verification_expression);
+  const set = await env.setFor(row);
+  const { checks, conclusive } = runCodeValidation(draft, notes.verification_expression, { set });
   const proven = Boolean(notes.template) && conclusive;
   const reasons = checks.filter((check) => !check.passed).map((check) => `${check.detail ?? check.name}`.replace(/\.?$/, "."));
 
   let solver: Solver | null = null;
   if (!reasons.length && env.ai.mode !== "rules" && !proven) {
-    solver = readSolver(await env.ai.complete(ctx(env, row, "solve"), solverPrompt(draft.question, draft.options)), draft.correct_answer, env.ai.model);
+    solver = readSolver(await env.ai.complete(ctx(env, row, "solve"), solverPrompt(draft.question, draft.options, set ? setContextText(set) : undefined)), draft.correct_answer, env.ai.model);
     if (!solver.agrees) reasons.push(`An independent solver chose ${solver.answer ?? "no option"} but the key says ${draft.correct_answer}.`);
     else if (solver.ambiguous) reasons.push("The independent solver found more than one defensible answer.");
   }
@@ -256,10 +264,11 @@ async function languageStage(env: Env, row: Row) {
   let review: Notes["review"];
   if (env.ai.mode !== "rules") {
     const knowledge = await env.knowledge();
+    const set = await env.setFor(row);
     const reply = parseJsonObject(
       await env.ai.complete(
         ctx(env, row, "review"),
-        reviewPrompt({ exam: env.batch.config.examName, tier: row.tier ?? env.batch.config.tier, subject: row.subject, topic: row.topic, difficulty: row.difficulty, question, options, explanation: steps, syllabus: knowledge.syllabus })
+        reviewPrompt({ exam: env.batch.config.examName, tier: row.tier ?? env.batch.config.tier, subject: row.subject, topic: row.topic, difficulty: row.difficulty, question, options, explanation: steps, syllabus: knowledge.syllabus, data: set ? setContextText(set) : undefined })
       )
     ) as { ok?: unknown; issues?: unknown; question?: unknown; explanation?: unknown; steps_ok?: unknown; step_errors?: unknown; in_syllabus?: unknown; level?: unknown; reason?: unknown };
     // A reviewer who found a wrong step sends the question to the fixer; wording edits alone are never trusted to repair it.
@@ -330,10 +339,14 @@ function finalStatus(subject: string, notes: Notes): { status: ValidationStatus;
 }
 
 async function dedupeStage(env: Env, row: Row) {
-  const existing = await env.db.query<{ stem: string }>(
-    "select stem from questions where subject = $1 and id <> $2 and (batch_id is distinct from $3 or id < $2) order by created_at desc limit 5000",
-    [row.subject, row.id, env.batch.id]
-  );
+  // Questions in a data set are compared only with the other questions of the same set (many sets ask "what was the total in 2020?"),
+  // and ordinary questions are never compared with set questions, whose wording depends on their data.
+  const existing = row.set_id
+    ? await env.db.query<{ stem: string }>("select stem from questions where set_id = $1 and id <> $2 and (batch_id is distinct from $3 or id < $2) limit 50", [row.set_id, row.id, env.batch.id])
+    : await env.db.query<{ stem: string }>(
+        "select stem from questions where subject = $1 and set_id is null and id <> $2 and (batch_id is distinct from $3 or id < $2) order by created_at desc limit 5000",
+        [row.subject, row.id, env.batch.id]
+      );
   const near = findNearDuplicate(row.stem, existing.rows.map((item) => item.stem), 0.8);
   if (near) {
     await finish(env, row, "rejected", { ...row.validation_notes, error: "Duplicate of an existing question." });
@@ -349,9 +362,10 @@ async function fixStage(env: Env, row: Row) {
   const reasons = notes.reasons?.length ? notes.reasons : ["Failed a check."];
   // When only the written solution failed, the question, options and key stay exactly as they are.
   const explanationOnly = reasons.every(isExplanationReason);
+  const set = await env.setFor(row);
   const raw = await env.ai.complete(
     ctx(env, row, "fix"),
-    fixPrompt({ exam: env.batch.config.examName, tier: row.tier ?? env.batch.config.tier, question: row.stem, options: row.options, correct_answer: row.correct_option, explanation: row.explanation, subject: row.subject, topic: row.topic, difficulty: row.difficulty, reasons, explanationOnly })
+    fixPrompt({ exam: env.batch.config.examName, tier: row.tier ?? env.batch.config.tier, question: row.stem, options: row.options, correct_answer: row.correct_option, explanation: row.explanation, subject: row.subject, topic: row.topic, difficulty: row.difficulty, reasons, explanationOnly, data: set ? setContextText(set) : undefined })
   );
   const reply = parseJsonObject(raw) as Record<string, unknown>;
   const parsed = questionDraftSchema.safeParse(
@@ -397,24 +411,25 @@ async function claim(db: Db, batchId: string, stage: string, limit: number) {
        select id from questions where batch_id = $1 and pipeline_stage = $2 and waiting_ai = false
          and (claimed_at is null or claimed_at < now() - interval '2 minutes')
        order by created_at limit $3 for update skip locked)
-     returning id, subject, topic, tier, difficulty, stem, options, correct_option, explanation, est_time_seconds, validation_notes, fix_attempts, pipeline_stage`,
+     returning id, subject, topic, tier, difficulty, stem, options, correct_option, explanation, est_time_seconds, validation_notes, fix_attempts, pipeline_stage, set_id`,
     [batchId, stage, limit]
   );
   return result.rows;
 }
 
-async function insertCandidate(env: Env, examId: string, candidate: Candidate, generator: string) {
+async function insertCandidate(env: Env, examId: string, candidate: Candidate, generator: string, member?: { setId: string; position: number; seed: string }) {
   const { draft } = candidate;
   const notes: Notes = { verification_expression: candidate.verificationExpression ?? null, ...(candidate.template ? { template: candidate.template } : {}) };
   const inserted = await env.db.query<{ id: string }>(
     `insert into questions (exam_id, tier, subject, topic, difficulty, stem, options, correct_option, explanation, est_time_seconds, source_type,
-       validation_status, validation_notes, generator_model, critic_model, prompt_version, batch_id, content_hash, pipeline_stage)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'original_ai_generated','pending',$11,$12,$13,$14,$15,$16,'solve')
+       validation_status, validation_notes, generator_model, critic_model, prompt_version, batch_id, content_hash, pipeline_stage, set_id, set_position)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'original_ai_generated','pending',$11,$12,$13,$14,$15,$16,'solve',$17,$18)
      on conflict (content_hash) do nothing returning id`,
     [
       examId, draft.tier ?? env.batch.config.tier, env.batch.subject, draft.topic || env.batch.topic || env.batch.subject, draft.difficulty, draft.question,
       JSON.stringify(draft.options), draft.correct_answer, draft.explanation, draft.estimated_time_seconds, JSON.stringify(notes), generator,
-      env.ai.mode === "rules" ? "rules" : env.ai.model, PROMPT_VERSION, env.batch.id, contentHash(draft)
+      env.ai.mode === "rules" ? "rules" : env.ai.model, PROMPT_VERSION, env.batch.id,
+      contentHash(member ? { ...draft, question: `${member.seed}\n${draft.question}` } : draft), member?.setId ?? null, member?.position ?? null
     ]
   );
   return inserted.rows[0]?.id ?? null;
@@ -438,6 +453,64 @@ async function storeWritten(env: Env, examId: string, raw: string) {
   }
   if (stored) await logEvent(env.db, env.batch.id, null, "write", "info", `Wrote ${stored} question${stored === 1 ? "" : "s"}.${duplicates ? ` ${duplicates} repeated an existing question.` : ""}`);
   if (rejected || !stored) await logEvent(env.db, env.batch.id, null, "write", stored ? "info" : "error", stored ? `${rejected} drafts were malformed and dropped.` : "The writer returned nothing usable.");
+  return stored;
+}
+
+const DIFFICULTIES = ["easy", "moderate", "hard"];
+const SETS_PER_CALL = { api: 1, queue: 2 } as const;
+
+// Stores data sets from a writer's answer: the set's data first, then its questions, each linked to the set. A set whose data
+// is unusable, or that repeats an existing set, is dropped whole.
+async function storeWrittenSets(env: Env, examId: string, raw: string) {
+  const parsed = parseJsonObject(raw) as { sets?: unknown[] };
+  const { batch } = env;
+  let stored = 0;
+  let dropped = 0;
+  let duplicates = 0;
+  for (const item of parsed.sets ?? []) {
+    const set = item as { title?: unknown; intro?: unknown; table?: unknown; chart?: unknown; questions?: unknown[] };
+    const title = typeof set.title === "string" ? set.title.trim().slice(0, 120) : "";
+    const stimulus = [typeof set.intro === "string" ? set.intro.trim() : "", typeof set.table === "string" ? set.table.trim() : ""].filter(Boolean).join("\n");
+    const chartInput = set.chart && typeof set.chart === "object" ? set.chart : null;
+    const problem = !title ? "A data set needs a title." : !Array.isArray(set.questions) || !set.questions.length ? "The set had no questions." : setProblem({ stimulus, chart: chartInput });
+    if (problem) {
+      dropped++;
+      await logEvent(env.db, batch.id, null, "write", "error", `A data set was dropped: ${problem}`);
+      continue;
+    }
+    const chartParsed = chartInput ? parseChart(chartInput) : null;
+    const chart = chartParsed && "chart" in chartParsed ? chartParsed.chart : null;
+    const seed = createHash("sha256").update(`${stimulus.toLowerCase().replace(/\s+/g, " ")}::${chart ? JSON.stringify(chart) : ""}`).digest("hex");
+    const topic = batch.topic || "Data Interpretation";
+    const setDifficulty = DIFFICULTIES.includes(batch.difficulty) ? batch.difficulty : "moderate";
+    const inserted = await env.db.query<{ id: string }>(
+      `insert into question_sets (exam_id, tier, subject, topic, difficulty, title, stimulus, chart, batch_id, content_hash)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) on conflict (content_hash) do nothing returning id`,
+      [examId, batch.config.tier, batch.subject, topic, setDifficulty, title, stimulus, chart ? JSON.stringify(chart) : null, batch.id, seed]
+    );
+    const setId = inserted.rows[0]?.id;
+    if (!setId) {
+      duplicates++;
+      continue;
+    }
+    let position = 0;
+    for (const entry of (set.questions as unknown[]).slice(0, 8)) {
+      const record = entry as { difficulty?: unknown; verification_expression?: unknown };
+      const difficulty = typeof record.difficulty === "string" && DIFFICULTIES.includes(record.difficulty) ? record.difficulty : setDifficulty;
+      const draft = questionDraftSchema.safeParse({ source_type: "original_ai_generated", exam: batch.config.examName, subject: batch.subject, topic, ...(entry as object), difficulty });
+      if (!draft.success) continue;
+      const expression = typeof record.verification_expression === "string" ? record.verification_expression : null;
+      const id = await insertCandidate(env, examId, { draft: draft.data, verificationExpression: expression }, env.ai.model, { setId, position, seed });
+      if (id) {
+        stored++;
+        position++;
+      }
+    }
+    // A set none of whose questions were usable is removed again, so no empty data is left behind.
+    if (!position) await env.db.query("delete from question_sets where id = $1", [setId]);
+  }
+  if (stored) await logEvent(env.db, batch.id, null, "write", "info", `Wrote ${stored} data-set question${stored === 1 ? "" : "s"}.${duplicates ? ` ${duplicates} set${duplicates === 1 ? "" : "s"} repeated existing data.` : ""}`);
+  if (dropped || !stored) await logEvent(env.db, batch.id, null, "write", stored ? "info" : "error", stored ? `${dropped} data set${dropped === 1 ? " was" : "s were"} unusable and dropped.` : "The writer returned no usable data set.");
   return stored;
 }
 
@@ -469,7 +542,10 @@ async function writeStage(env: Env): Promise<WriteOutcome> {
   const failures = (await db.query<{ n: number }>("select count(*)::int as n from factory_events where batch_id = $1 and stage = 'write' and outcome = 'error'", [batch.id])).rows[0].n;
   if (failures >= 3) return "exhausted";
 
-  const chunk = WRITE_CHUNK[ai.mode === "queue" ? "queue" : "api"];
+  const setMode = batch.config.format === "set";
+  const callKind = ai.mode === "queue" ? "queue" : "api";
+  const chunk = setMode ? SETS_PER_CALL[callKind] * QUESTIONS_PER_SET : WRITE_CHUNK[callKind];
+  const store = setMode ? storeWrittenSets : storeWritten;
   const knowledge = await env.knowledge();
   let outcome: WriteOutcome = "idle";
 
@@ -478,7 +554,7 @@ async function writeStage(env: Env): Promise<WriteOutcome> {
     const answered = await db.query<{ id: string; response: string }>("select id, response from factory_tasks where batch_id = $1 and stage = 'write' and status = 'answered' order by created_at", [batch.id]);
     for (const task of answered.rows) {
       try {
-        await storeWritten(env, examId, task.response);
+        await store(env, examId, task.response);
       } catch (error) {
         await logEvent(db, batch.id, null, "write", "error", `Could not read an answer: ${error instanceof Error ? error.message : "invalid"}`);
       }
@@ -494,18 +570,19 @@ async function writeStage(env: Env): Promise<WriteOutcome> {
   let calls = (await db.query<{ write_calls: number }>("select write_calls from question_batches where id = $1", [batch.id])).rows[0].write_calls;
 
   while (written + open * chunk < batch.requested_count && open < parallel) {
-    const request = generationPrompt({
-      exam: batch.config.examName, tier: batch.config.tier, subject: batch.subject, topic: batch.topic ?? batch.subject,
-      difficulty: batch.difficulty === "mixed" ? "moderate" : batch.difficulty, count: Math.min(chunk, batch.requested_count - written - open * chunk),
-      context: { syllabus: knowledge.syllabus, currentAffairs: knowledge.currentAffairs, pyqSamples: knowledge.pyqSamples }
-    });
+    const wanted = Math.min(chunk, batch.requested_count - written - open * chunk);
+    const context = { syllabus: knowledge.syllabus, currentAffairs: knowledge.currentAffairs, pyqSamples: knowledge.pyqSamples };
+    const difficulty = batch.difficulty === "mixed" ? "moderate" : batch.difficulty;
+    const request = setMode
+      ? generationSetPrompt({ exam: batch.config.examName, tier: batch.config.tier, subject: batch.subject, topic: batch.topic ?? "Data Interpretation", difficulty, sets: Math.max(1, Math.ceil(wanted / QUESTIONS_PER_SET)), kind: batch.config.setKind ?? "mixed", context })
+      : generationPrompt({ exam: batch.config.examName, tier: batch.config.tier, subject: batch.subject, topic: batch.topic ?? batch.subject, difficulty, count: wanted, context });
     const key = `write:${calls}`;
     calls++;
     await db.query("update question_batches set write_calls = $2 where id = $1", [batch.id, calls]);
     try {
       const raw = await ai.complete({ batchId: batch.id, questionId: null, stage: "write", key }, request);
       try {
-        await storeWritten(env, examId, raw);
+        await store(env, examId, raw);
       } catch (error) {
         await logEvent(db, batch.id, null, "write", "error", `Could not read the writer's answer: ${error instanceof Error ? error.message : "invalid"}`);
       }
@@ -561,9 +638,18 @@ export async function advanceBatch(db: Db, ai: AiPort, batchId: string, options:
   if (!batch || ["completed", "failed", "cancelled"].includes(batch.status)) return batch;
 
   let knowledgePromise: Promise<Knowledge> | null = null;
+  const setCache = new Map<string, QuestionSet | null>();
   const env: Env = {
     db, ai, batch,
-    knowledge: () => (knowledgePromise ??= knowledgeFor(db, { exam: batch.config.examName, subject: batch.subject, topic: batch.topic }))
+    knowledge: () => (knowledgePromise ??= knowledgeFor(db, { exam: batch.config.examName, subject: batch.subject, topic: batch.topic })),
+    setFor: async (row) => {
+      if (!row.set_id) return null;
+      if (!setCache.has(row.set_id)) {
+        const found = await db.query<{ id: string; title: string; stimulus: string; chart: unknown }>("select id, title, stimulus, chart from question_sets where id = $1", [row.set_id]);
+        setCache.set(row.set_id, found.rows[0] ? toQuestionSet(found.rows[0]) : null);
+      }
+      return setCache.get(row.set_id) ?? null;
+    }
   };
 
   const started = Date.now();
@@ -593,7 +679,8 @@ export async function createBatch(db: Db, input: RunInput): Promise<string> {
   if (input.count < 1) throw new Error("Choose at least one question.");
   if (input.mode === "rules" && !isNumericSubject(input.subject)) throw new Error("Runs without AI are available for Quantitative Aptitude only. Pick the chat queue or an API for other subjects.");
   if (input.mode === "api" && !input.provider) throw new Error("Choose which AI provider writes and checks the questions.");
-  const config: BatchConfig = { mode: input.mode, strategy: input.mode === "rules" ? "template" : "llm", examName: input.exam, tier: input.tier, provider: input.provider };
+  if (input.format === "set" && input.mode === "rules") throw new Error("Data sets need the chat queue or an AI API, because the AI writes the data.");
+  const config: BatchConfig = { mode: input.mode, strategy: input.mode === "rules" ? "template" : "llm", examName: input.exam, tier: input.tier, provider: input.provider, ...(input.format === "set" ? { format: "set" as const, setKind: input.setKind ?? "mixed" } : {}) };
   const created = await db.query<{ id: string }>(
     `insert into question_batches (created_by, exam_slug, subject, topic, difficulty, requested_count, config, status)
      values ($1, $2, $3, $4, $5, $6, $7, 'running') returning id`,

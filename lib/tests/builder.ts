@@ -13,7 +13,8 @@ export const LEVEL_MIX: Record<TestLevel, Mix> = {
   advanced: { easy: 10, moderate: 45, hard: 45 }
 };
 
-export type BuildSection = { name: string; subject: string; questions: number; topic?: string | null };
+// sets: the section is built from whole data sets (a table or chart with its questions), which stay together and in order.
+export type BuildSection = { name: string; subject: string; questions: number; topic?: string | null; sets?: boolean };
 
 export type BuildInput = {
   seriesId: string;
@@ -32,7 +33,8 @@ export type BuildInput = {
   seed?: number;
 };
 
-export type Candidate = { id: string; topic: string; difficulty: Difficulty; used: number };
+// For a data set, id is the set and members are its questions in order.
+export type Candidate = { id: string; topic: string; difficulty: Difficulty; used: number; members?: string[] };
 export type SectionPlan = { section: BuildSection; questionIds: string[] };
 export type TestPlan = { sections: SectionPlan[] };
 export type Availability = { section: string; easy: number; moderate: number; hard: number; total: number };
@@ -89,13 +91,35 @@ export function planTests(pools: Candidate[][], input: BuildInput): Plan {
     }
     return { byDifficulty, pointer: { easy: 0, moderate: 0, hard: 0 } as Record<Difficulty, number> };
   });
+  const size = (list: Candidate[]) => list.reduce((sum, item) => sum + (item.members?.length ?? 1), 0);
   const availability: Availability[] = input.sections.map((section, i) => ({
-    section: section.name,
-    easy: state[i].byDifficulty.easy.length,
-    moderate: state[i].byDifficulty.moderate.length,
-    hard: state[i].byDifficulty.hard.length,
-    total: pools[i].length
+    section: section.sets ? `${section.name} (data sets)` : section.name,
+    easy: size(state[i].byDifficulty.easy),
+    moderate: size(state[i].byDifficulty.moderate),
+    hard: size(state[i].byDifficulty.hard),
+    total: size(pools[i])
   }));
+
+  // Data sets stay whole: pick sets, least used first, until the section's question count is reached exactly.
+  const takeSets = (sectionIndex: number, wantedQuestions: number, inTest: Set<string>): Candidate[] | null => {
+    const all = (["easy", "moderate", "hard"] as const).flatMap((key) => state[sectionIndex].byDifficulty[key]);
+    const ordered = shuffle([...all], random).sort((a, b) => a.used - b.used);
+    const chosen: Candidate[] = [];
+    let left = wantedQuestions;
+    for (const candidate of ordered) {
+      const count = candidate.members?.length ?? 0;
+      if (left <= 0) break;
+      if (!count || count > left || candidate.used >= input.maxReuse || inTest.has(candidate.id)) continue;
+      chosen.push(candidate);
+      left -= count;
+    }
+    if (left !== 0) return null;
+    for (const candidate of chosen) {
+      candidate.used += 1;
+      inTest.add(candidate.id);
+    }
+    return chosen;
+  };
 
   const take = (sectionIndex: number, difficulty: Difficulty, inTest: Set<string>): Candidate | null => {
     const list = state[sectionIndex].byDifficulty[difficulty];
@@ -123,6 +147,18 @@ export function planTests(pools: Candidate[][], input: BuildInput): Plan {
     const taken: Candidate[] = [];
     for (const [i, section] of input.sections.entries()) {
       const inTest = new Set<string>();
+      if (section.sets) {
+        const chosen = takeSets(i, section.questions, inTest);
+        if (!chosen) {
+          shortages.add(`${section.name}: could not fill ${section.questions} questions from whole data sets (test ${t + 1} of ${input.count}). Add more published sets, or change the number of questions.`);
+          complete = false;
+          sections.push({ section, questionIds: [] });
+          continue;
+        }
+        taken.push(...chosen);
+        sections.push({ section, questionIds: shuffle(chosen, random).flatMap((candidate) => candidate.members ?? []) });
+        continue;
+      }
       const wanted = splitByMix(section.questions, mix);
       const ids: string[] = [];
       for (const difficulty of ["easy", "moderate", "hard"] as const) {
@@ -162,11 +198,24 @@ export function defaultPrefix(input: Pick<BuildInput, "kind" | "level" | "sectio
   return `${cap(input.level)} ${first?.topic || first?.subject || "Subject"} Test`;
 }
 
+async function loadSetPool(db: Db, examId: string, section: BuildSection): Promise<Candidate[]> {
+  const { rows } = await db.query<{ id: string; topic: string; difficulty: Difficulty; members: string[]; used: string }>(
+    `select s.id, s.topic, s.difficulty, array_agg(q.id order by q.set_position, q.created_at) as members, max(coalesce(u.n, 0)) as used
+       from question_sets s join questions q on q.set_id = s.id and q.validation_status = 'published'
+       left join (select question_id, count(*) as n from test_questions group by question_id) u on u.question_id = q.id
+      where s.exam_id = $1 and s.subject = $2 and ($3::text is null or s.topic = $3)
+      group by s.id, s.topic, s.difficulty`,
+    [examId, section.subject, section.topic ?? null]
+  );
+  return rows.map((row) => ({ id: row.id, topic: row.topic, difficulty: row.difficulty, used: Number(row.used), members: row.members }));
+}
+
 async function loadPool(db: Db, examId: string, section: BuildSection): Promise<Candidate[]> {
+  if (section.sets) return loadSetPool(db, examId, section);
   const { rows } = await db.query<{ id: string; topic: string; difficulty: Difficulty; used: string }>(
     `select q.id, q.topic, q.difficulty, coalesce(u.n, 0) as used
        from questions q left join (select question_id, count(*) as n from test_questions group by question_id) u on u.question_id = q.id
-      where q.exam_id = $1 and q.validation_status = 'published' and q.subject = $2 and ($3::text is null or q.topic = $3)`,
+      where q.exam_id = $1 and q.validation_status = 'published' and q.set_id is null and q.subject = $2 and ($3::text is null or q.topic = $3)`,
     [examId, section.subject, section.topic ?? null]
   );
   return rows.map((row) => ({ id: row.id, topic: row.topic, difficulty: row.difficulty, used: Number(row.used) }));

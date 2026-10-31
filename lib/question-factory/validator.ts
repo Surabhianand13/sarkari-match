@@ -1,5 +1,6 @@
 import { evaluateExpression, firstNumber } from "./expression";
 import { figureProblem, richTextProblem } from "@/lib/rich-text";
+import { groundingProblem, hasTable, setNumbers, type QuestionSet } from "@/lib/question-sets";
 import { optionKeys, type QuestionDraft } from "@/lib/tests/question-schema";
 
 export type ValidationCheck = { name: string; passed: boolean; detail?: string };
@@ -47,7 +48,7 @@ export function isExplanationReason(reason: string): boolean {
   return /^(The explanation (is|has)|The Answer line|The "Why not the others"|The reviewer found an error in the explanation)/.test(reason.trim());
 }
 
-export function runCodeValidation(draft: QuestionDraft, verificationExpression?: string | null): { checks: ValidationCheck[]; conclusive: boolean } {
+export function runCodeValidation(draft: QuestionDraft, verificationExpression?: string | null, options: { set?: QuestionSet | null } = {}): { checks: ValidationCheck[]; conclusive: boolean } {
   const checks: ValidationCheck[] = [];
   const answerText = draft.options[draft.correct_answer];
 
@@ -55,8 +56,13 @@ export function runCodeValidation(draft: QuestionDraft, verificationExpression?:
   checks.push({ name: "explanation_detailed", passed: !thin, detail: thin ?? undefined });
 
   // Learners see text only: no question may lean on a figure they cannot see, and tables and maths must be written so they can be drawn.
-  const figure = figureProblem(draft.question, draft.options);
+  const set = options.set ?? null;
+  const figure = figureProblem(draft.question, draft.options, { hasChart: Boolean(set?.chart), hasTable: Boolean(set && hasTable(set.stimulus)) });
   checks.push({ name: "no_missing_figure", passed: !figure, detail: figure ?? undefined });
+  if (set) {
+    const ungrounded = groundingProblem(verificationExpression, setNumbers(set));
+    checks.push({ name: "uses_the_data", passed: !ungrounded, detail: ungrounded ?? undefined });
+  }
   const formatting = richTextProblem(draft.question) ?? optionKeys.map((key) => richTextProblem(draft.options[key], { singleLine: true })).find(Boolean) ?? null;
   checks.push({ name: "question_formatting", passed: !formatting, detail: formatting ?? undefined });
   const solutionFormatting = richTextProblem(draft.explanation);

@@ -102,13 +102,20 @@ export function richTextProblem(text: string, options: { singleLine?: boolean } 
   return null;
 }
 
-// Learners see text only. A question that points at a figure, graph or chart they cannot see is unanswerable.
-const figureReferences = [
-  /\b(?:in|from|see|refer to|according to|shown in|given in|using|study)\s+the\s+(?:given\s+|following\s+)?(?:figure|diagram|graph|chart|image|picture|pie[- ]?chart|bar[- ]?(?:chart|graph))\b/i,
-  /\b(?:figure|diagram|graph|chart|image|picture)\s+(?:below|above|given|shown|alongside|drawn)\b/i,
-  /\b(?:given|following|adjoining|accompanying)\s+(?:figure|diagram|graph|chart|image|picture)\b/i,
-  /\b(?:pie|bar|line)[- ]?(?:chart|graph|diagram)\b/i,
-  /\bhistogram\b/i,
+// Learners see text only, plus a table or chart that belongs to the question's data set. A question that points at anything
+// else (a figure, diagram or picture), or at a chart or table that is not there, cannot be answered.
+const lead = "(?:in|from|see|refer to|according to|shown in|given in|using|study|observe)\\s+the\\s+(?:given\\s+|following\\s+)?";
+const chartWord = "(?:graph|chart|pie[- ]?chart|bar[- ]?(?:chart|graph)|line[- ]?(?:chart|graph))";
+const pictureWord = "(?:figure|diagram|image|picture)";
+const referencesTo = (word: string) => [
+  new RegExp(`\\b${lead}${word}\\b`, "i"),
+  new RegExp(`\\b${word}\\s+(?:below|above|given|shown|alongside|drawn)\\b`, "i"),
+  new RegExp(`\\b(?:given|following|adjoining|accompanying|above)\\s+${word}\\b`, "i")
+];
+
+const chartReferences = [...referencesTo(chartWord), /\b(?:pie|bar|line)[- ]?(?:chart|graph|diagram)\b/i, /\bhistogram\b/i];
+const pictureReferences = [
+  ...referencesTo(pictureWord),
   /\b(?:mirror|water)\s+image\b/i,
   /\bpaper\s+(?:folding|cutting)\b/i,
   /\bembedded\s+figure\b/i,
@@ -119,9 +126,14 @@ const figureReferences = [
 
 const tableReferences = /\b(?:following|given|below|above)\s+table\b|\btable\s+(?:below|above|given|shows?|gives?|represents?)\b|\bin\s+the\s+table\b/i;
 
-export function figureProblem(stem: string, options: Record<string, string>): string | null {
+export type FigureContext = { hasChart?: boolean; hasTable?: boolean };
+
+export function figureProblem(stem: string, options: Record<string, string>, context: FigureContext = {}): string | null {
   const text = [stem, ...Object.values(options)].join("\n");
-  if (figureReferences.some((pattern) => pattern.test(text))) return "The question depends on a figure, diagram, graph or chart that learners cannot see. Rewrite it so it is fully answerable from text, or put the data in a text table.";
-  if (tableReferences.test(stem) && !parseRichBlocks(stem).some((block) => block.type === "table")) return "The question refers to a table that is not included. Put the table in the question text, one row per line with | between cells.";
+  if (pictureReferences.some((pattern) => pattern.test(text))) return "The question depends on a figure, diagram or picture that learners cannot see. Rewrite it so it is fully answerable from text, or put the data in a text table.";
+  if (!context.hasChart && chartReferences.some((pattern) => pattern.test(text))) return "The question depends on a graph or chart that is not included. Rewrite it so it is fully answerable from text, or put the data in a text table.";
+  if (!context.hasTable && tableReferences.test(stem) && !hasTableBlock(stem)) return "The question refers to a table that is not included. Put the table in the question text, one row per line with | between cells.";
   return null;
 }
+
+const hasTableBlock = (text: string) => parseRichBlocks(text).some((block) => block.type === "table");

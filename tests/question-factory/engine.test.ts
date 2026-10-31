@@ -159,7 +159,7 @@ describe("runs on the chat work queue", () => {
     expect(row.validation_status).toBe("auto_passed");
     expect(row.stem).toContain("| Year | Sales | Cost |");
     const events = await db.query<{ message: string }>("select message from factory_events where batch_id = $1 and stage = 'solve'", [id]);
-    expect(events.rows.some((event) => /figure, diagram, graph or chart/i.test(event.message))).toBe(true);
+    expect(events.rows.some((event) => /graph or chart/i.test(event.message))).toBe(true);
   });
 
   it("sends a question to a person when the independent solver keeps disagreeing", async () => {
@@ -305,5 +305,94 @@ describe("re-checking existing questions", () => {
   it("refuses when nothing matches", async () => {
     const { recheckQuestions } = await import("@/lib/question-factory/engine");
     await expect(recheckQuestions(db, { exam: "SSC CGL", tier: "Tier I", subject: "Quantitative Aptitude", topic: "No such topic", mode: "queue", limit: 10, includeApproved: false })).rejects.toThrow(/No questions match/);
+  });
+});
+
+describe("data sets", () => {
+  // One bar-chart data set with five questions whose answers are computed from the three yearly values.
+  function dataSet(title: string, [a, b, c]: [number, number, number]) {
+    const q = (question: string, answer: number, expression: string, suffix = "") => ({
+      question, options: { A: `${answer - 10}${suffix}`, B: `${answer}${suffix}`, C: `${answer + 10}${suffix}`, D: `${answer + 20}${suffix}` }, correct_answer: "B", difficulty: "moderate",
+      explanation: worked("B", `${answer}${suffix}`), estimated_time_seconds: 70, verification_expression: expression
+    });
+    return {
+      title, intro: "Sales of a shop over three years.", table: null,
+      chart: { type: "bar", title: "Sales by year", unit: "₹ lakh", categories: ["2019", "2020", "2021"], series: [{ name: "Sales", values: [a, b, c] }] },
+      questions: [
+        q("By how much did sales rise from 2019 to 2020?", b - a, `${b} - ${a}`),
+        q("By what percent did sales rise from 2020 to 2021?", ((c - b) / b) * 100, `(${c} - ${b}) / ${b} * 100`, "%"),
+        q("What is the average sales over the three years?", (a + b + c) / 3, `(${a} + ${b} + ${c}) / 3`),
+        q("What is the total sales over the three years?", a + b + c, `${a} + ${b} + ${c}`),
+        q("By how much did sales in 2021 exceed sales in 2019?", c - a, `${c} - ${a}`)
+      ]
+    };
+  }
+
+  async function runSet(values: [number, number, number], title: string) {
+    const { advanceBatch, createBatch, queueAi } = await import("@/lib/question-factory/engine");
+    const { pendingTasks } = await import("@/lib/question-factory/queue");
+    const id = await createBatch(db, { exam: "SSC CGL", tier: "Tier I", subject: "Quantitative Aptitude", topic: "Data Interpretation", difficulty: "moderate", count: 5, mode: "queue", format: "set", setKind: "bar" });
+    expect((await advanceBatch(db, queueAi(db), id, { budgetMs: 3000 }))?.status).toBe("waiting_ai");
+    const first = await pendingTasks(db, { batchId: id });
+    expect(first.map((task) => task.stage)).toEqual(["write"]);
+    expect(first[0].request.prompt).toContain("Data Interpretation sets");
+    expect(first[0].request.prompt).toContain("bar chart");
+
+    const done = await drain(id, (task) => {
+      const stem = /Question: (.*)\n/.exec(task.request.prompt)?.[1] ?? "";
+      if (task.stage === "write") return { sets: [dataSet(title, values)] };
+      // The solver cannot see a picture, so it must be given the chart's numbers as text.
+      if (task.stage === "solve") {
+        if (!task.request.prompt.includes("Data set:") || !task.request.prompt.includes(`| 2020 | ${values[1]} |`)) throw new Error("The solver was not given the data");
+        return { answer: "B", reasoning: "worked out from the data", ambiguous: false };
+      }
+      if (task.stage === "review") {
+        if (!task.request.prompt.includes("Data set:")) throw new Error("The reviewer was not given the data");
+        return { ok: true, issues: [], question: stem, steps_ok: true, step_errors: [], in_syllabus: true, level: "as_expected", reason: "Fine." };
+      }
+      throw new Error(`Unexpected stage ${task.stage}`);
+    });
+    expect(done.status).toBe("completed");
+    return id;
+  }
+
+  it("writes a set, shows the solver the data as text, and links every question to the set", async () => {
+    const id = await runSet([120, 150, 180], "Shop sales A");
+    const rows = await db.query<{ validation_status: string; set_id: string | null; set_position: number | null; stem: string }>("select validation_status, set_id, set_position, stem from questions where batch_id = $1 order by set_position", [id]);
+    expect(rows.rows).toHaveLength(5);
+    expect(rows.rows.every((row) => row.validation_status === "auto_passed")).toBe(true);
+    expect(new Set(rows.rows.map((row) => row.set_id)).size).toBe(1);
+    expect(rows.rows.map((row) => row.set_position)).toEqual([0, 1, 2, 3, 4]);
+    const set = (await db.query<{ title: string; chart: { type: string; categories: string[] } }>("select title, chart from question_sets where id = $1", [rows.rows[0].set_id])).rows[0];
+    expect(set.title).toBe("Shop sales A");
+    expect(set.chart.type).toBe("bar");
+    expect(set.chart.categories).toEqual(["2019", "2020", "2021"]);
+  });
+
+  it("does not call a question a repeat just because another set asks the same thing about different data", async () => {
+    const id = await runSet([90, 120, 180], "Shop sales B");
+    const rows = await db.query<{ validation_status: string; set_id: string | null }>("select validation_status, set_id from questions where batch_id = $1", [id]);
+    expect(rows.rows).toHaveLength(5);
+    expect(rows.rows.every((row) => row.validation_status === "auto_passed")).toBe(true);
+    expect(Number((await db.query<{ n: string }>("select count(*) as n from question_sets where title like 'Shop sales%'")).rows[0].n)).toBe(2);
+  });
+
+  it("drops a set whose chart is not usable and says why", async () => {
+    const { createBatch, advanceBatch, queueAi } = await import("@/lib/question-factory/engine");
+    const { answerTasks, pendingTasks } = await import("@/lib/question-factory/queue");
+    const id = await createBatch(db, { exam: "SSC CGL", tier: "Tier I", subject: "Quantitative Aptitude", topic: "Data Interpretation", difficulty: "moderate", count: 5, mode: "queue", format: "set" });
+    await advanceBatch(db, queueAi(db), id, { budgetMs: 3000 });
+    const [task] = await pendingTasks(db, { batchId: id });
+    const bad = { ...dataSet("Broken chart", [1, 2, 3]), chart: { type: "donut", title: "x", categories: ["a"], series: [] } };
+    await answerTasks(db, [{ id: task.id, response: JSON.stringify({ sets: [bad] }) }], "test");
+    await advanceBatch(db, queueAi(db), id, { budgetMs: 3000 });
+    const events = await db.query<{ message: string }>("select message from factory_events where batch_id = $1 and stage = 'write'", [id]);
+    expect(events.rows.some((event) => /data set was dropped: The chart is not valid/.test(event.message))).toBe(true);
+    expect(Number((await db.query<{ n: string }>("select count(*) as n from question_sets where title = 'Broken chart'")).rows[0].n)).toBe(0);
+  });
+
+  it("refuses data sets without an AI", async () => {
+    const { createBatch } = await import("@/lib/question-factory/engine");
+    await expect(createBatch(db, { exam: "SSC CGL", tier: "Tier I", subject: "Quantitative Aptitude", difficulty: "moderate", count: 5, mode: "rules", format: "set" })).rejects.toThrow(/chat queue or an AI API/);
   });
 });
