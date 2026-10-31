@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { AdminHeader, Card, Field, Flash, StatusPill, inputClass } from "@/components/admin/ui";
 import { QuestionForm } from "@/components/admin/question-form";
+import { Inline, Rich } from "@/components/rich-text";
+import { SolutionText } from "@/components/solution-text";
 import { setQuestionStatus } from "@/app/admin/questions/actions";
 import { adminDb } from "@/lib/admin/db";
 import { summariseChecks } from "@/lib/question-factory/checks-summary";
@@ -78,6 +80,15 @@ export default async function QuestionPage({ params, searchParams }: { params: P
             ))}
           </div>
         </form>
+      </Card>
+      <Card title="How a learner sees it">
+        <Rich text={q.stem} className="text-lg font-bold leading-8 text-foreground" />
+        <ul className="mt-3 grid gap-2 text-sm">
+          {(["A", "B", "C", "D"] as const).map((key) => (
+            <li key={key} className={`rounded-xl px-3 py-2 font-semibold ${key === q.correct_option ? "bg-mint text-success" : "bg-surface text-muted"}`}>{key}) <Inline text={q.options[key] ?? ""} />{key === q.correct_option ? " (correct)" : ""}</li>
+          ))}
+        </ul>
+        <div className="mt-3 rounded-xl bg-surface p-3 text-sm leading-6 text-muted"><p className="mb-1.5 text-xs font-black uppercase tracking-wide text-success">Solution</p><SolutionText text={q.explanation} /></div>
       </Card>
       {Object.keys(notes).length > 0 && (
         <Card title="Automatic checks">

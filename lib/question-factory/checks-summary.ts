@@ -33,6 +33,11 @@ export function summariseChecks(input: unknown): CheckLine[] {
       : { label: "Solution check", state: "none", detail: "Not run. This question was made before solutions were checked." }
   );
 
+  const figure = check("no_missing_figure");
+  if (figure) lines.push({ label: "Needs no figure or picture", state: figure.passed ? "pass" : "fail", detail: figure.detail });
+  const formatting = [check("question_formatting"), check("solution_formatting")].find((item) => item && !item.passed) ?? check("question_formatting");
+  if (formatting) lines.push({ label: "Tables and maths can be shown", state: formatting.passed ? "pass" : "fail", detail: formatting.detail });
+
   if (notes.solver) lines.push({ label: `Independent solver (${notes.solver.model})`, state: notes.solver.agrees && !notes.solver.ambiguous ? "pass" : "fail", detail: notes.solver.agrees ? (notes.solver.ambiguous ? "Agreed, but found more than one defensible answer." : "Chose the same option as the key.") : `Chose ${notes.solver.answer ?? "no option"} instead.` });
   else if (!notes.proven) lines.push({ label: "Independent solver", state: "none", detail: "Did not run." });
 

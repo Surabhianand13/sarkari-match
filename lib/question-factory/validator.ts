@@ -1,4 +1,5 @@
 import { evaluateExpression, firstNumber } from "./expression";
+import { figureProblem, richTextProblem } from "@/lib/rich-text";
 import { optionKeys, type QuestionDraft } from "@/lib/tests/question-schema";
 
 export type ValidationCheck = { name: string; passed: boolean; detail?: string };
@@ -52,6 +53,14 @@ export function runCodeValidation(draft: QuestionDraft, verificationExpression?:
 
   const thin = explanationProblem(draft.explanation, { correct: draft.correct_answer, options: draft.options });
   checks.push({ name: "explanation_detailed", passed: !thin, detail: thin ?? undefined });
+
+  // Learners see text only: no question may lean on a figure they cannot see, and tables and maths must be written so they can be drawn.
+  const figure = figureProblem(draft.question, draft.options);
+  checks.push({ name: "no_missing_figure", passed: !figure, detail: figure ?? undefined });
+  const formatting = richTextProblem(draft.question) ?? optionKeys.map((key) => richTextProblem(draft.options[key], { singleLine: true })).find(Boolean) ?? null;
+  checks.push({ name: "question_formatting", passed: !formatting, detail: formatting ?? undefined });
+  const solutionFormatting = richTextProblem(draft.explanation);
+  checks.push({ name: "solution_formatting", passed: !solutionFormatting, detail: solutionFormatting ? `The explanation has a formatting problem. ${solutionFormatting}` : undefined });
 
   const numericOptions = optionKeys.map((key) => firstNumber(draft.options[key]));
   const allNumeric = numericOptions.every((value) => value !== null);

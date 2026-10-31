@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { LevelStepper } from "@/components/practice/level-stepper";
+import { Inline, Rich } from "@/components/rich-text";
 import { SolutionText } from "@/components/solution-text";
 import type { Level, PracticeSession } from "@/lib/practice-shared";
 
@@ -79,7 +80,7 @@ export function PracticeRunner({ session }: { session: PracticeSession }) {
       </div>
       <p className="mt-2 text-xs font-bold text-muted">Question {index + 1} of {session.total} · {correctCount} correct so far</p>
       <div className="mt-5 rounded-3xl bg-white p-6 shadow-soft">
-        <p className="text-lg font-bold leading-8 text-foreground">{question.stem}</p>
+        <Rich text={question.stem} className="text-lg font-bold leading-8 text-foreground" />
         <div className="mt-5 grid gap-3">
           {(["A", "B", "C", "D"] as const).map((key) => {
             const isPicked = picked[question.id] === key;
@@ -88,7 +89,7 @@ export function PracticeRunner({ session }: { session: PracticeSession }) {
             return (
               <button key={key} onClick={() => choose(key)} disabled={answered || busy} className={`flex items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left font-semibold transition ${tone}`}>
                 <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-surface text-xs font-black text-primary">{key}</span>
-                <span className="flex-1">{question.options[key]}</span>
+                <span className="flex-1"><Inline text={question.options[key]} /></span>
                 {current && isCorrect && <CheckCircle2 className="text-success" size={20} aria-hidden="true" />}
                 {current && isPicked && !isCorrect && <XCircle className="text-error" size={20} aria-hidden="true" />}
               </button>

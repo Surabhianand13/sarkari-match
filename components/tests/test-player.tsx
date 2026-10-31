@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { Clock, LayoutGrid } from "lucide-react";
+import { Inline, Rich } from "@/components/rich-text";
 import type { PlayerData } from "@/lib/tests/attempts";
 
 type AnswerState = { selected: string | null; marked: boolean };
@@ -185,12 +186,12 @@ export function TestPlayer({ data }: { data: PlayerData }) {
       <div className="mx-auto grid max-w-6xl gap-5 px-4 py-5 lg:grid-cols-[1fr_17rem]">
         <section className="rounded-3xl bg-white p-5 shadow-soft sm:p-7" aria-live="polite">
           <p className="text-xs font-black uppercase tracking-wide text-muted">Question {index + 1} of {questions.length} · {current.section} · +{current.marks} / -{data.negativeMarks}</p>
-          <p className="mt-3 whitespace-pre-line text-lg font-bold leading-8 text-foreground">{current.stem}</p>
+          <Rich text={current.stem} className="mt-3 text-lg font-bold leading-8 text-foreground" />
           <div className="mt-5 grid gap-3" role="radiogroup" aria-label="Options">
             {["A", "B", "C", "D"].map((key) => (
               <button key={key} role="radio" aria-checked={selected === key} onClick={() => update(current.id, { selected: key })} className={`flex min-h-12 items-start gap-3 rounded-2xl border px-4 py-3 text-left text-base font-semibold ${selected === key ? "border-brand-green bg-mint text-primary" : "border-border bg-white text-foreground hover:bg-surface"}`}>
                 <span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-black ${selected === key ? "bg-brand-green text-white" : "bg-surface text-primary"}`}>{key}</span>
-                <span className="pt-0.5">{current.options[key]}</span>
+                <span className="pt-0.5"><Inline text={current.options[key]} /></span>
               </button>
             ))}
           </div>

@@ -142,6 +142,26 @@ describe("runs on the chat work queue", () => {
     expect(events.rows.some((event) => /error in the explanation/i.test(event.message))).toBe(true);
   });
 
+  it("catches a question that leans on a missing chart and the fixer rewrites it with a text table", async () => {
+    const { createBatch } = await import("@/lib/question-factory/engine");
+    const id = await createBatch(db, { exam: "SSC CGL", tier: "Tier I", subject: "Quantitative Aptitude", topic: "Data tables", difficulty: "moderate", count: 1, mode: "queue" });
+    const chart: Q = { question: "Study the pie chart given here and find the profit in 2020 if sales were 150 and cost was 120.", options: { A: "20", B: "30", C: "40", D: "50" }, correct_answer: "B", verification_expression: "150 - 120" };
+    const withTable = "The table shows sales and cost.\n| Year | Sales | Cost |\n|---|---|---|\n| 2020 | 150 | 120 |\nWhat was the profit in 2020?";
+    const respond = answerer([chart], "Quantitative Aptitude", "Data tables", {
+      solve: () => ({ answer: "B", reasoning: "150 - 120 = 30", ambiguous: false }),
+      review: () => ({ ok: true, issues: [], steps_ok: true, step_errors: [], in_syllabus: true, level: "as_expected", reason: "Fine." }),
+      fix: () => ({ question: withTable, options: chart.options, correct_answer: "B", explanation: worked("B", "30"), estimated_time_seconds: 60, verification_expression: "150 - 120" })
+    });
+    const done = await drain(id, respond);
+    expect(done.status).toBe("completed");
+    const row = (await db.query<{ validation_status: string; stem: string; fix_attempts: number }>("select validation_status, stem, fix_attempts from questions where batch_id = $1", [id])).rows[0];
+    expect(row.fix_attempts).toBe(1);
+    expect(row.validation_status).toBe("auto_passed");
+    expect(row.stem).toContain("| Year | Sales | Cost |");
+    const events = await db.query<{ message: string }>("select message from factory_events where batch_id = $1 and stage = 'solve'", [id]);
+    expect(events.rows.some((event) => /figure, diagram, graph or chart/i.test(event.message))).toBe(true);
+  });
+
   it("sends a question to a person when the independent solver keeps disagreeing", async () => {
     const stubborn: Q = { question: "A tank fills in 6 hours and empties in 12 hours. How long does it take to fill when both pipes run?", options: { A: "10", B: "12", C: "14", D: "16" }, correct_answer: "B", verification_expression: "(6 * 12) / (12 - 6)" };
     const { createBatch } = await import("@/lib/question-factory/engine");

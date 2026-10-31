@@ -32,7 +32,7 @@ export function QuestionForm({ values = {}, lockExam = false }: { values?: Quest
         </select>
       </Field>
       <Field label="Time (seconds)"><input name="est_time_seconds" type="number" min="10" defaultValue={values.est_time_seconds ?? 60} className={inputClass} /></Field>
-      <div className="md:col-span-2"><Field label="Question"><textarea name="question" required rows={3} defaultValue={values.stem} className={inputClass} /></Field></div>
+      <div className="md:col-span-2"><Field label="Question" hint="Tables: one row per line with | between cells, then a separator row |---|---|. Maths: √ π ² and ^ _ for powers and subscripts (x^2, a_1). No images or figures."><textarea name="question" required rows={5} defaultValue={values.stem} className={inputClass} /></Field></div>
       {["A", "B", "C", "D"].map((key) => (
         <Field key={key} label={`Option ${key}`}><input name={`option_${key}`} required defaultValue={options[key]} className={inputClass} /></Field>
       ))}
