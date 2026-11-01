@@ -64,6 +64,8 @@ Email (Cloudflare Email Routing, Resend) is left for later: see the last section
 
 ## 6. Search and monitoring
 - Google Search Console: add the domain (verify with the DNS TXT record it gives you, added in Cloudflare > DNS) and submit `https://sarkarimatch.com/sitemap.xml`. Same in Bing Webmaster Tools.
+- IndexNow: set `INDEXNOW_KEY` (any UUID without special characters) in Render. Publishing a notification or article then pings Bing, which also feeds ChatGPT search. Check `https://sarkarimatch.com/indexnow-key.txt` shows the key.
+- After the first deploy, in Search Console use URL Inspection > Request indexing for `/`, `/jobs`, `/tests` and the SSC CGL series page, then watch Pages > Why pages aren't indexed weekly.
 - Uptime monitor on `https://sarkarimatch.com/api/health` (checks the database too).
 - Before you load a lot of data or make big changes, take a backup (`pg_dump` with your Supabase connection string). Free Supabase projects have no automatic backups.
 

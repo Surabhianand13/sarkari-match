@@ -43,7 +43,7 @@ export async function savePost(formData: FormData) {
     goTo(withMessage(back, "error", friendlyDbError(error)));
   }
   await writeAudit(db, { actorId: admin.id, action: id ? "blog.update" : "blog.create", entityType: "blog_post", entityId: savedId, after: { title, slug, published: publish } });
-  revalidatePublicContent();
+  revalidatePublicContent(publish ? [`/blog/${slug}`, "/blog"] : []);
   goTo(withMessage(BASE, "notice", publish ? "Article published." : "Draft saved."));
 }
 
