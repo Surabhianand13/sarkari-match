@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { adminApiUser, uuidPattern } from "@/lib/admin/api";
 import { adminDb, messageFrom } from "@/lib/admin/db";
 import { advanceBatch } from "@/lib/question-factory/engine";
+import { advanceTranslation } from "@/lib/question-factory/translate";
 import { batchSnapshot } from "@/lib/question-factory/monitor";
 import { aiForConfig } from "@/lib/question-factory/runtime";
 
@@ -14,10 +15,12 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const { id } = await params;
   if (!uuidPattern.test(id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const db = await adminDb();
-  const found = await db.query<{ config: { mode?: string; provider?: string } }>("select config from question_batches where id = $1", [id]);
+  const found = await db.query<{ config: { mode?: string; provider?: string; translate?: string } }>("select config from question_batches where id = $1", [id]);
   if (!found.rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
   try {
-    await advanceBatch(db, aiForConfig(db, found.rows[0].config), id, { budgetMs: 8000 });
+    const ai = aiForConfig(db, found.rows[0].config);
+    if (found.rows[0].config.translate) await advanceTranslation(db, ai, id, { budgetMs: 8000 });
+    else await advanceBatch(db, ai, id, { budgetMs: 8000 });
   } catch (error) {
     return NextResponse.json({ error: messageFrom(error) }, { status: 400 });
   }

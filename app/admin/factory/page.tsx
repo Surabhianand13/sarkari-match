@@ -1,5 +1,5 @@
 import { AdminHeader, ButtonLinkSmall, Card, DataTable, Field, Flash, StatusPill, SubmitButton, Td, inputClass } from "@/components/admin/ui";
-import { startFactoryRun, startRecheck } from "@/app/admin/factory/actions";
+import { startFactoryRun, startRecheck, startTranslationRun } from "@/app/admin/factory/actions";
 import { adminDb } from "@/lib/admin/db";
 import { providerStatus } from "@/lib/question-factory/providers";
 import { templateTopics } from "@/lib/question-factory/templates";
@@ -41,6 +41,24 @@ export default async function FactoryPage({ searchParams }: { searchParams: Prom
           <Field label="How many" hint="The oldest first. AI-written questions only."><input name="count" type="number" min="1" max="500" defaultValue={100} className={inputClass} /></Field>
           <label className="flex items-center gap-2 text-sm font-bold text-primary md:col-span-2"><input type="checkbox" name="include_approved" className="size-4" /> Also include approved questions (they go back to review)</label>
           <div className="flex items-end"><SubmitButton variant="secondary">Re-check questions</SubmitButton></div>
+        </form>
+      </Card>
+
+      <Card title="Translate to Hindi">
+        <p className="mb-3 text-sm text-muted">Writes Hindi versions of published and approved questions (and the data or passage they share) for bilingual tests. Each translation keeps every number and the answer, is checked by code, and is then solved blind by a second AI from the Hindi alone. Learners see a Hindi version only after a person who reads Hindi approves it under Hindi translations. English Language questions stay in English.</p>
+        <form action={startTranslationRun} className="grid gap-4 md:grid-cols-3">
+          <Field label="Who does the AI work">
+            <select name="mode" defaultValue="queue" className={inputClass}>
+              <option value="queue">Chat queue: Claude and ChatGPT</option>
+              <option value="api" disabled={!ready.length}>AI API{ready.length ? "" : " (no key set)"}</option>
+            </select>
+          </Field>
+          <Field label="Exam"><input name="exam" defaultValue="SSC CGL" className={inputClass} /></Field>
+          <Field label="Tier"><input name="tier" defaultValue="Tier I" className={inputClass} /></Field>
+          <Field label="Subject (category)"><input name="subject" list="factory-subjects" defaultValue="Quantitative Aptitude" className={inputClass} /></Field>
+          <Field label="Topic (optional)" hint="Starts with. Leave empty for the whole subject."><input name="topic" className={inputClass} /></Field>
+          <Field label="How many" hint="The oldest first, only questions with no Hindi version yet."><input name="count" type="number" min="1" max="500" defaultValue={50} className={inputClass} /></Field>
+          <div className="flex items-end"><SubmitButton variant="secondary">Start translating</SubmitButton></div>
         </form>
       </Card>
 

@@ -7,6 +7,8 @@ import { Clock, LayoutGrid } from "lucide-react";
 import { Inline, Rich } from "@/components/rich-text";
 import { QuestionFigure } from "@/components/question-figure";
 import { SetStimulus } from "@/components/set-stimulus";
+import { LanguageSwitch, useQuestionLanguage } from "@/components/language-switch";
+import { localize } from "@/lib/localize";
 import type { PlayerData } from "@/lib/tests/attempts";
 
 type AnswerState = { selected: string | null; marked: boolean };
@@ -22,6 +24,8 @@ function format(seconds: number) {
 export function TestPlayer({ data }: { data: PlayerData }) {
   const router = useRouter();
   const { questions } = data;
+  const { lang, setLang } = useQuestionLanguage();
+  const anyHindi = questions.some((question) => question.hi);
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, AnswerState>>(() => data.answers);
   const [visited, setVisited] = useState<Set<string>>(() => new Set([questions[0]?.id, ...Object.keys(data.answers)].filter(Boolean) as string[]));
@@ -128,6 +132,7 @@ export function TestPlayer({ data }: { data: PlayerData }) {
   }, [answers, questions]);
 
   if (!current) return <p className="p-6 text-center font-bold text-muted">This test has no questions.</p>;
+  const view = localize(current, lang);
   const selected = answers[current.id]?.selected ?? null;
   const low = remaining <= 300;
 
@@ -187,17 +192,23 @@ export function TestPlayer({ data }: { data: PlayerData }) {
 
       <div className="mx-auto grid max-w-6xl gap-5 px-4 py-5 lg:grid-cols-[1fr_17rem]">
         <section className="rounded-3xl bg-white p-5 shadow-soft sm:p-7" aria-live="polite">
-          <p className="text-xs font-black uppercase tracking-wide text-muted">Question {index + 1} of {questions.length} · {current.section} · +{current.marks} / -{data.negativeMarks}</p>
-          {current.set && <div className="mt-3"><SetStimulus set={current.set} /></div>}
-          <QuestionFigure figure={current.figure} image={current.image} />
-          <Rich text={current.stem} className="mt-3 text-lg font-bold leading-8 text-foreground" />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-black uppercase tracking-wide text-muted">Question {index + 1} of {questions.length} · {current.section} · +{current.marks} / -{data.negativeMarks}</p>
+            {anyHindi && <LanguageSwitch lang={lang} onChange={setLang} />}
+          </div>
+          {lang === "hi" && !view.translated && <p className="mt-2 text-xs font-bold text-muted">This question is available in English only.</p>}
+          <div lang={view.translated ? "hi" : undefined}>
+            {view.set && <div className="mt-3"><SetStimulus set={view.set} lang={view.translated ? "hi" : "en"} /></div>}
+            <QuestionFigure figure={view.figure} image={current.image} />
+            <Rich text={view.stem} className="mt-3 text-lg font-bold leading-8 text-foreground" />
           <div className="mt-5 grid gap-3" role="radiogroup" aria-label="Options">
             {["A", "B", "C", "D"].map((key) => (
               <button key={key} role="radio" aria-checked={selected === key} onClick={() => update(current.id, { selected: key })} className={`flex min-h-12 items-start gap-3 rounded-2xl border px-4 py-3 text-left text-base font-semibold ${selected === key ? "border-brand-green bg-mint text-primary" : "border-border bg-white text-foreground hover:bg-surface"}`}>
                 <span className={`flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-black ${selected === key ? "bg-brand-green text-white" : "bg-surface text-primary"}`}>{key}</span>
-                <span className="pt-0.5"><Inline text={current.options[key]} /></span>
+                <span className="pt-0.5"><Inline text={view.options[key]} /></span>
               </button>
             ))}
+          </div>
           </div>
           {saveFailed && <p role="alert" className="mt-3 text-sm font-bold text-error">Your last answer could not be saved. Check your connection; it will retry when you change an answer.</p>}
           {error && <p role="alert" className="mt-3 text-sm font-bold text-error">{error}</p>}

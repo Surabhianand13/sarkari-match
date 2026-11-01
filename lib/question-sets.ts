@@ -13,6 +13,12 @@ export function toQuestionSet(row: SetRow): QuestionSet {
   return { id: row.id, kind, title: row.title, stimulus: row.stimulus, chart: parsed && "chart" in parsed ? parsed.chart : null };
 }
 
+export const setLabelsHi: Record<SetContentKind, string> = {
+  data: "इस प्रश्न के लिए आँकड़े",
+  passage: "गद्यांश पढ़ें",
+  cloze: "गद्यांश पढ़ें और रिक्त स्थान भरें"
+};
+
 export const setLabels: Record<SetContentKind, { label: string; context: string; noun: string }> = {
   data: { label: "Data for this question", context: "Data set", noun: "data" },
   passage: { label: "Read the passage", context: "Passage", noun: "passage" },

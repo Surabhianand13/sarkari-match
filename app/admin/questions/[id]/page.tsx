@@ -7,6 +7,8 @@ import { SetStimulus } from "@/components/set-stimulus";
 import { SolutionText } from "@/components/solution-text";
 import { toQuestionSet } from "@/lib/question-sets";
 import { saveQuestionImage, setQuestionStatus } from "@/app/admin/questions/actions";
+import { saveTranslation, setSetTranslationStatus, setTranslationStatus } from "@/app/admin/translations/actions";
+import { Chart } from "@/components/chart";
 import { toFigure } from "@/lib/figure";
 import { adminDb } from "@/lib/admin/db";
 import { summariseChecks } from "@/lib/question-factory/checks-summary";
@@ -66,6 +68,12 @@ export default async function QuestionPage({ params, searchParams }: { params: P
     : null;
   const figure = toFigure(q.figure);
   const image = q.image_id ? { id: q.image_id, alt: (await db.query<{ alt: string }>("select alt from question_images where id = $1", [q.image_id])).rows[0]?.alt ?? "" } : null;
+  const hindi = (await db.query<{ stem: string; options: Record<string, string>; explanation: string; status: string; notes: { reasons?: string[] } }>(
+    "select stem, options, explanation, status, notes from question_translations where question_id = $1 and lang = 'hi'", [id])).rows[0];
+  const hindiSet = q.set_id
+    ? (await db.query<{ title: string; stimulus: string; chart: unknown; status: string; kind: string }>(
+        "select t.title, t.stimulus, t.chart, t.status, s.kind from set_translations t join question_sets s on s.id = t.set_id where t.set_id = $1 and t.lang = 'hi'", [q.set_id])).rows[0]
+    : null;
   const status = q.validation_status;
   const notes = q.validation_notes ?? {};
   const allowed = buttons.filter(([to, label]) => canTransition(status, to) && !(label === "Unpublish" && status !== "published") && !(label === "Approve" && status === "published"));
@@ -123,6 +131,60 @@ export default async function QuestionPage({ params, searchParams }: { params: P
           <details className="mt-3"><summary className="cursor-pointer text-xs font-black text-muted">Raw check data</summary>
             <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-xl bg-surface p-3 text-xs text-muted">{JSON.stringify(notes, null, 2)}</pre>
           </details>
+        </Card>
+      )}
+      {hindi && (
+        <Card title="Hindi version">
+          <div className="mb-3 flex flex-wrap items-center gap-3 text-xs font-semibold text-muted">
+            <StatusPill status={hindi.status} />
+            <span>Learners see it only when it is approved{q.set_id ? " and the shared data below is approved too" : ""}.</span>
+          </div>
+          {hindi.notes?.reasons?.length ? <p className="mb-3 rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-error">{hindi.notes.reasons.join(" ")}</p> : null}
+          {hindiSet && (
+            <div className="mb-4 rounded-2xl border border-border bg-surface p-4" lang="hi">
+              <div className="mb-2 flex flex-wrap items-center gap-3 text-xs font-semibold text-muted" lang="en">
+                <StatusPill status={hindiSet.status} /> <span>Hindi version of the shared {hindiSet.kind === "data" ? "data" : "passage"}</span>
+              </div>
+              <p className="text-sm font-black text-primary">{hindiSet.title}</p>
+              {hindiSet.stimulus.trim() && <Rich text={hindiSet.stimulus} className="mt-2 grid gap-2 text-base leading-7 text-foreground" />}
+              {toQuestionSet({ id: q.set_id!, title: hindiSet.title, stimulus: hindiSet.stimulus, chart: hindiSet.chart }).chart && <Chart chart={toQuestionSet({ id: q.set_id!, title: hindiSet.title, stimulus: hindiSet.stimulus, chart: hindiSet.chart }).chart!} />}
+              {hindiSet.status === "needs_review" && (
+                <form action={setSetTranslationStatus} className="mt-3 flex flex-wrap gap-2" lang="en">
+                  <input type="hidden" name="set_id" value={q.set_id!} />
+                  <input type="hidden" name="question_id" value={id} />
+                  <SubmitButton name="to" value="approved">Approve the shared data</SubmitButton>
+                  <SubmitButton name="to" value="rejected" variant="danger">Reject</SubmitButton>
+                </form>
+              )}
+            </div>
+          )}
+          <div lang="hi">
+            <Rich text={hindi.stem} className="text-lg font-bold leading-8 text-foreground" />
+            <ul className="mt-3 grid gap-2 text-sm">
+              {(["A", "B", "C", "D"] as const).map((key) => (
+                <li key={key} className={`rounded-xl px-3 py-2 font-semibold ${key === q.correct_option ? "bg-mint text-success" : "bg-surface text-muted"}`}>{key}) <Inline text={hindi.options[key] ?? ""} />{key === q.correct_option ? " (correct)" : ""}</li>
+              ))}
+            </ul>
+            <div className="mt-3 rounded-xl bg-surface p-3 text-sm leading-6 text-muted"><SolutionText text={hindi.explanation} /></div>
+          </div>
+          <form action={setTranslationStatus} className="mt-4 flex flex-wrap gap-2">
+            <input type="hidden" name="question_id" value={id} />
+            {hindi.status === "needs_review" && <SubmitButton name="to" value="approved">Approve Hindi version</SubmitButton>}
+            {hindi.status === "approved" && <SubmitButton name="to" value="needs_review" variant="secondary">Send back for review</SubmitButton>}
+            {["needs_review", "approved", "failed"].includes(hindi.status) && <SubmitButton name="to" value="rejected" variant="danger">Reject</SubmitButton>}
+          </form>
+          {["needs_review", "approved", "rejected", "failed"].includes(hindi.status) && hindi.stem && (
+            <details className="mt-4">
+              <summary className="cursor-pointer text-sm font-black text-primary">Edit the Hindi</summary>
+              <form action={saveTranslation} className="mt-3 grid gap-3 md:grid-cols-2">
+                <input type="hidden" name="question_id" value={id} />
+                <div className="md:col-span-2"><Field label="Question"><textarea name="stem" rows={5} defaultValue={hindi.stem} lang="hi" className={inputClass} /></Field></div>
+                {["A", "B", "C", "D"].map((key) => <Field key={key} label={`Option ${key}`}><input name={`option_${key}`} defaultValue={hindi.options[key]} lang="hi" className={inputClass} /></Field>)}
+                <div className="md:col-span-2"><Field label="Solution" hint="Keep one line for each English line, the same numbers, and the उत्तर line naming the same option."><textarea name="explanation" rows={8} defaultValue={hindi.explanation} lang="hi" className={inputClass} /></Field></div>
+                <div className="md:col-span-2"><SubmitButton variant="secondary">Save Hindi (goes back to review)</SubmitButton></div>
+              </form>
+            </details>
+          )}
         </Card>
       )}
       <Card title="Figure or picture">

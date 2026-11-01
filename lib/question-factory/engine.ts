@@ -153,7 +153,7 @@ const STAGE_PRIORITY = ["fixing", "dedupe", "syllabus", "language", "solve"] as 
 
 export type Outcome = "passed" | "fixed" | "rejected" | "review" | "info" | "error";
 
-async function logEvent(db: Db, batchId: string, questionId: string | null, stage: string, outcome: Outcome, message: string) {
+export async function logEvent(db: Db, batchId: string, questionId: string | null, stage: string, outcome: Outcome, message: string) {
   await db.query("insert into factory_events (batch_id, question_id, stage, outcome, message) values ($1, $2, $3, $4, $5)", [batchId, questionId, stage, outcome, message]);
 }
 
