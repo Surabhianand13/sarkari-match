@@ -11,6 +11,8 @@ import { persistCandidateMatches } from "@/lib/matching/persist";
 import type { MatchStatus } from "@/lib/matching/types";
 import { buildWhatsAppShareUrl } from "@/lib/utils/whatsapp-share";
 
+export const metadata = { title: "Your eligibility results", robots: { index: false, follow: false } };
+
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 function value(params: Record<string, string | string[] | undefined>, key: string) {

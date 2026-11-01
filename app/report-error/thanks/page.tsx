@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { ButtonLink, EmptyState } from "@/components/design-system";
+
+export const metadata: Metadata = { title: "Report received", robots: { index: false, follow: true } };
 
 export default function ReportThanksPage() {
   return (

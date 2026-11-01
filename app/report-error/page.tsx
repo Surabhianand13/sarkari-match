@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Report incorrect information", robots: { index: false, follow: true } };
+
 export default function Page() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">

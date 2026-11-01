@@ -28,6 +28,31 @@ export function buildMetadata({ title, description, path, noindex = false, type 
   };
 }
 
+// Sitemap lastmod is only useful when it is true, so a missing or invalid date is left out instead of defaulting to now.
+export function sitemapDate(value: string | null | undefined): Date | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+export function latestDate(values: ReadonlyArray<string | null | undefined>): Date | undefined {
+  let latest: Date | undefined;
+  for (const value of values) {
+    const date = sitemapDate(value);
+    if (date && (!latest || date > latest)) latest = date;
+  }
+  return latest;
+}
+
+export const CLOSED_JOB_SITEMAP_GRACE_DAYS = 30;
+
+// A closed notification stays on the site and indexable, but stops being submitted once its last date is well past.
+export function isStaleClosedJob(job: { applicationStatus: string; applicationEndDate: string }, now = new Date()) {
+  if (job.applicationStatus !== "closed") return false;
+  const end = sitemapDate(job.applicationEndDate);
+  return Boolean(end) && now.getTime() - end!.getTime() > CLOSED_JOB_SITEMAP_GRACE_DAYS * 86_400_000;
+}
+
 export type BreadcrumbItem = { name: string; path: string };
 
 export function breadcrumbJsonLd(items: BreadcrumbItem[]) {
