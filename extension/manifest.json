@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "SarkariMatch Collector",
+  "version": "0.1.0",
+  "description": "Reads the notification page you have open and sends it to the SarkariMatch admin dashboard as a lead to review. It never publishes anything.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
+  "action": {
+    "default_title": "SarkariMatch Collector",
+    "default_popup": "popup.html",
+    "default_icon": { "48": "icon-48.png", "128": "icon-128.png" }
+  },
+  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "icons": { "48": "icon-48.png", "128": "icon-128.png" }
+}

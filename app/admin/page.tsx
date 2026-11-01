@@ -10,6 +10,7 @@ export default async function AdminPage() {
 
   const tiles: Array<[string, number | undefined, string, string]> = [
     ["Published notifications", stats?.publishedNotifications, "/admin/posts", "Live on the site"],
+    ["Competitor leads to review", stats?.leadsPending, "/admin/leads", "Spotted on other sites, not yet checked"],
     ["Recruitments in draft or review", stats?.draftRecruitments, "/admin/recruitments", "Waiting to be published"],
     ["Closing in 7 days", stats?.closingSoon, "/admin/posts", "Check these first"],
     ["Open error reports", stats?.reportsOpen, "/admin/reports", "Reported by candidates"],
@@ -23,7 +24,7 @@ export default async function AdminPage() {
     <div>
       <AdminHeader title="Overview" description="What needs attention across notifications, mock tests and the business." />
       {!stats && <p className="mb-4 rounded-xl bg-amber-soft px-4 py-3 text-sm font-bold text-warning">No database is configured, so live numbers are unavailable.</p>}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {tiles.map(([label, value, href, hint]) => (
           <Link key={label} href={href as Route} className="rounded-2xl border border-border bg-white p-4 shadow-soft transition hover:-translate-y-0.5">
             <p className="text-xs font-black uppercase tracking-wide text-muted">{label}</p>

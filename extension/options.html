@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SarkariMatch Collector settings</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="page">
+    <h1>SarkariMatch Collector settings</h1>
+    <p class="hint">Make a token in the admin dashboard under Competitor leads, then Connect the extension. The token can only add leads for review.</p>
+    <label>Dashboard address <input id="server" type="url" placeholder="https://sarkarimatch.com" autocomplete="off" /></label>
+    <label>Token <input id="token" type="password" placeholder="smx_..." autocomplete="off" /></label>
+    <button id="save" class="primary">Save and test</button>
+    <div id="status" role="status" aria-live="polite"></div>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>
