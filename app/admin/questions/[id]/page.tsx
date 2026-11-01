@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
-import { AdminHeader, Card, Field, Flash, StatusPill, inputClass } from "@/components/admin/ui";
+import { AdminHeader, Card, Field, Flash, StatusPill, SubmitButton, inputClass } from "@/components/admin/ui";
 import { QuestionForm } from "@/components/admin/question-form";
+import { QuestionFigure } from "@/components/question-figure";
 import { Inline, Rich } from "@/components/rich-text";
 import { SetStimulus } from "@/components/set-stimulus";
 import { SolutionText } from "@/components/solution-text";
 import { toQuestionSet } from "@/lib/question-sets";
-import { setQuestionStatus } from "@/app/admin/questions/actions";
+import { saveQuestionImage, setQuestionStatus } from "@/app/admin/questions/actions";
+import { toFigure } from "@/lib/figure";
 import { adminDb } from "@/lib/admin/db";
 import { summariseChecks } from "@/lib/question-factory/checks-summary";
 import { canTransition, type ValidationStatus } from "@/lib/tests/question-schema";
@@ -29,6 +31,8 @@ type QuestionRow = {
   critic_model: string | null;
   prompt_version: string | null;
   set_id: string | null;
+  figure: unknown;
+  image_id: string | null;
 };
 
 const buttons: Array<[ValidationStatus, string, "primary" | "secondary" | "danger"]> = [
@@ -60,6 +64,8 @@ export default async function QuestionPage({ params, searchParams }: { params: P
     ? (await db.query<{ id: string; title: string; stimulus: string; chart: unknown; n: string }>(
         "select s.id, s.title, s.stimulus, s.chart, (select count(*) from questions where set_id = s.id) as n from question_sets s where s.id = $1", [q.set_id])).rows[0]
     : null;
+  const figure = toFigure(q.figure);
+  const image = q.image_id ? { id: q.image_id, alt: (await db.query<{ alt: string }>("select alt from question_images where id = $1", [q.image_id])).rows[0]?.alt ?? "" } : null;
   const status = q.validation_status;
   const notes = q.validation_notes ?? {};
   const allowed = buttons.filter(([to, label]) => canTransition(status, to) && !(label === "Unpublish" && status !== "published") && !(label === "Approve" && status === "published"));
@@ -95,6 +101,7 @@ export default async function QuestionPage({ params, searchParams }: { params: P
             <p className="mb-3 text-xs font-semibold text-muted">This question is one of {dataSet.n} that share this data. Reject the questions of a set together if its data is wrong.</p>
           </>
         )}
+        <QuestionFigure figure={figure} image={image} />
         <Rich text={q.stem} className="text-lg font-bold leading-8 text-foreground" />
         <ul className="mt-3 grid gap-2 text-sm">
           {(["A", "B", "C", "D"] as const).map((key) => (
@@ -118,6 +125,17 @@ export default async function QuestionPage({ params, searchParams }: { params: P
           </details>
         </Card>
       )}
+      <Card title="Figure or picture">
+        {figure && <p className="mb-3 rounded-xl bg-surface px-4 py-3 text-xs font-semibold text-muted">This question has a figure drawn from the AI&apos;s description (shown above, not to scale). To change it, reject the question and write a new one.</p>}
+        <p className="mb-3 text-xs font-semibold text-muted">For a diagram that cannot be drawn from a description, upload a picture (PNG, JPG or WebP, up to 700 KB). The description is read by screen readers and given to the checking AI, so write what a person would need to know to solve it. A new picture sends the question back to review.</p>
+        <form action={saveQuestionImage} className="grid gap-3 md:grid-cols-2">
+          <input type="hidden" name="id" value={id} />
+          <Field label={image ? "Replace the picture" : "Picture"}><input name="image" type="file" accept="image/png,image/jpeg,image/webp" className={inputClass} /></Field>
+          <Field label="What the picture shows"><textarea name="alt" rows={3} defaultValue={image?.alt ?? ""} className={inputClass} /></Field>
+          {image && <label className="flex items-center gap-2 text-sm font-bold text-primary"><input type="checkbox" name="remove" className="size-4" /> Remove picture</label>}
+          <div className="md:col-span-2"><SubmitButton variant="secondary">Save picture</SubmitButton></div>
+        </form>
+      </Card>
       <Card title="Edit">
         <p className="mb-3 text-xs font-semibold text-muted">Editing an approved or published question sends it back to review.</p>
         <QuestionForm lockExam values={{ id, tier: q.tier, subject: q.subject, topic: q.topic, difficulty: q.difficulty, stem: q.stem, options: q.options, correct_option: q.correct_option, explanation: q.explanation, est_time_seconds: q.est_time_seconds }} />

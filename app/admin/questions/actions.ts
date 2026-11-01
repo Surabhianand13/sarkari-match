@@ -5,6 +5,7 @@ import { writeAudit } from "@/lib/admin/audit";
 import { optionalText, text } from "@/lib/admin/forms";
 import { goTo, withMessage } from "@/lib/admin/nav";
 import { requireAdmin } from "@/lib/auth/guards";
+import { MAX_ALT_CHARS, MIN_ALT_CHARS, checkQuestionImage } from "@/lib/question-images";
 import { canTransition, contentHash, questionDraftSchema, validationStatuses, type ValidationStatus } from "@/lib/tests/question-schema";
 
 const LIST = "/admin/questions";
@@ -68,6 +69,61 @@ export async function saveQuestion(formData: FormData) {
     goTo(withMessage(base, "error", friendlyDbError(error).replace("That slug or value", "That question")));
   }
   goTo(withMessage(`${LIST}/${savedId}`, "notice", "Question saved."));
+}
+
+// Attaches, replaces or removes the picture of a question. Pictures are always a person's work: the AI cannot see them, so a
+// question with a new picture goes back to review for a person to confirm.
+export async function saveQuestionImage(formData: FormData) {
+  const admin = await requireAdmin();
+  const id = text(formData, "id");
+  const base = `${LIST}/${id}`;
+  const remove = formData.get("remove") === "on";
+  const file = formData.get("image");
+  const alt = optionalText(formData, "alt") ?? "";
+  const db = await adminDb();
+  const before = (await db.query<{ validation_status: ValidationStatus; image_id: string | null }>("select validation_status, image_id from questions where id = $1", [id])).rows[0];
+  if (!before) goTo(withMessage(LIST, "error", "Question not found."));
+  const reopen = ["auto_passed", "approved", "published"].includes(before.validation_status);
+  if (reopen) {
+    const live = await db.query("select 1 from test_questions tq join tests t on t.id = tq.test_id where tq.question_id = $1 and t.status = 'published' limit 1", [id]);
+    if (live.rowCount) goTo(withMessage(base, "error", "This question is in a published test. Remove it from the test before changing its picture."));
+  }
+
+  // Check everything before touching the database. goTo ends the request with a redirect, so it must stay outside the try block below.
+  let upload: { bytes: Uint8Array; type: string; alt: string } | null = null;
+  let altOnly: string | null = null;
+  if (!remove) {
+    if (file instanceof File && file.size > 0) {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const checked = checkQuestionImage(bytes, alt);
+      if ("error" in checked) goTo(withMessage(base, "error", checked.error));
+      upload = { bytes, type: checked.type, alt: checked.alt };
+    } else if (before.image_id && alt.trim()) {
+      // Only the description changed.
+      if (alt.trim().length < MIN_ALT_CHARS || alt.trim().length > MAX_ALT_CHARS) goTo(withMessage(base, "error", `Describe what the image shows in ${MIN_ALT_CHARS} to ${MAX_ALT_CHARS} characters.`));
+      altOnly = alt.trim();
+    } else {
+      goTo(withMessage(base, "error", "Choose an image file to upload, or tick Remove picture."));
+    }
+  }
+
+  let imageId = before.image_id;
+  try {
+    if (remove) imageId = null;
+    else if (upload) imageId = (await db.query<{ id: string }>("insert into question_images (data, content_type, alt) values ($1, $2, $3) returning id", [upload.bytes, upload.type, upload.alt])).rows[0].id;
+    else if (altOnly && before.image_id) await db.query("update question_images set alt = $2 where id = $1", [before.image_id, altOnly]);
+    await db.query(
+      "update questions set image_id = $2, validation_status = case when $3 then 'needs_review' else validation_status end, updated_at = now() where id = $1",
+      [id, imageId, reopen]
+    );
+    if (before.image_id && before.image_id !== imageId) {
+      await db.query("delete from question_images where id = $1 and not exists (select 1 from questions where image_id = $1)", [before.image_id]);
+    }
+  } catch (error) {
+    goTo(withMessage(base, "error", friendlyDbError(error)));
+  }
+  await writeAudit(db, { actorId: admin.id, action: remove ? "question.image_removed" : "question.image_saved", entityType: "question", entityId: id, before: { image: before.image_id }, after: { image: imageId } });
+  goTo(withMessage(base, "notice", remove ? "Picture removed." : `Picture saved.${reopen ? " The question went back to review." : ""}`));
 }
 
 async function transition(db: Awaited<ReturnType<typeof adminDb>>, adminId: string, id: string, to: ValidationStatus, note?: string) {

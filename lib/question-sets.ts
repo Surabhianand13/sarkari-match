@@ -41,5 +41,5 @@ export function groundingProblem(expression: string | null | undefined, data: nu
   const used = (expression.replace(/,/g, "").match(/\d+(?:\.\d+)?/g) ?? []).map(Number).filter((value) => !COMMON.has(value));
   if (!used.length) return null;
   const known = (value: number) => data.some((item) => Math.abs(item - value) < 0.011);
-  return used.some(known) ? null : "The working does not use any number from the data above. Build the calculation from the values shown in the table or chart.";
+  return used.some(known) ? null : "The working does not use any number from the data above. Build the calculation from the values shown in the table, chart or figure.";
 }

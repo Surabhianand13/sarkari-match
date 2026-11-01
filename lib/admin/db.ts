@@ -14,6 +14,9 @@ export function messageFrom(error: unknown) {
 
 // Friendly text for common Postgres constraint errors.
 export function friendlyDbError(error: unknown) {
+  // goTo() ends a request by throwing a redirect. If one is thrown inside a try block, let it carry on instead of showing "NEXT_REDIRECT".
+  const digest = (error as { digest?: unknown })?.digest;
+  if (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT")) throw error;
   const code = (error as { code?: string })?.code;
   if (code === "23505") return "That slug or value already exists. Pick a different one.";
   if (code === "23503") return "That record is still referenced elsewhere, or the selected parent does not exist.";

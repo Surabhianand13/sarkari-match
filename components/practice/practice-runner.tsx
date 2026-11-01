@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { LevelStepper } from "@/components/practice/level-stepper";
+import { QuestionFigure } from "@/components/question-figure";
 import { Inline, Rich } from "@/components/rich-text";
 import { SolutionText } from "@/components/solution-text";
 import type { Level, PracticeSession } from "@/lib/practice-shared";
@@ -80,6 +81,7 @@ export function PracticeRunner({ session }: { session: PracticeSession }) {
       </div>
       <p className="mt-2 text-xs font-bold text-muted">Question {index + 1} of {session.total} · {correctCount} correct so far</p>
       <div className="mt-5 rounded-3xl bg-white p-6 shadow-soft">
+        <QuestionFigure figure={question.figure} image={question.image} />
         <Rich text={question.stem} className="text-lg font-bold leading-8 text-foreground" />
         <div className="mt-5 grid gap-3">
           {(["A", "B", "C", "D"] as const).map((key) => {

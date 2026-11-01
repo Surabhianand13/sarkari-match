@@ -88,6 +88,7 @@ export default async function FactoryPage({ searchParams }: { searchParams: Prom
               <option value="pie">Pie charts</option>
             </select>
           </Field>
+          <label className="flex items-center gap-2 self-end pb-2 text-sm font-bold text-primary"><input type="checkbox" name="figures" className="size-4" /> Allow drawn figures (Venn and geometry, single questions only)</label>
           <Field label="How many (per topic)" hint="Questions, not sets: 20 gives about four sets of five. Up to 500 in the chat queue, 1,000 with an API, 2,000 without AI."><input name="count" type="number" min="1" max="2000" defaultValue={20} className={inputClass} /></Field>
           <div className="flex items-end"><SubmitButton>Start run</SubmitButton></div>
         </form>

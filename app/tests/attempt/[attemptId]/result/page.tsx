@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { CheckCircle2, CircleSlash, XCircle } from "lucide-react";
 import { ButtonLink } from "@/components/design-system";
 import { Inline, Rich } from "@/components/rich-text";
+import { QuestionFigure } from "@/components/question-figure";
 import { SetStimulus } from "@/components/set-stimulus";
 import { SolutionText } from "@/components/solution-text";
 import { StartTestButton } from "@/components/tests/start-test-button";
@@ -74,6 +75,7 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
                 {solution.set && (position > 0 && data.solutions[position - 1].set?.id === solution.set.id
                   ? <p className="mt-2 rounded-xl bg-surface px-3 py-2 text-xs font-bold text-muted">Uses the data shown with the question above.</p>
                   : <div className="mt-2"><SetStimulus set={solution.set} /></div>)}
+                <QuestionFigure figure={solution.figure} image={solution.image} />
                 <Rich text={solution.stem} className="mt-2 font-bold text-foreground" />
                 <ul className="mt-3 grid gap-2 text-sm">
                   {Object.entries(solution.options).map(([key, text]) => {

@@ -8,6 +8,8 @@ import type { LlmProvider } from "./providers/types";
 import type { Difficulty } from "./templates";
 import { createHash } from "node:crypto";
 import { parseChart } from "@/lib/chart";
+import { figureToText, parseFigure, toFigure, type FigureSpec } from "@/lib/figure";
+import { figureSeed } from "@/lib/figure-seed";
 import { setContextText, setProblem, toQuestionSet, type QuestionSet } from "@/lib/question-sets";
 import { isExplanationReason, isNumericSubject, runCodeValidation, type ValidationCheck } from "./validator";
 import { contentHash, optionKeys, questionDraftSchema, type OptionKey, type QuestionDraft, type ValidationStatus } from "@/lib/tests/question-schema";
@@ -73,9 +75,11 @@ export type RunInput = {
   // "set" writes data sets: a table or chart with five questions that share it.
   format?: "single" | "set";
   setKind?: SetKind;
+  // Lets the writer add a drawn Venn or geometry figure to a question. Needs an AI to write it.
+  figures?: boolean;
 };
 
-type BatchConfig = { mode: AiMode; strategy: "template" | "llm"; examName: string; tier: string; provider?: string; recheck?: boolean; format?: "single" | "set"; setKind?: SetKind };
+type BatchConfig = { mode: AiMode; strategy: "template" | "llm"; examName: string; tier: string; provider?: string; recheck?: boolean; format?: "single" | "set"; setKind?: SetKind; figures?: boolean };
 
 export type Batch = {
   id: string;
@@ -122,9 +126,25 @@ type Row = {
   fix_attempts: number;
   pipeline_stage: string;
   set_id: string | null;
+  figure: unknown;
 };
 
 type Env = { db: Db; ai: AiPort; batch: Batch; knowledge: () => Promise<Knowledge>; setFor: (row: Pick<Row, "set_id">) => Promise<QuestionSet | null> };
+
+// Everything a learner sees with the question besides its words (a data set's table or chart, or a drawn figure), as plain text for
+// the solver, reviewer and fixer, which cannot see a drawing.
+async function dataFor(env: Env, row: Row): Promise<string | undefined> {
+  const set = await env.setFor(row);
+  const figure = toFigure(row.figure);
+  const parts = [set ? setContextText(set) : "", figure ? figureToText(figure) : ""].filter(Boolean);
+  return parts.length ? parts.join("\n\n") : undefined;
+}
+
+// Different figures must never look like the same question, so a figure question's hash includes its figure.
+function hashFor(draft: Pick<QuestionDraft, "question" | "options">, figure: unknown) {
+  const parsed = toFigure(figure);
+  return contentHash(parsed ? { ...draft, question: `${figureSeed(parsed)}\n${draft.question}` } : draft);
+}
 
 export const MAX_FIXES = 2;
 const WRITE_CHUNK = { api: 5, queue: 10, rules: 50 } as const;
@@ -179,7 +199,7 @@ async function save(env: Env, row: Row, change: Save): Promise<"saved" | "duplic
     add("correct_option", change.draft.correct_answer);
     add("explanation", change.draft.explanation);
     add("est_time_seconds", change.draft.estimated_time_seconds);
-    add("content_hash", contentHash(change.draft));
+    add("content_hash", hashFor(change.draft, row.figure));
   }
   try {
     await env.db.query(`update questions set ${sets.join(", ")} where id = $1`, values);
@@ -228,13 +248,14 @@ async function solveStage(env: Env, row: Row) {
   const notes = row.validation_notes;
   const draft = rowDraft(env, row);
   const set = await env.setFor(row);
-  const { checks, conclusive } = runCodeValidation(draft, notes.verification_expression, { set });
+  const data = await dataFor(env, row);
+  const { checks, conclusive } = runCodeValidation(draft, notes.verification_expression, { set, figure: toFigure(row.figure) });
   const proven = Boolean(notes.template) && conclusive;
   const reasons = checks.filter((check) => !check.passed).map((check) => `${check.detail ?? check.name}`.replace(/\.?$/, "."));
 
   let solver: Solver | null = null;
   if (!reasons.length && env.ai.mode !== "rules" && !proven) {
-    solver = readSolver(await env.ai.complete(ctx(env, row, "solve"), solverPrompt(draft.question, draft.options, set ? setContextText(set) : undefined)), draft.correct_answer, env.ai.model);
+    solver = readSolver(await env.ai.complete(ctx(env, row, "solve"), solverPrompt(draft.question, draft.options, data)), draft.correct_answer, env.ai.model);
     if (!solver.agrees) reasons.push(`An independent solver chose ${solver.answer ?? "no option"} but the key says ${draft.correct_answer}.`);
     else if (solver.ambiguous) reasons.push("The independent solver found more than one defensible answer.");
   }
@@ -264,11 +285,11 @@ async function languageStage(env: Env, row: Row) {
   let review: Notes["review"];
   if (env.ai.mode !== "rules") {
     const knowledge = await env.knowledge();
-    const set = await env.setFor(row);
+    const data = await dataFor(env, row);
     const reply = parseJsonObject(
       await env.ai.complete(
         ctx(env, row, "review"),
-        reviewPrompt({ exam: env.batch.config.examName, tier: row.tier ?? env.batch.config.tier, subject: row.subject, topic: row.topic, difficulty: row.difficulty, question, options, explanation: steps, syllabus: knowledge.syllabus, data: set ? setContextText(set) : undefined })
+        reviewPrompt({ exam: env.batch.config.examName, tier: row.tier ?? env.batch.config.tier, subject: row.subject, topic: row.topic, difficulty: row.difficulty, question, options, explanation: steps, syllabus: knowledge.syllabus, data })
       )
     ) as { ok?: unknown; issues?: unknown; question?: unknown; explanation?: unknown; steps_ok?: unknown; step_errors?: unknown; in_syllabus?: unknown; level?: unknown; reason?: unknown };
     // A reviewer who found a wrong step sends the question to the fixer; wording edits alone are never trusted to repair it.
@@ -340,11 +361,14 @@ function finalStatus(subject: string, notes: Notes): { status: ValidationStatus;
 
 async function dedupeStage(env: Env, row: Row) {
   // Questions in a data set are compared only with the other questions of the same set (many sets ask "what was the total in 2020?"),
-  // and ordinary questions are never compared with set questions, whose wording depends on their data.
+  // and a question with a figure only with questions that have the very same figure ("in the figure, find x" is asked of many figures).
+  // Ordinary questions are never compared with set questions, whose wording depends on their data.
   const existing = row.set_id
     ? await env.db.query<{ stem: string }>("select stem from questions where set_id = $1 and id <> $2 and (batch_id is distinct from $3 or id < $2) limit 50", [row.set_id, row.id, env.batch.id])
-    : await env.db.query<{ stem: string }>(
-        "select stem from questions where subject = $1 and set_id is null and id <> $2 and (batch_id is distinct from $3 or id < $2) order by created_at desc limit 5000",
+    : row.figure
+      ? await env.db.query<{ stem: string }>("select stem from questions where figure = $1::jsonb and id <> $2 and (batch_id is distinct from $3 or id < $2) limit 50", [JSON.stringify(row.figure), row.id, env.batch.id])
+      : await env.db.query<{ stem: string }>(
+        "select stem from questions where subject = $1 and set_id is null and figure is null and id <> $2 and (batch_id is distinct from $3 or id < $2) order by created_at desc limit 5000",
         [row.subject, row.id, env.batch.id]
       );
   const near = findNearDuplicate(row.stem, existing.rows.map((item) => item.stem), 0.8);
@@ -362,10 +386,10 @@ async function fixStage(env: Env, row: Row) {
   const reasons = notes.reasons?.length ? notes.reasons : ["Failed a check."];
   // When only the written solution failed, the question, options and key stay exactly as they are.
   const explanationOnly = reasons.every(isExplanationReason);
-  const set = await env.setFor(row);
+  const data = await dataFor(env, row);
   const raw = await env.ai.complete(
     ctx(env, row, "fix"),
-    fixPrompt({ exam: env.batch.config.examName, tier: row.tier ?? env.batch.config.tier, question: row.stem, options: row.options, correct_answer: row.correct_option, explanation: row.explanation, subject: row.subject, topic: row.topic, difficulty: row.difficulty, reasons, explanationOnly, data: set ? setContextText(set) : undefined })
+    fixPrompt({ exam: env.batch.config.examName, tier: row.tier ?? env.batch.config.tier, question: row.stem, options: row.options, correct_answer: row.correct_option, explanation: row.explanation, subject: row.subject, topic: row.topic, difficulty: row.difficulty, reasons, explanationOnly, data })
   );
   const reply = parseJsonObject(raw) as Record<string, unknown>;
   const parsed = questionDraftSchema.safeParse(
@@ -411,25 +435,26 @@ async function claim(db: Db, batchId: string, stage: string, limit: number) {
        select id from questions where batch_id = $1 and pipeline_stage = $2 and waiting_ai = false
          and (claimed_at is null or claimed_at < now() - interval '2 minutes')
        order by created_at limit $3 for update skip locked)
-     returning id, subject, topic, tier, difficulty, stem, options, correct_option, explanation, est_time_seconds, validation_notes, fix_attempts, pipeline_stage, set_id`,
+     returning id, subject, topic, tier, difficulty, stem, options, correct_option, explanation, est_time_seconds, validation_notes, fix_attempts, pipeline_stage, set_id, figure`,
     [batchId, stage, limit]
   );
   return result.rows;
 }
 
-async function insertCandidate(env: Env, examId: string, candidate: Candidate, generator: string, member?: { setId: string; position: number; seed: string }) {
+async function insertCandidate(env: Env, examId: string, candidate: Candidate, generator: string, member?: { setId: string; position: number; seed: string }, figure?: FigureSpec | null) {
   const { draft } = candidate;
   const notes: Notes = { verification_expression: candidate.verificationExpression ?? null, ...(candidate.template ? { template: candidate.template } : {}) };
   const inserted = await env.db.query<{ id: string }>(
     `insert into questions (exam_id, tier, subject, topic, difficulty, stem, options, correct_option, explanation, est_time_seconds, source_type,
-       validation_status, validation_notes, generator_model, critic_model, prompt_version, batch_id, content_hash, pipeline_stage, set_id, set_position)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'original_ai_generated','pending',$11,$12,$13,$14,$15,$16,'solve',$17,$18)
+       validation_status, validation_notes, generator_model, critic_model, prompt_version, batch_id, content_hash, pipeline_stage, set_id, set_position, figure)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'original_ai_generated','pending',$11,$12,$13,$14,$15,$16,'solve',$17,$18,$19)
      on conflict (content_hash) do nothing returning id`,
     [
       examId, draft.tier ?? env.batch.config.tier, env.batch.subject, draft.topic || env.batch.topic || env.batch.subject, draft.difficulty, draft.question,
       JSON.stringify(draft.options), draft.correct_answer, draft.explanation, draft.estimated_time_seconds, JSON.stringify(notes), generator,
       env.ai.mode === "rules" ? "rules" : env.ai.model, PROMPT_VERSION, env.batch.id,
-      contentHash(member ? { ...draft, question: `${member.seed}\n${draft.question}` } : draft), member?.setId ?? null, member?.position ?? null
+      figure ? hashFor(draft, figure) : contentHash(member ? { ...draft, question: `${member.seed}\n${draft.question}` } : draft), member?.setId ?? null, member?.position ?? null,
+      figure ? JSON.stringify(figure) : null
     ]
   );
   return inserted.rows[0]?.id ?? null;
@@ -447,7 +472,19 @@ async function storeWritten(env: Env, examId: string, raw: string) {
       continue;
     }
     const expression = (item as { verification_expression?: unknown }).verification_expression;
-    const id = await insertCandidate(env, examId, { draft: draft.data, verificationExpression: typeof expression === "string" ? expression : null }, env.ai.model);
+    // A figure is kept only when the run allows one and its description is valid; otherwise a question that points at it fails the missing-figure check.
+    let figure: FigureSpec | null = null;
+    const drawn = (item as { figure?: unknown }).figure;
+    if (drawn && env.batch.config.figures) {
+      const parsedFigure = parseFigure(drawn);
+      if ("error" in parsedFigure) {
+        rejected++;
+        await logEvent(env.db, env.batch.id, null, "write", "error", `A question was dropped: its figure was not valid. ${parsedFigure.error}`);
+        continue;
+      }
+      figure = parsedFigure.figure;
+    }
+    const id = await insertCandidate(env, examId, { draft: draft.data, verificationExpression: typeof expression === "string" ? expression : null }, env.ai.model, undefined, figure);
     if (id) stored++;
     else duplicates++;
   }
@@ -575,7 +612,7 @@ async function writeStage(env: Env): Promise<WriteOutcome> {
     const difficulty = batch.difficulty === "mixed" ? "moderate" : batch.difficulty;
     const request = setMode
       ? generationSetPrompt({ exam: batch.config.examName, tier: batch.config.tier, subject: batch.subject, topic: batch.topic ?? "Data Interpretation", difficulty, sets: Math.max(1, Math.ceil(wanted / QUESTIONS_PER_SET)), kind: batch.config.setKind ?? "mixed", context })
-      : generationPrompt({ exam: batch.config.examName, tier: batch.config.tier, subject: batch.subject, topic: batch.topic ?? batch.subject, difficulty, count: wanted, context });
+      : generationPrompt({ exam: batch.config.examName, tier: batch.config.tier, subject: batch.subject, topic: batch.topic ?? batch.subject, difficulty, count: wanted, figures: batch.config.figures, context });
     const key = `write:${calls}`;
     calls++;
     await db.query("update question_batches set write_calls = $2 where id = $1", [batch.id, calls]);
@@ -680,7 +717,9 @@ export async function createBatch(db: Db, input: RunInput): Promise<string> {
   if (input.mode === "rules" && !isNumericSubject(input.subject)) throw new Error("Runs without AI are available for Quantitative Aptitude only. Pick the chat queue or an API for other subjects.");
   if (input.mode === "api" && !input.provider) throw new Error("Choose which AI provider writes and checks the questions.");
   if (input.format === "set" && input.mode === "rules") throw new Error("Data sets need the chat queue or an AI API, because the AI writes the data.");
-  const config: BatchConfig = { mode: input.mode, strategy: input.mode === "rules" ? "template" : "llm", examName: input.exam, tier: input.tier, provider: input.provider, ...(input.format === "set" ? { format: "set" as const, setKind: input.setKind ?? "mixed" } : {}) };
+  if (input.figures && input.mode === "rules") throw new Error("Figures need the chat queue or an AI API, because the AI describes the figure.");
+  const figures = Boolean(input.figures) && input.format !== "set";
+  const config: BatchConfig = { mode: input.mode, strategy: input.mode === "rules" ? "template" : "llm", examName: input.exam, tier: input.tier, provider: input.provider, ...(input.format === "set" ? { format: "set" as const, setKind: input.setKind ?? "mixed" } : {}), ...(figures ? { figures: true } : {}) };
   const created = await db.query<{ id: string }>(
     `insert into question_batches (created_by, exam_slug, subject, topic, difficulty, requested_count, config, status)
      values ($1, $2, $3, $4, $5, $6, $7, 'running') returning id`,
@@ -712,7 +751,7 @@ export async function recheckQuestions(db: Db, input: RecheckInput): Promise<{ i
     `select q.id, q.subject from questions q join exams e on e.id = q.exam_id
       where e.slug = $1 and lower(q.subject) = lower($2) and ($3 = '' or q.topic ilike $3 || '%')
         and q.validation_status = any($4) and q.source_type in ('original_ai_generated', 'imported')
-        and (q.pipeline_stage is null or q.pipeline_stage = 'done')
+        and (q.pipeline_stage is null or q.pipeline_stage = 'done') and q.image_id is null
         and not exists (select 1 from test_questions tq join tests t on t.id = tq.test_id where tq.question_id = q.id and t.status = 'published')
       order by q.created_at limit $5`,
     [examSlug(input.exam), input.subject, (input.topic ?? "").trim(), statuses, input.limit]

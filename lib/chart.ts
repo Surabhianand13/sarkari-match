@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+// Re-exported so server code can keep importing everything about charts from here.
+export { chartToText } from "@/lib/chart-text";
+
 // A chart is stored as numbers, never as a picture. The site draws it, the factory recomputes answers from it, and the
 // independent solver is given the same numbers as a table.
 
@@ -30,24 +33,6 @@ export type ChartSpec = z.infer<typeof chartSpecSchema>;
 export function parseChart(input: unknown): { chart: ChartSpec } | { error: string } {
   const result = chartSpecSchema.safeParse(input);
   return result.success ? { chart: result.data } : { error: result.error.issues.map((issue) => issue.message).join(" ") };
-}
-
-const trimNumber = (value: number) => String(Math.round(value * 100) / 100);
-
-// The chart's data as a text table: what the solver and reviewer read, and what a screen reader gets.
-export function chartToText(chart: ChartSpec): string {
-  const kind = chart.type === "pie" ? "Pie chart" : chart.type === "line" ? "Line graph" : "Bar chart";
-  const unit = chart.unit ? ` (${chart.unit})` : "";
-  if (chart.type === "pie") {
-    const total = chart.series[0].values.reduce((sum, value) => sum + value, 0);
-    return [`${kind}: ${chart.title}${unit}`, "| Category | Value | Share |", "|---|---|---|", ...chart.categories.map((category, index) => `| ${category} | ${trimNumber(chart.series[0].values[index])} | ${trimNumber((chart.series[0].values[index] / total) * 100)}% |`)].join("\n");
-  }
-  return [
-    `${kind}: ${chart.title}${unit}`,
-    `| Category | ${chart.series.map((series) => series.name).join(" | ")} |`,
-    `|---|${chart.series.map(() => "---").join("|")}|`,
-    ...chart.categories.map((category, index) => `| ${category} | ${chart.series.map((series) => trimNumber(series.values[index])).join(" | ")} |`)
-  ].join("\n");
 }
 
 // Every number a learner can read off the chart, used to check that a question's working really uses the data.

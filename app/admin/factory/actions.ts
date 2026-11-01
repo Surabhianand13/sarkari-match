@@ -25,6 +25,7 @@ export async function startFactoryRun(formData: FormData) {
     difficulty,
     format: text(formData, "format") === "set" ? "set" : "single",
     setKind: (["table", "bar", "line", "pie"].includes(text(formData, "set_kind")) ? text(formData, "set_kind") : "mixed") as RunInput["setKind"],
+    figures: formData.get("figures") === "on",
     count: Math.min(Math.max(integer(formData, "count") ?? 20, 1), MAX_BY_MODE[mode]),
     mode,
     provider: mode === "api" ? text(formData, "provider") || providerStatus().find((provider) => provider.ready)?.id : undefined,

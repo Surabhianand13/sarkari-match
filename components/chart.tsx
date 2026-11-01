@@ -1,4 +1,5 @@
-import { chartToText, type ChartSpec } from "@/lib/chart";
+import type { ChartSpec } from "@/lib/chart";
+import { chartToText } from "@/lib/chart-text";
 import { RichTable } from "@/components/rich-text";
 import { parseRichBlocks } from "@/lib/rich-text";
 

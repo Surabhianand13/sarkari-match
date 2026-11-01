@@ -1,4 +1,5 @@
 import { evaluateExpression, firstNumber } from "./expression";
+import { figureConsistencyProblem, figureNumbers, type FigureSpec } from "@/lib/figure";
 import { figureProblem, richTextProblem } from "@/lib/rich-text";
 import { groundingProblem, hasTable, setNumbers, type QuestionSet } from "@/lib/question-sets";
 import { optionKeys, type QuestionDraft } from "@/lib/tests/question-schema";
@@ -48,7 +49,7 @@ export function isExplanationReason(reason: string): boolean {
   return /^(The explanation (is|has)|The Answer line|The "Why not the others"|The reviewer found an error in the explanation)/.test(reason.trim());
 }
 
-export function runCodeValidation(draft: QuestionDraft, verificationExpression?: string | null, options: { set?: QuestionSet | null } = {}): { checks: ValidationCheck[]; conclusive: boolean } {
+export function runCodeValidation(draft: QuestionDraft, verificationExpression?: string | null, options: { set?: QuestionSet | null; figure?: FigureSpec | null } = {}): { checks: ValidationCheck[]; conclusive: boolean } {
   const checks: ValidationCheck[] = [];
   const answerText = draft.options[draft.correct_answer];
 
@@ -57,10 +58,16 @@ export function runCodeValidation(draft: QuestionDraft, verificationExpression?:
 
   // Learners see text only: no question may lean on a figure they cannot see, and tables and maths must be written so they can be drawn.
   const set = options.set ?? null;
-  const figure = figureProblem(draft.question, draft.options, { hasChart: Boolean(set?.chart), hasTable: Boolean(set && hasTable(set.stimulus)) });
+  const drawing = options.figure ?? null;
+  const figure = figureProblem(draft.question, draft.options, { hasChart: Boolean(set?.chart), hasTable: Boolean(set && hasTable(set.stimulus)), hasFigure: Boolean(drawing) });
   checks.push({ name: "no_missing_figure", passed: !figure, detail: figure ?? undefined });
-  if (set) {
-    const ungrounded = groundingProblem(verificationExpression, setNumbers(set));
+  if (drawing) {
+    const misleading = figureConsistencyProblem(drawing);
+    checks.push({ name: "figure_matches_labels", passed: !misleading, detail: misleading ?? undefined });
+  }
+  const data = set ? setNumbers(set) : drawing ? figureNumbers(drawing) : [];
+  if (set || (drawing && data.length)) {
+    const ungrounded = groundingProblem(verificationExpression, data);
     checks.push({ name: "uses_the_data", passed: !ungrounded, detail: ungrounded ?? undefined });
   }
   const formatting = richTextProblem(draft.question) ?? optionKeys.map((key) => richTextProblem(draft.options[key], { singleLine: true })).find(Boolean) ?? null;

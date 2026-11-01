@@ -396,3 +396,95 @@ describe("data sets", () => {
     await expect(createBatch(db, { exam: "SSC CGL", tier: "Tier I", subject: "Quantitative Aptitude", difficulty: "moderate", count: 5, mode: "rules", format: "set" })).rejects.toThrow(/chat queue or an AI API/);
   });
 });
+
+describe("figures", () => {
+  // A right-angled triangle drawn to match its labels. Shifting it makes a different figure with the same wording.
+  const triangle = (shift: number) => ({
+    type: "geometry",
+    points: [{ name: "A", x: 10 + shift, y: 60 }, { name: "B", x: 10 + shift, y: 10 }, { name: "C", x: 45 + shift, y: 10 }],
+    lines: [{ from: "A", to: "B" }, { from: "B", to: "C" }, { from: "A", to: "C" }],
+    angles: [{ at: "B", from: "A", to: "C", label: "90°" }, { at: "A", from: "B", to: "C", label: "35°" }]
+  });
+  const written = (figure: unknown) => ({
+    exam: "SSC CGL", tier: "Tier I", subject: "Quantitative Aptitude", topic: "Triangles", difficulty: "moderate",
+    question: "In the figure, angle ABC is 90 degrees and angle BAC is 35 degrees. Find angle ACB.",
+    options: { A: "45°", B: "55°", C: "65°", D: "35°" }, correct_answer: "B", explanation: worked("B", "55°"), estimated_time_seconds: 60,
+    verification_expression: "180 - 90 - 35", figure
+  });
+
+  async function start(figures: boolean) {
+    const { createBatch } = await import("@/lib/question-factory/engine");
+    return createBatch(db, { exam: "SSC CGL", tier: "Tier I", subject: "Quantitative Aptitude", topic: "Triangles", difficulty: "moderate", count: 2, mode: "queue", figures });
+  }
+
+  it("tells the writer how to describe a figure only when the run allows one", async () => {
+    const { advanceBatch, queueAi } = await import("@/lib/question-factory/engine");
+    const { pendingTasks } = await import("@/lib/question-factory/queue");
+    const withFigures = await start(true);
+    await advanceBatch(db, queueAi(db), withFigures, { budgetMs: 3000 });
+    const [task] = await pendingTasks(db, { batchId: withFigures });
+    expect(task.request.prompt).toContain('"type":"venn"');
+    expect(task.request.prompt).toContain('"type":"geometry"');
+    expect(task.request.prompt).not.toContain("Learners see text only");
+
+    const without = await start(false);
+    await advanceBatch(db, queueAi(db), without, { budgetMs: 3000 });
+    const [plain] = await pendingTasks(db, { batchId: without });
+    expect(plain.request.prompt).not.toContain('"type":"geometry"');
+    expect(plain.request.prompt).toContain("Learners see text only");
+  });
+
+  it("stores the figure, shows it to the solver and reviewer as text, and keeps different figures apart", async () => {
+    const id = await start(true);
+    const done = await drain(id, (task) => {
+      const stem = /Question: (.*)\n/.exec(task.request.prompt)?.[1] ?? "";
+      if (task.stage === "write") return { questions: [written(triangle(0)), written(triangle(20))] };
+      if (task.stage === "solve" || task.stage === "review") {
+        // Neither can see a drawing, so both must be given the figure as text.
+        if (!task.request.prompt.includes("Geometry figure (not drawn to scale)") || !task.request.prompt.includes("∠BAC = 35°")) throw new Error(`The ${task.stage} stage was not given the figure`);
+      }
+      if (task.stage === "solve") return { answer: "B", reasoning: "180 - 90 - 35 = 55", ambiguous: false };
+      if (task.stage === "review") return { ok: true, issues: [], question: stem, steps_ok: true, step_errors: [], in_syllabus: true, level: "as_expected", reason: "Fine." };
+      throw new Error(`Unexpected stage ${task.stage}`);
+    });
+    expect(done.status).toBe("completed");
+    const rows = await db.query<{ validation_status: string; figure: { type: string; points: Array<{ x: number }> } | null }>("select validation_status, figure from questions where batch_id = $1 order by created_at", [id]);
+    expect(rows.rows).toHaveLength(2);
+    expect(rows.rows.every((row) => row.validation_status === "auto_passed")).toBe(true);
+    expect(rows.rows.every((row) => row.figure?.type === "geometry")).toBe(true);
+    expect(new Set(rows.rows.map((row) => row.figure?.points[0].x)).size).toBe(2);
+  });
+
+  it("drops a question whose figure is not valid and says why", async () => {
+    const { advanceBatch, queueAi } = await import("@/lib/question-factory/engine");
+    const { answerTasks, pendingTasks } = await import("@/lib/question-factory/queue");
+    const id = await start(true);
+    await advanceBatch(db, queueAi(db), id, { budgetMs: 3000 });
+    const [task] = await pendingTasks(db, { batchId: id });
+    const broken = written({ type: "geometry", points: [{ name: "A", x: 10, y: 10 }, { name: "B", x: 50, y: 50 }], lines: [{ from: "A", to: "Z" }], circles: [], angles: [] });
+    await answerTasks(db, [{ id: task.id, response: JSON.stringify({ questions: [broken] }) }], "test");
+    await advanceBatch(db, queueAi(db), id, { budgetMs: 3000 });
+    const events = await db.query<{ message: string }>("select message from factory_events where batch_id = $1 and stage = 'write'", [id]);
+    expect(events.rows.some((event) => /its figure was not valid.*not listed/.test(event.message))).toBe(true);
+    expect(Number((await db.query<{ n: string }>("select count(*) as n from questions where batch_id = $1", [id])).rows[0].n)).toBe(0);
+  });
+
+  it("ignores a figure when the run does not allow one, so a question that needs it fails the check", async () => {
+    const { advanceBatch, queueAi } = await import("@/lib/question-factory/engine");
+    const { answerTasks, pendingTasks } = await import("@/lib/question-factory/queue");
+    const id = await start(false);
+    await advanceBatch(db, queueAi(db), id, { budgetMs: 3000 });
+    const [task] = await pendingTasks(db, { batchId: id });
+    await answerTasks(db, [{ id: task.id, response: JSON.stringify({ questions: [written(triangle(0))] }) }], "test");
+    await advanceBatch(db, queueAi(db), id, { budgetMs: 3000 });
+    const row = (await db.query<{ figure: unknown; pipeline_stage: string; validation_notes: { reasons?: string[]; checks?: Array<{ name: string; passed: boolean }> } }>("select figure, pipeline_stage, validation_notes from questions where batch_id = $1", [id])).rows[0];
+    expect(row.figure).toBeNull();
+    expect(row.pipeline_stage).toBe("fixing");
+    expect(row.validation_notes.reasons?.[0]).toMatch(/figure, diagram or picture/);
+  });
+
+  it("refuses figures without an AI", async () => {
+    const { createBatch } = await import("@/lib/question-factory/engine");
+    await expect(createBatch(db, { exam: "SSC CGL", tier: "Tier I", subject: "Quantitative Aptitude", difficulty: "moderate", count: 5, mode: "rules", figures: true })).rejects.toThrow(/Figures need the chat queue/);
+  });
+});

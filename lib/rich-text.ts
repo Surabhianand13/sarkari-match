@@ -114,23 +114,25 @@ const referencesTo = (word: string) => [
 ];
 
 const chartReferences = [...referencesTo(chartWord), /\b(?:pie|bar|line)[- ]?(?:chart|graph|diagram)\b/i, /\bhistogram\b/i];
-const pictureReferences = [
-  ...referencesTo(pictureWord),
+// A figure the question really has (a Venn or geometry diagram, or an uploaded image) makes these references valid.
+const drawnReferences = [...referencesTo(pictureWord), /\bvenn\s+diagram\b/i];
+// Reasoning pictures that can never be drawn from a description, so they stay blocked even when the question has a figure.
+const blockedPictures = [
   /\b(?:mirror|water)\s+image\b/i,
   /\bpaper\s+(?:folding|cutting)\b/i,
   /\bembedded\s+figure\b/i,
   /\bfigure\s+series\b/i,
-  /\bvenn\s+diagram\b/i,
   /\bwhich\s+(?:one\s+of\s+the\s+)?(?:following\s+)?(?:figure|diagram|pattern)\b/i
 ];
 
 const tableReferences = /\b(?:following|given|below|above)\s+table\b|\btable\s+(?:below|above|given|shows?|gives?|represents?)\b|\bin\s+the\s+table\b/i;
 
-export type FigureContext = { hasChart?: boolean; hasTable?: boolean };
+export type FigureContext = { hasChart?: boolean; hasTable?: boolean; hasFigure?: boolean };
 
 export function figureProblem(stem: string, options: Record<string, string>, context: FigureContext = {}): string | null {
   const text = [stem, ...Object.values(options)].join("\n");
-  if (pictureReferences.some((pattern) => pattern.test(text))) return "The question depends on a figure, diagram or picture that learners cannot see. Rewrite it so it is fully answerable from text, or put the data in a text table.";
+  if (blockedPictures.some((pattern) => pattern.test(text))) return "The question depends on a mirror image, paper folding or a figure series that cannot be drawn here. Rewrite it so it is fully answerable from text, or put the data in a text table.";
+  if (!context.hasFigure && drawnReferences.some((pattern) => pattern.test(text))) return "The question depends on a figure, diagram or picture that learners cannot see. Rewrite it so it is fully answerable from text, or put the data in a text table.";
   if (!context.hasChart && chartReferences.some((pattern) => pattern.test(text))) return "The question depends on a graph or chart that is not included. Rewrite it so it is fully answerable from text, or put the data in a text table.";
   if (!context.hasTable && tableReferences.test(stem) && !hasTableBlock(stem)) return "The question refers to a table that is not included. Put the table in the question text, one row per line with | between cells.";
   return null;

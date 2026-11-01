@@ -1,4 +1,5 @@
 import { getDb, type Db } from "@/lib/db";
+import { toFigure } from "@/lib/figure";
 import { IST_DAY, hasAnyPaidAccess } from "@/lib/offers";
 
 export { LEVELS, SESSION_SIZE, PROMOTE_AT, SESSIONS_TO_PROMOTE } from "@/lib/practice-shared";
@@ -81,16 +82,17 @@ export async function getSession(userId: string, sessionId: string): Promise<Pra
   const session = (await db.query<{ id: string; subject: string; topic: string | null; level: Level; status: "in_progress" | "completed"; total: number; correct: number }>(
     "select id, subject, topic, level, status, total, correct from practice_sessions where id = $1 and user_id = $2", [sessionId, userId])).rows[0];
   if (!session) return null;
-  const rows = await db.query<{ id: string; stem: string; options: Record<string, string>; position: number; selected_option: string | null; correct_option: string; explanation: string }>(
-    `select q.id, q.stem, q.options, pa.position, pa.selected_option, q.correct_option, q.explanation
-       from practice_answers pa join questions q on q.id = pa.question_id where pa.session_id = $1 order by pa.position`, [sessionId]);
+  const rows = await db.query<{ id: string; stem: string; options: Record<string, string>; position: number; selected_option: string | null; correct_option: string; explanation: string; figure: unknown; image_id: string | null; image_alt: string | null }>(
+    `select q.id, q.stem, q.options, pa.position, pa.selected_option, q.correct_option, q.explanation, q.figure, q.image_id, qi.alt as image_alt
+       from practice_answers pa join questions q on q.id = pa.question_id left join question_images qi on qi.id = q.image_id where pa.session_id = $1 order by pa.position`, [sessionId]);
   return {
     ...session,
     total: Number(session.total),
     correct: Number(session.correct),
     questions: rows.rows.map((row) => ({
       id: row.id, stem: row.stem, options: row.options, position: row.position, selected: row.selected_option,
-      correctOption: row.selected_option ? row.correct_option : null, explanation: row.selected_option ? row.explanation : null
+      correctOption: row.selected_option ? row.correct_option : null, explanation: row.selected_option ? row.explanation : null,
+      figure: toFigure(row.figure), image: row.image_id ? { id: row.image_id, alt: row.image_alt ?? "" } : null
     }))
   };
 }
