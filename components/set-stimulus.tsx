@@ -1,6 +1,7 @@
 import { Chart } from "@/components/chart";
 import { Rich } from "@/components/rich-text";
-import { setLabels, setLabelsHi, type QuestionSet } from "@/lib/question-sets";
+import type { QuestionSet } from "@/lib/question-sets";
+import { setLabels, setLabelsHi } from "@/lib/set-labels";
 
 // What a set's questions are about, shown above each question: a table or chart, or a passage in a box that scrolls so a
 // long passage does not push the question off the screen.

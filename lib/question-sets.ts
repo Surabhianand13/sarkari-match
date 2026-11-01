@@ -1,8 +1,11 @@
+import { setLabels } from "@/lib/set-labels";
 import { chartNumbers, chartToText, parseChart, type ChartSpec } from "@/lib/chart";
 import { parseRichBlocks, richTextProblem } from "@/lib/rich-text";
 
+export { setLabels, setLabelsHi, type SetContentKind } from "@/lib/set-labels";
+import type { SetContentKind } from "@/lib/set-labels";
+
 // A set of questions that share one thing to read: a table or chart (data), a passage, or a passage with numbered blanks (cloze).
-export type SetContentKind = "data" | "passage" | "cloze";
 export type QuestionSet = { id: string; kind: SetContentKind; title: string; stimulus: string; chart: ChartSpec | null };
 
 export type SetRow = { id: string; title: string; stimulus: string; chart: unknown; kind?: string | null };
@@ -13,17 +16,6 @@ export function toQuestionSet(row: SetRow): QuestionSet {
   return { id: row.id, kind, title: row.title, stimulus: row.stimulus, chart: parsed && "chart" in parsed ? parsed.chart : null };
 }
 
-export const setLabelsHi: Record<SetContentKind, string> = {
-  data: "इस प्रश्न के लिए आँकड़े",
-  passage: "गद्यांश पढ़ें",
-  cloze: "गद्यांश पढ़ें और रिक्त स्थान भरें"
-};
-
-export const setLabels: Record<SetContentKind, { label: string; context: string; noun: string }> = {
-  data: { label: "Data for this question", context: "Data set", noun: "data" },
-  passage: { label: "Read the passage", context: "Passage", noun: "passage" },
-  cloze: { label: "Read the passage and fill in the blanks", context: "Cloze passage", noun: "passage" }
-};
 
 export const hasTable = (text: string) => parseRichBlocks(text).some((block) => block.type === "table");
 
