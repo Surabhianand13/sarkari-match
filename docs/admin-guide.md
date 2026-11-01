@@ -11,6 +11,18 @@ Sign in with an account that has the admin role (`pnpm db:create-admin`), then o
 
 Public pages, the sitemap and `llms.txt` refresh immediately after a change.
 
+### Competitor leads
+
+Notifications that other sites (for example FreeJobAlert and Adda247) have already published, collected with the browser extension and approved by a person before they go live. Nothing collected is ever public.
+
+1. **Connect the extension** (Competitor leads, then the button at the top): install the `extension` folder in Chrome, make a token, paste it and the dashboard address into the extension settings. Tokens can only add leads; revoke one if a laptop is lost.
+2. On a notification page of a competitor, click the extension and **Analyse this page**. On a home or listing page, **Collect headlines** adds each new recruitment as a "Headline only" lead to be analysed later.
+3. **One notification, one lead.** The same notification found on two sites is joined into a single lead (same official notification link, same notification number, or a near-identical title), and anything already approved or rejected is never reopened. Where the sites disagree, for example on the last date, the review screen says so.
+4. **Review** each lead: the fields are filled in from the pages and can all be edited. Use the official notification, not the competitor's page, to settle every field. The links must be the organisation's own.
+5. **Approve and publish** needs the official notification link, the official application link, a last date that has not passed, at least one post, a note of what you checked, and the tick box. It creates the organisation (if new), the recruitment and its posts and puts them live. **Create a draft recruitment** hands the lead to the normal Recruitments workflow instead. **Reject** and **Duplicate** close the lead.
+
+Only recruitments can be published. Admit cards, results and answer keys are recognised and can only be closed. Posts get a qualification rule from the qualification text; add age rules under Posts afterwards. The text captured from competitor pages is kept for checking only: do not copy it onto the site.
+
 ## Mock tests
 
 1. **Question factory**: create a batch. Templates compute exact answers for Quantitative Aptitude with no AI cost. AI batches need a provider key (`ANTHROPIC_API_KEY`, or `OPENAI_API_KEY` + `OPENAI_MODEL`, or `GEMINI_API_KEY` + `GEMINI_MODEL`); pick a different provider as the checker than the writer. From a terminal: `pnpm factory --subject "Quantitative Aptitude" --count 200 --strategy template`, and `pnpm factory:benchmark --models anthropic,openai --count 100` to compare models with a blind review sheet.
