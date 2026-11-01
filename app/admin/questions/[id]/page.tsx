@@ -61,8 +61,8 @@ export default async function QuestionPage({ params, searchParams }: { params: P
   const q = rows[0];
   if (!q) notFound();
   const dataSet = q.set_id
-    ? (await db.query<{ id: string; title: string; stimulus: string; chart: unknown; n: string }>(
-        "select s.id, s.title, s.stimulus, s.chart, (select count(*) from questions where set_id = s.id) as n from question_sets s where s.id = $1", [q.set_id])).rows[0]
+    ? (await db.query<{ id: string; title: string; stimulus: string; chart: unknown; kind: string; n: string }>(
+        "select s.id, s.title, s.stimulus, s.chart, s.kind, (select count(*) from questions where set_id = s.id) as n from question_sets s where s.id = $1", [q.set_id])).rows[0]
     : null;
   const figure = toFigure(q.figure);
   const image = q.image_id ? { id: q.image_id, alt: (await db.query<{ alt: string }>("select alt from question_images where id = $1", [q.image_id])).rows[0]?.alt ?? "" } : null;
@@ -98,7 +98,7 @@ export default async function QuestionPage({ params, searchParams }: { params: P
         {dataSet && (
           <>
             <SetStimulus set={toQuestionSet(dataSet)} />
-            <p className="mb-3 text-xs font-semibold text-muted">This question is one of {dataSet.n} that share this data. Reject the questions of a set together if its data is wrong.</p>
+            <p className="mb-3 text-xs font-semibold text-muted">This question is one of {dataSet.n} that share this {dataSet.kind === "data" ? "data" : "passage"}. Reject the questions of a set together if its {dataSet.kind === "data" ? "data" : "passage"} is wrong.</p>
           </>
         )}
         <QuestionFigure figure={figure} image={image} />

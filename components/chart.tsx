@@ -1,14 +1,28 @@
 import type { ChartSpec } from "@/lib/chart";
-import { chartToText } from "@/lib/chart-text";
+import { chartToText, stackTotals } from "@/lib/chart-text";
 import { RichTable } from "@/components/rich-text";
 import { parseRichBlocks } from "@/lib/rich-text";
 
-// Draws a bar, line or pie chart from its numbers. No chart library: plain SVG, so it works in server and client components.
+// Draws a bar, line, pie, stacked bar, histogram or combined bar-and-line chart from its numbers. No chart library: plain SVG, so
+// it works in server and client components.
 
 const COLORS = ["#0b2d63", "#18b943", "#f59e0b", "#6366f1", "#0d9488", "#dc2626", "#7c3aed", "#64748b"];
 const W = 480;
 const H = 300;
 const PAD = { left: 46, right: 14, top: 24, bottom: 52 };
+// A combined chart reads its line against a second axis on the right, so it needs room for those labels.
+const rightPad = (chart: ChartSpec) => (chart.type === "combo" ? 44 : PAD.right);
+
+// A scale with exactly n intervals, so a second axis lines up with the gridlines of the first.
+function scaleWithTicks(max: number, intervals: number): number {
+  if (max <= 0) return 1;
+  const rough = max / intervals;
+  const power = 10 ** Math.floor(Math.log10(rough));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * power).find((candidate) => candidate >= rough) ?? 10 * power;
+  return step * intervals;
+}
+
+const lineMax = (chart: ChartSpec) => Math.max(...chart.series.filter((series) => series.as === "line").flatMap((series) => series.values));
 
 const format = (value: number) => String(Math.round(value * 100) / 100);
 
@@ -32,6 +46,9 @@ function lines(label: string): string[] {
   return [first, second.length > 9 ? `${second.slice(0, 8)}…` : second].filter(Boolean);
 }
 
+// The tallest thing on the chart, so every part of a combined chart shares one scale.
+const tallest = (chart: ChartSpec) => (chart.type === "stacked" ? Math.max(...stackTotals(chart)) : Math.max(...chart.series.flatMap((series) => series.values)));
+
 function Axes({ chart, top, step }: { chart: ChartSpec; top: number; step: number }) {
   const innerH = H - PAD.top - PAD.bottom;
   const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, index) => index * step);
@@ -41,13 +58,16 @@ function Axes({ chart, top, step }: { chart: ChartSpec; top: number; step: numbe
         const y = PAD.top + innerH - (tick / top) * innerH;
         return (
           <g key={tick}>
-            <line x1={PAD.left} x2={W - PAD.right} y1={y} y2={y} stroke="#e4e7ec" strokeWidth={1} />
+            <line x1={PAD.left} x2={W - rightPad(chart)} y1={y} y2={y} stroke="#e4e7ec" strokeWidth={1} />
             <text x={PAD.left - 6} y={y + 4} textAnchor="end" fontSize={11} fill="#667085">{format(tick)}</text>
+            {chart.type === "combo" && (
+              <text x={W - rightPad(chart) + 6} y={y + 4} textAnchor="start" fontSize={11} fontWeight={700} fill={COLORS[chart.series.findIndex((series) => series.as === "line") % COLORS.length]}>{format((scaleWithTicks(lineMax(chart), ticks.length - 1) * tick) / top)}</text>
+            )}
           </g>
         );
       })}
       {chart.categories.map((category, index) => {
-        const slot = (W - PAD.left - PAD.right) / chart.categories.length;
+        const slot = (W - PAD.left - rightPad(chart)) / chart.categories.length;
         const x = PAD.left + slot * index + slot / 2;
         return (
           <text key={category} x={x} y={H - PAD.bottom + 16} textAnchor="middle" fontSize={11} fill="#344054">
@@ -59,25 +79,26 @@ function Axes({ chart, top, step }: { chart: ChartSpec; top: number; step: numbe
   );
 }
 
+// Side-by-side bars. In a combined chart only the series drawn as bars are bars.
 function Bars({ chart }: { chart: ChartSpec }) {
-  const max = Math.max(...chart.series.flatMap((series) => series.values));
-  const { top, step } = niceScale(max);
-  const innerW = W - PAD.left - PAD.right;
+  const { top, step } = niceScale(tallest(chart));
+  const innerW = W - PAD.left - rightPad(chart);
   const innerH = H - PAD.top - PAD.bottom;
   const slot = innerW / chart.categories.length;
-  const barW = Math.min(34, (slot * 0.78) / chart.series.length);
-  const labels = chart.categories.length * chart.series.length <= 16;
+  const bars = chart.series.map((series, index) => ({ series, index })).filter((item) => chart.type !== "combo" || item.series.as !== "line");
+  const barW = Math.min(34, (slot * 0.78) / bars.length);
+  const labels = chart.categories.length * bars.length <= 16;
   return (
     <>
       <Axes chart={chart} top={top} step={step} />
-      {chart.series.map((series, s) =>
+      {bars.map(({ series, index: colour }, s) =>
         series.values.map((value, c) => {
           const height = (value / top) * innerH;
-          const x = PAD.left + slot * c + slot / 2 - (barW * chart.series.length) / 2 + barW * s;
+          const x = PAD.left + slot * c + slot / 2 - (barW * bars.length) / 2 + barW * s;
           const y = PAD.top + innerH - height;
           return (
             <g key={`${s}-${c}`}>
-              <rect x={x} y={y} width={barW - 2} height={height} rx={2} fill={COLORS[s % COLORS.length]} />
+              <rect x={x} y={y} width={barW - 2} height={height} rx={2} fill={COLORS[colour % COLORS.length]} />
               {labels && <text x={x + (barW - 2) / 2} y={y - 4} textAnchor="middle" fontSize={11} fontWeight={700} fill="#111827">{format(value)}</text>}
             </g>
           );
@@ -87,25 +108,89 @@ function Bars({ chart }: { chart: ChartSpec }) {
   );
 }
 
+// Series piled on top of each other, with each part's value inside it and the whole bar's total above it.
+function Stacked({ chart }: { chart: ChartSpec }) {
+  const totals = stackTotals(chart);
+  const { top, step } = niceScale(Math.max(...totals));
+  const innerW = W - PAD.left - rightPad(chart);
+  const innerH = H - PAD.top - PAD.bottom;
+  const slot = innerW / chart.categories.length;
+  const barW = Math.min(46, slot * 0.7);
+  return (
+    <>
+      <Axes chart={chart} top={top} step={step} />
+      {chart.categories.map((category, c) => {
+        let base = PAD.top + innerH;
+        const x = PAD.left + slot * c + slot / 2 - barW / 2;
+        return (
+          <g key={category}>
+            {chart.series.map((series, s) => {
+              const height = (series.values[c] / top) * innerH;
+              base -= height;
+              return (
+                <g key={s}>
+                  <rect x={x} y={base} width={barW} height={height} fill={COLORS[s % COLORS.length]} stroke="#fff" strokeWidth={1} />
+                  {height >= 15 && <text x={x + barW / 2} y={base + height / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill="#fff">{format(series.values[c])}</text>}
+                </g>
+              );
+            })}
+            <text x={x + barW / 2} y={base - 4} textAnchor="middle" fontSize={11} fontWeight={800} fill="#111827">{format(totals[c])}</text>
+          </g>
+        );
+      })}
+    </>
+  );
+}
+
+// One series of frequencies over class intervals, with the bars touching.
+function Histogram({ chart }: { chart: ChartSpec }) {
+  const values = chart.series[0].values;
+  const { top, step } = niceScale(Math.max(...values));
+  const innerW = W - PAD.left - rightPad(chart);
+  const innerH = H - PAD.top - PAD.bottom;
+  const slot = innerW / chart.categories.length;
+  return (
+    <>
+      <Axes chart={chart} top={top} step={step} />
+      {values.map((value, c) => {
+        const height = (value / top) * innerH;
+        const y = PAD.top + innerH - height;
+        return (
+          <g key={c}>
+            <rect x={PAD.left + slot * c} y={y} width={slot} height={height} fill={COLORS[0]} fillOpacity={0.85} stroke="#fff" strokeWidth={1.5} />
+            <text x={PAD.left + slot * c + slot / 2} y={y - 4} textAnchor="middle" fontSize={11} fontWeight={700} fill="#111827">{format(value)}</text>
+          </g>
+        );
+      })}
+    </>
+  );
+}
+
+// Lines. In a combined chart only the series drawn as lines, on the bars' axes.
 function LinePlot({ chart }: { chart: ChartSpec }) {
-  const max = Math.max(...chart.series.flatMap((series) => series.values));
-  const { top, step } = niceScale(max);
-  const innerW = W - PAD.left - PAD.right;
+  const combined = chart.type === "combo";
+  const left = niceScale(tallest(chart));
+  const intervals = Math.round(left.top / left.step);
+  // In a combined chart the lines have their own scale (the right axis); otherwise they share the bars'.
+  const top = combined ? scaleWithTicks(lineMax(chart), intervals) : left.top;
+  const step = combined ? top / intervals : left.step;
+  const innerW = W - PAD.left - rightPad(chart);
   const innerH = H - PAD.top - PAD.bottom;
   const slot = innerW / chart.categories.length;
   const labels = chart.categories.length * chart.series.length <= 16;
   return (
     <>
-      <Axes chart={chart} top={top} step={step} />
+      {!combined && <Axes chart={chart} top={top} step={step} />}
       {chart.series.map((series, s) => {
+        if (combined && series.as !== "line") return null;
         const points = series.values.map((value, c) => ({ x: PAD.left + slot * c + slot / 2, y: PAD.top + innerH - (value / top) * innerH, value }));
         return (
           <g key={s}>
             <polyline points={points.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke={COLORS[s % COLORS.length]} strokeWidth={2.5} />
             {points.map((p, c) => (
               <g key={c}>
-                <circle cx={p.x} cy={p.y} r={4} fill={COLORS[s % COLORS.length]} />
-                {labels && <text x={p.x} y={p.y - 9} textAnchor="middle" fontSize={11} fontWeight={700} fill="#111827">{format(p.value)}</text>}
+                <circle cx={p.x} cy={p.y} r={4} fill={COLORS[s % COLORS.length]} stroke={combined ? "#fff" : undefined} strokeWidth={combined ? 1.5 : undefined} />
+                {labels && <text x={p.x} y={p.y - 9} textAnchor="middle" fontSize={11} fontWeight={800} fill="#111827" stroke="#fff" strokeWidth={3} paintOrder="stroke">{format(p.value)}</text>}
               </g>
             ))}
           </g>
@@ -154,7 +239,8 @@ function Pie({ chart }: { chart: ChartSpec }) {
 
 export function Chart({ chart }: { chart: ChartSpec }) {
   const summary = `${chart.title}. ${chartToText(chart).split("\n").slice(1).join(" ")}`;
-  const crowded = chart.type !== "pie" && chart.categories.length * chart.series.length > 16;
+  // Side-by-side bars and lines get crowded; past 16 values the data is shown as a table underneath too.
+  const crowded = (chart.type === "bar" || chart.type === "line" || chart.type === "combo") && chart.categories.length * chart.series.length > 16;
   const tableBlock = crowded ? parseRichBlocks(chartToText(chart)).find((block) => block.type === "table") : undefined;
   return (
     <figure className="my-3 rounded-2xl border border-border bg-white p-3">
@@ -166,11 +252,22 @@ export function Chart({ chart }: { chart: ChartSpec }) {
         {chart.type === "bar" && <Bars chart={chart} />}
         {chart.type === "line" && <LinePlot chart={chart} />}
         {chart.type === "pie" && <Pie chart={chart} />}
+        {chart.type === "stacked" && <Stacked chart={chart} />}
+        {chart.type === "histogram" && <Histogram chart={chart} />}
+        {chart.type === "combo" && (
+          <>
+            <Bars chart={chart} />
+            <LinePlot chart={chart} />
+          </>
+        )}
       </svg>
-      {chart.type !== "pie" && chart.series.length > 1 && (
+      {chart.type !== "pie" && chart.type !== "histogram" && chart.series.length > 1 && (
         <ul className="mt-1 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs font-bold text-foreground">
           {chart.series.map((series, index) => (
-            <li key={series.name} className="flex items-center gap-1.5"><span className="inline-block size-3 rounded-sm" style={{ background: COLORS[index % COLORS.length] }} aria-hidden="true" />{series.name}</li>
+            <li key={series.name} className="flex items-center gap-1.5">
+              <span className="inline-block size-3 rounded-sm" style={{ background: COLORS[index % COLORS.length], borderRadius: series.as === "line" ? 999 : undefined }} aria-hidden="true" />
+              {series.name}{series.as === "line" ? " (line, right axis)" : series.as === "bar" ? " (bars)" : ""}
+            </li>
           ))}
         </ul>
       )}

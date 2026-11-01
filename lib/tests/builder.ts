@@ -13,7 +13,7 @@ export const LEVEL_MIX: Record<TestLevel, Mix> = {
   advanced: { easy: 10, moderate: 45, hard: 45 }
 };
 
-// sets: the section is built from whole data sets (a table or chart with its questions), which stay together and in order.
+// sets: the section is built from whole sets (a table, chart or passage with its questions), which stay together and in order.
 export type BuildSection = { name: string; subject: string; questions: number; topic?: string | null; sets?: boolean };
 
 export type BuildInput = {
@@ -150,7 +150,7 @@ export function planTests(pools: Candidate[][], input: BuildInput): Plan {
       if (section.sets) {
         const chosen = takeSets(i, section.questions, inTest);
         if (!chosen) {
-          shortages.add(`${section.name}: could not fill ${section.questions} questions from whole data sets (test ${t + 1} of ${input.count}). Add more published sets, or change the number of questions.`);
+          shortages.add(`${section.name}: could not fill ${section.questions} questions from whole sets (test ${t + 1} of ${input.count}). Add more published sets, or change the number of questions.`);
           complete = false;
           sections.push({ section, questionIds: [] });
           continue;

@@ -92,7 +92,7 @@ describe("building tests with data sets", () => {
     const { buildTests } = await import("@/lib/tests/builder");
     // Seven questions cannot be made from sets of five.
     const odd = await buildTests(input({ sections: [{ name: "Data Interpretation", subject: "Quantitative Aptitude", questions: 7, topic: "Data Interpretation", sets: true }] }), { dryRun: true });
-    expect(odd.shortages.join(" ")).toMatch(/whole data sets/);
+    expect(odd.shortages.join(" ")).toMatch(/whole sets/);
     // All four sets are already used once and may not be reused.
     const spent = await buildTests(input({ count: 1, sections: [{ name: "Data Interpretation", subject: "Quantitative Aptitude", questions: 10, topic: "Data Interpretation", sets: true }] }), { dryRun: true });
     expect(spent.planned).toBe(0);
@@ -135,5 +135,39 @@ describe("learner view of a data set", () => {
     const quant = subjects.find((subject) => subject.subject === "Quantitative Aptitude")!;
     expect(quant.topics).toContain("Percentage");
     expect(quant.topics).not.toContain("Data Interpretation");
+  });
+});
+
+describe("building an English section from passage sets", () => {
+  it("keeps each passage with its five questions, and the learner gets the passage with every question", async () => {
+    const conn = await db();
+    const passage = "The river had flooded the lower fields by morning, and the villagers gathered on the bridge to watch the water rise. ".repeat(6);
+    for (let s = 0; s < 2; s++) {
+      const set = await conn.query<{ id: string }>(
+        "insert into question_sets (exam_id, subject, topic, difficulty, title, stimulus, kind, content_hash) values ($1,'English Language','Reading Comprehension','moderate',$2,$3,'passage',$4) returning id",
+        [examId, `Passage ${s}`, passage, `passage-${s}`]
+      );
+      for (let q = 0; q < 5; q++) {
+        await conn.query(
+          `insert into questions (exam_id, subject, topic, difficulty, stem, options, correct_option, explanation, validation_status, content_hash, set_id, set_position)
+           values ($1,'English Language','Reading Comprehension','moderate',$2,'{"A":"a","B":"b","C":"c","D":"d"}','B','From the passage.','published',$3,$4,$5)`,
+          [examId, `Passage ${s} question ${q}: what does the writer say?`, `passage-${s}-q-${q}`, set.rows[0].id, q]
+        );
+      }
+    }
+    const { buildTests } = await import("@/lib/tests/builder");
+    const report = await buildTests(input({ count: 1, maxReuse: 1, titlePrefix: "English", sections: [{ name: "Reading", subject: "English Language", questions: 10, topic: "Reading Comprehension", sets: true }] }), { dryRun: false });
+    expect(report.shortages).toEqual([]);
+    expect(report.created).toBe(1);
+
+    const test = (await conn.query<{ id: string }>("select t.id from tests t where t.title like 'English%' order by t.created_at desc limit 1")).rows[0];
+    const { startAttempt, getPlayerData } = await import("@/lib/tests/attempts");
+    await conn.query("update tests set status = 'published', is_free_sample = true, published_at = now() where id = $1", [test.id]);
+    const started = await startAttempt(userId, test.id);
+    if (!started.ok) throw new Error("no attempt");
+    const player = await getPlayerData(userId, started.attemptId);
+    expect(player!.questions).toHaveLength(10);
+    expect(player!.questions.every((question) => question.set?.kind === "passage")).toBe(true);
+    expect(player!.questions[0].set!.stimulus).toContain("villagers gathered on the bridge");
   });
 });

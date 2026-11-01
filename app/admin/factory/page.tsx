@@ -73,19 +73,24 @@ export default async function FactoryPage({ searchParams }: { searchParams: Prom
               <option value="hard">Hard</option>
             </select>
           </Field>
-          <Field label="Format" hint="Data sets: a table or chart with five questions that share it (Data Interpretation). They need the chat queue or an API.">
+          <Field label="Format" hint="Sets: five questions that share a table, chart or passage (Data Interpretation, Reading Comprehension, Cloze Test). They need the chat queue or an API.">
             <select name="format" defaultValue="single" className={inputClass}>
               <option value="single">Single questions</option>
-              <option value="set">Data sets (table or chart + 5 questions)</option>
+              <option value="set">Sets (data or passage + 5 questions)</option>
             </select>
           </Field>
-          <Field label="Data shown as (data sets only)">
+          <Field label="Set content (sets only)" hint="For a passage or cloze set, choose the English subject and leave Topics empty (or write Reading Comprehension).">
             <select name="set_kind" defaultValue="mixed" className={inputClass}>
               <option value="mixed">A mix of tables and charts</option>
               <option value="table">Tables</option>
               <option value="bar">Bar charts</option>
               <option value="line">Line graphs</option>
               <option value="pie">Pie charts</option>
+              <option value="stacked">Stacked bar charts</option>
+              <option value="histogram">Histograms</option>
+              <option value="combo">Bar-and-line combined charts</option>
+              <option value="passage">Reading passage (English comprehension)</option>
+              <option value="cloze">Cloze test (passage with blanks, English)</option>
             </select>
           </Field>
           <label className="flex items-center gap-2 self-end pb-2 text-sm font-bold text-primary"><input type="checkbox" name="figures" className="size-4" /> Allow drawn figures (Venn and geometry, single questions only)</label>

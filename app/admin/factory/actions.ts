@@ -24,7 +24,7 @@ export async function startFactoryRun(formData: FormData) {
     subject: text(formData, "subject") || "Quantitative Aptitude",
     difficulty,
     format: text(formData, "format") === "set" ? "set" : "single",
-    setKind: (["table", "bar", "line", "pie"].includes(text(formData, "set_kind")) ? text(formData, "set_kind") : "mixed") as RunInput["setKind"],
+    setKind: (["table", "bar", "line", "pie", "stacked", "histogram", "combo", "passage", "cloze"].includes(text(formData, "set_kind")) ? text(formData, "set_kind") : "mixed") as RunInput["setKind"],
     figures: formData.get("figures") === "on",
     count: Math.min(Math.max(integer(formData, "count") ?? 20, 1), MAX_BY_MODE[mode]),
     mode,

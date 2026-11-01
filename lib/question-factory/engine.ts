@@ -3,14 +3,14 @@ import { findNearDuplicate } from "./dedupe";
 import { examSlug, knowledgeFor, topicInSyllabus, type Knowledge } from "./knowledge";
 import { proofread } from "./language-rules";
 import { alwaysHumanCheck, ensureExam, parseJsonObject, templateCandidates, type Candidate, type FactoryInput } from "./pipeline";
-import { PROMPT_VERSION, QUESTIONS_PER_SET, fixPrompt, generationPrompt, generationSetPrompt, reviewPrompt, solverPrompt, type SetKind } from "./prompts";
+import { PROMPT_VERSION, QUESTIONS_PER_SET, fixPrompt, generationPrompt, generationSetPrompt, isPassageKind, reviewPrompt, solverPrompt, type SetKind } from "./prompts";
 import type { LlmProvider } from "./providers/types";
 import type { Difficulty } from "./templates";
 import { createHash } from "node:crypto";
 import { parseChart } from "@/lib/chart";
 import { figureToText, parseFigure, toFigure, type FigureSpec } from "@/lib/figure";
 import { figureSeed } from "@/lib/figure-seed";
-import { setContextText, setProblem, toQuestionSet, type QuestionSet } from "@/lib/question-sets";
+import { setContextText, setProblem, toQuestionSet, type QuestionSet, type SetContentKind } from "@/lib/question-sets";
 import { isExplanationReason, isNumericSubject, runCodeValidation, type ValidationCheck } from "./validator";
 import { contentHash, optionKeys, questionDraftSchema, type OptionKey, type QuestionDraft, type ValidationStatus } from "@/lib/tests/question-schema";
 
@@ -494,6 +494,7 @@ async function storeWritten(env: Env, examId: string, raw: string) {
 }
 
 const DIFFICULTIES = ["easy", "moderate", "hard"];
+const defaultSetTopic = (kind: SetContentKind) => (kind === "passage" ? "Reading Comprehension" : kind === "cloze" ? "Cloze Test" : "Data Interpretation");
 const SETS_PER_CALL = { api: 1, queue: 2 } as const;
 
 // Stores data sets from a writer's answer: the set's data first, then its questions, each linked to the set. A set whose data
@@ -505,25 +506,29 @@ async function storeWrittenSets(env: Env, examId: string, raw: string) {
   let dropped = 0;
   let duplicates = 0;
   for (const item of parsed.sets ?? []) {
-    const set = item as { title?: unknown; intro?: unknown; table?: unknown; chart?: unknown; questions?: unknown[] };
+    const set = item as { title?: unknown; intro?: unknown; table?: unknown; chart?: unknown; passage?: unknown; questions?: unknown[] };
+    const kind: SetContentKind = isPassageKind(batch.config.setKind) ? batch.config.setKind : "data";
     const title = typeof set.title === "string" ? set.title.trim().slice(0, 120) : "";
-    const stimulus = [typeof set.intro === "string" ? set.intro.trim() : "", typeof set.table === "string" ? set.table.trim() : ""].filter(Boolean).join("\n");
-    const chartInput = set.chart && typeof set.chart === "object" ? set.chart : null;
-    const problem = !title ? "A data set needs a title." : !Array.isArray(set.questions) || !set.questions.length ? "The set had no questions." : setProblem({ stimulus, chart: chartInput });
+    const stimulus =
+      kind === "data"
+        ? [typeof set.intro === "string" ? set.intro.trim() : "", typeof set.table === "string" ? set.table.trim() : ""].filter(Boolean).join("\n")
+        : typeof set.passage === "string" ? set.passage.trim() : "";
+    const chartInput = kind === "data" && set.chart && typeof set.chart === "object" ? set.chart : null;
+    const problem = !title ? "A set needs a title." : !Array.isArray(set.questions) || !set.questions.length ? "The set had no questions." : setProblem({ kind, stimulus, chart: chartInput });
     if (problem) {
       dropped++;
-      await logEvent(env.db, batch.id, null, "write", "error", `A data set was dropped: ${problem}`);
+      await logEvent(env.db, batch.id, null, "write", "error", `A ${kind === "data" ? "data set" : "passage set"} was dropped: ${problem}`);
       continue;
     }
     const chartParsed = chartInput ? parseChart(chartInput) : null;
     const chart = chartParsed && "chart" in chartParsed ? chartParsed.chart : null;
     const seed = createHash("sha256").update(`${stimulus.toLowerCase().replace(/\s+/g, " ")}::${chart ? JSON.stringify(chart) : ""}`).digest("hex");
-    const topic = batch.topic || "Data Interpretation";
+    const topic = batch.topic || defaultSetTopic(kind);
     const setDifficulty = DIFFICULTIES.includes(batch.difficulty) ? batch.difficulty : "moderate";
     const inserted = await env.db.query<{ id: string }>(
-      `insert into question_sets (exam_id, tier, subject, topic, difficulty, title, stimulus, chart, batch_id, content_hash)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) on conflict (content_hash) do nothing returning id`,
-      [examId, batch.config.tier, batch.subject, topic, setDifficulty, title, stimulus, chart ? JSON.stringify(chart) : null, batch.id, seed]
+      `insert into question_sets (exam_id, tier, subject, topic, difficulty, title, stimulus, chart, batch_id, content_hash, kind)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) on conflict (content_hash) do nothing returning id`,
+      [examId, batch.config.tier, batch.subject, topic, setDifficulty, title, stimulus, chart ? JSON.stringify(chart) : null, batch.id, seed, kind]
     );
     const setId = inserted.rows[0]?.id;
     if (!setId) {
@@ -611,7 +616,7 @@ async function writeStage(env: Env): Promise<WriteOutcome> {
     const context = { syllabus: knowledge.syllabus, currentAffairs: knowledge.currentAffairs, pyqSamples: knowledge.pyqSamples };
     const difficulty = batch.difficulty === "mixed" ? "moderate" : batch.difficulty;
     const request = setMode
-      ? generationSetPrompt({ exam: batch.config.examName, tier: batch.config.tier, subject: batch.subject, topic: batch.topic ?? "Data Interpretation", difficulty, sets: Math.max(1, Math.ceil(wanted / QUESTIONS_PER_SET)), kind: batch.config.setKind ?? "mixed", context })
+      ? generationSetPrompt({ exam: batch.config.examName, tier: batch.config.tier, subject: batch.subject, topic: batch.topic ?? defaultSetTopic(isPassageKind(batch.config.setKind) ? batch.config.setKind : "data"), difficulty, sets: Math.max(1, Math.ceil(wanted / QUESTIONS_PER_SET)), kind: batch.config.setKind ?? "mixed", context })
       : generationPrompt({ exam: batch.config.examName, tier: batch.config.tier, subject: batch.subject, topic: batch.topic ?? batch.subject, difficulty, count: wanted, figures: batch.config.figures, context });
     const key = `write:${calls}`;
     calls++;
@@ -682,7 +687,7 @@ export async function advanceBatch(db: Db, ai: AiPort, batchId: string, options:
     setFor: async (row) => {
       if (!row.set_id) return null;
       if (!setCache.has(row.set_id)) {
-        const found = await db.query<{ id: string; title: string; stimulus: string; chart: unknown }>("select id, title, stimulus, chart from question_sets where id = $1", [row.set_id]);
+        const found = await db.query<{ id: string; title: string; stimulus: string; chart: unknown; kind: string }>("select id, title, stimulus, chart, kind from question_sets where id = $1", [row.set_id]);
         setCache.set(row.set_id, found.rows[0] ? toQuestionSet(found.rows[0]) : null);
       }
       return setCache.get(row.set_id) ?? null;
@@ -716,7 +721,7 @@ export async function createBatch(db: Db, input: RunInput): Promise<string> {
   if (input.count < 1) throw new Error("Choose at least one question.");
   if (input.mode === "rules" && !isNumericSubject(input.subject)) throw new Error("Runs without AI are available for Quantitative Aptitude only. Pick the chat queue or an API for other subjects.");
   if (input.mode === "api" && !input.provider) throw new Error("Choose which AI provider writes and checks the questions.");
-  if (input.format === "set" && input.mode === "rules") throw new Error("Data sets need the chat queue or an AI API, because the AI writes the data.");
+  if (input.format === "set" && input.mode === "rules") throw new Error("Sets need the chat queue or an AI API, because the AI writes the data or passage.");
   if (input.figures && input.mode === "rules") throw new Error("Figures need the chat queue or an AI API, because the AI describes the figure.");
   const figures = Boolean(input.figures) && input.format !== "set";
   const config: BatchConfig = { mode: input.mode, strategy: input.mode === "rules" ? "template" : "llm", examName: input.exam, tier: input.tier, provider: input.provider, ...(input.format === "set" ? { format: "set" as const, setKind: input.setKind ?? "mixed" } : {}), ...(figures ? { figures: true } : {}) };

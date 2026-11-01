@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { stackTotals } from "@/lib/chart-text";
 
 // Re-exported so server code can keep importing everything about charts from here.
 export { chartToText } from "@/lib/chart-text";
@@ -6,7 +7,9 @@ export { chartToText } from "@/lib/chart-text";
 // A chart is stored as numbers, never as a picture. The site draws it, the factory recomputes answers from it, and the
 // independent solver is given the same numbers as a table.
 
-export const chartTypes = ["bar", "line", "pie"] as const;
+// bar and line draw each series side by side or as lines; stacked piles the series on top of each other; histogram is one series of
+// frequencies with touching bars (the categories are class intervals such as "10-20"); combo draws some series as bars and others as lines.
+export const chartTypes = ["bar", "line", "pie", "stacked", "histogram", "combo"] as const;
 
 export const chartSpecSchema = z
   .object({
@@ -15,7 +18,7 @@ export const chartSpecSchema = z
     unit: z.string().trim().max(24).optional(),
     categories: z.array(z.string().trim().min(1).max(24)).min(2).max(8),
     series: z
-      .array(z.object({ name: z.string().trim().min(1).max(30), values: z.array(z.number().finite().min(0).max(1_000_000_000)).min(2).max(8) }))
+      .array(z.object({ name: z.string().trim().min(1).max(30), as: z.enum(["bar", "line"]).optional(), values: z.array(z.number().finite().min(0).max(1_000_000_000)).min(2).max(8) }))
       .min(1)
       .max(4)
   })
@@ -24,6 +27,12 @@ export const chartSpecSchema = z
     if (chart.type === "pie") {
       if (chart.series.length !== 1) ctx.addIssue({ code: "custom", message: "A pie chart has exactly one series.", path: ["series"] });
       else if (chart.series[0].values.reduce((sum, value) => sum + value, 0) <= 0) ctx.addIssue({ code: "custom", message: "A pie chart needs a positive total.", path: ["series"] });
+    }
+    if (chart.type === "histogram" && chart.series.length !== 1) ctx.addIssue({ code: "custom", message: "A histogram has exactly one series of frequencies.", path: ["series"] });
+    if (chart.type === "stacked" && chart.series.length < 2) ctx.addIssue({ code: "custom", message: "A stacked bar chart needs at least two series to stack.", path: ["series"] });
+    if (chart.type === "combo") {
+      if (chart.series.some((series) => !series.as)) ctx.addIssue({ code: "custom", message: 'In a combined chart every series says whether it is drawn "as" a "bar" or a "line".', path: ["series"] });
+      else if (!chart.series.some((series) => series.as === "bar") || !chart.series.some((series) => series.as === "line")) ctx.addIssue({ code: "custom", message: "A combined chart needs at least one bar series and one line series.", path: ["series"] });
     }
     if (new Set(chart.categories.map((category) => category.toLowerCase())).size !== chart.categories.length) ctx.addIssue({ code: "custom", message: "Category names must all be different.", path: ["categories"] });
   });
@@ -38,6 +47,7 @@ export function parseChart(input: unknown): { chart: ChartSpec } | { error: stri
 // Every number a learner can read off the chart, used to check that a question's working really uses the data.
 export function chartNumbers(chart: ChartSpec): number[] {
   const numbers = chart.series.flatMap((series) => series.values);
+  if (chart.type === "stacked") numbers.push(...stackTotals(chart));
   if (chart.type === "pie") {
     const total = numbers.reduce((sum, value) => sum + value, 0);
     numbers.push(total, ...numbers.map((value) => Math.round((value / total) * 10000) / 100));

@@ -12,9 +12,9 @@ export type StartResult = { ok: true; attemptId: string } | { ok: false; reason:
 type TestRow = { id: string; series_id: string; duration_minutes: number; is_free_sample: boolean; status: string; negative_marks: string; default_marks: string };
 
 async function loadQuestions(db: Db, testId: string, defaultMarks: number) {
-  const { rows } = await db.query<{ id: string; stem: string; options: Record<string, string>; correct_option: string; explanation: string; subject: string; topic: string; marks: string | null; section: string | null; position: number; section_position: number | null; set_id: string | null; set_title: string | null; set_stimulus: string | null; set_chart: unknown; figure: unknown; image_id: string | null; image_alt: string | null }>(
+  const { rows } = await db.query<{ id: string; stem: string; options: Record<string, string>; correct_option: string; explanation: string; subject: string; topic: string; marks: string | null; section: string | null; position: number; section_position: number | null; set_id: string | null; set_title: string | null; set_stimulus: string | null; set_chart: unknown; set_kind: string | null; figure: unknown; image_id: string | null; image_alt: string | null }>(
     `select q.id, q.stem, q.options, q.correct_option, q.explanation, q.subject, q.topic, tq.marks, ts.name as section, tq.position, ts.position as section_position,
-            q.set_id, qs.title as set_title, qs.stimulus as set_stimulus, qs.chart as set_chart, q.figure, q.image_id, qi.alt as image_alt
+            q.set_id, qs.title as set_title, qs.stimulus as set_stimulus, qs.chart as set_chart, qs.kind as set_kind, q.figure, q.image_id, qi.alt as image_alt
      from test_questions tq join questions q on q.id = tq.question_id left join test_sections ts on ts.id = tq.section_id left join question_sets qs on qs.id = q.set_id
           left join question_images qi on qi.id = q.image_id
      where tq.test_id = $1 order by coalesce(ts.position, 0), tq.position`,
@@ -24,7 +24,7 @@ async function loadQuestions(db: Db, testId: string, defaultMarks: number) {
     ...row,
     section: row.section ?? "All questions",
     marksValue: row.marks === null ? defaultMarks : Number(row.marks),
-    set: row.set_id ? toQuestionSet({ id: row.set_id, title: row.set_title ?? "", stimulus: row.set_stimulus ?? "", chart: row.set_chart }) : null,
+    set: row.set_id ? toQuestionSet({ id: row.set_id, title: row.set_title ?? "", stimulus: row.set_stimulus ?? "", chart: row.set_chart, kind: row.set_kind }) : null,
     drawing: toFigure(row.figure),
     image: row.image_id ? { id: row.image_id, alt: row.image_alt ?? "" } : null
   }));

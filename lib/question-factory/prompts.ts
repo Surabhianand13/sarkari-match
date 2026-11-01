@@ -71,7 +71,7 @@ export function generationPrompt(input: { exam: string; tier: string; subject: s
   };
 }
 
-const dataBlock = (data?: string) => (data ? `Data or figure shown with the question (a table, chart or diagram, given here as text; diagrams are not drawn to scale):\n${data}\n\n` : "");
+const dataBlock = (data?: string) => (data ? `Data or figure shown with the question (a table, chart, passage or diagram, given here as text; diagrams are not drawn to scale):\n${data}\n\n` : "");
 
 export function solverPrompt(question: string, options: Record<string, string>, data?: string) {
   return {
@@ -116,17 +116,48 @@ export function fixPrompt(input: { exam: string; tier: string; question: string;
   };
 }
 
-export type SetKind = "table" | "bar" | "line" | "pie" | "mixed";
+export type SetKind = "table" | "bar" | "line" | "pie" | "stacked" | "histogram" | "combo" | "mixed" | "passage" | "cloze";
+const chartNames = { bar: "bar chart", line: "line graph", pie: "pie chart", stacked: "stacked bar chart", histogram: "histogram", combo: "combined bar-and-line chart" } as const;
+export const isPassageKind = (kind: SetKind | undefined): kind is "passage" | "cloze" => kind === "passage" || kind === "cloze";
 export const QUESTIONS_PER_SET = 5;
 
 // A data set: one table or chart and several questions that can only be answered by reading it.
+// A passage set: one original passage (or a cloze passage with numbered blanks) and five questions that can only be answered from it.
+function generationPassagePrompt(input: { exam: string; tier: string; subject: string; topic: string; difficulty: string; sets: number; kind: "passage" | "cloze"; context?: PromptContext }) {
+  const cloze = input.kind === "cloze";
+  return {
+    system:
+      "You are a senior English-language question setter for Indian government recruitment exams. You write original passages and unambiguous multiple choice questions about them. " +
+      "Never reproduce or closely paraphrase a published passage, a newspaper article or a coaching institute's material. Respond with JSON only.",
+    prompt: [
+      `Write ${input.sets} original ${input.difficulty} ${cloze ? "cloze test" : "reading comprehension"} sets for ${input.exam} ${input.tier}.`,
+      `Subject: ${input.subject}. Topic: ${input.topic}.`,
+      `Each set has one passage and exactly ${QUESTIONS_PER_SET} multiple choice questions about it.`,
+      cloze
+        ? 'The passage is 100 to 140 words of connected prose with exactly five numbered blanks written as (1) ______ , (2) ______ and so on up to (5) ______. Question n is always "Select the most appropriate option to fill in blank (n)." Test grammar, vocabulary and collocation. Exactly one option fits the blank and the sentence around it.'
+        : "The passage is 170 to 230 words in two or three paragraphs (separate paragraphs with \\n\\n inside the JSON string). Use neutral, informative or discursive prose about an everyday, social, scientific or economic theme, with no real people, quotations or facts that need outside checking. Every question must be answerable from the passage alone.",
+      cloze
+        ? "- Write each explanation so that Step 1 reads the sentence around the blank and names what it needs (a tense, a preposition, a word meaning)."
+        : "- Mix the five questions: the main idea or best title, a detail stated in the passage, an inference, the meaning of a word as used in the passage, and the writer's tone or purpose. Do not number the questions in their text.\n- Step 1 of every explanation quotes the short part of the passage that settles the answer.",
+      "- Four options A, B, C, D. Exactly one correct. Distractors are plausible: true-sounding but unsupported, too extreme, or partly right.",
+      EXPLANATION_FORMAT,
+      RICH_TEXT_RULES,
+      input.context ? contextBlock(input.context) : "",
+      `Return {"sets":[{"title":"short title","passage":"the full passage text","questions":[{"question":"","options":{"A":"","B":"","C":"","D":""},"correct_answer":"A|B|C|D","difficulty":"easy|moderate|hard","explanation":"","estimated_time_seconds":${cloze ? 40 : 75}}]}]}`
+    ]
+      .filter(Boolean)
+      .join("\n")
+  };
+}
+
 export function generationSetPrompt(input: { exam: string; tier: string; subject: string; topic: string; difficulty: string; sets: number; kind: SetKind; context?: PromptContext }) {
+  if (isPassageKind(input.kind)) return generationPassagePrompt({ ...input, kind: input.kind });
   const kindRule =
     input.kind === "table"
       ? 'Every set shows its data as a text table in "table" and has "chart": null.'
       : input.kind === "mixed"
-        ? 'Vary the data: give some sets a text table in "table" (with "chart": null) and others a chart in "chart" (with "table": null), choosing bar, line or pie to suit the data.'
-        : `Every set shows its data as a ${input.kind} chart in "chart" (with "table": null).`;
+        ? 'Vary the data: give some sets a text table in "table" (with "chart": null) and others a chart in "chart" (with "table": null), choosing bar, line, pie, stacked, histogram or combo to suit the data.'
+        : `Every set shows its data as a ${chartNames[input.kind as keyof typeof chartNames]} in "chart" (with "table": null).`;
   return {
     system:
       "You are a senior question setter for Indian government recruitment exams. You write original, unambiguous Data Interpretation sets: one data source followed by questions that can only be answered by reading it. " +
@@ -137,7 +168,8 @@ export function generationSetPrompt(input: { exam: string; tier: string; subject
       `Each set has one data source and exactly ${QUESTIONS_PER_SET} multiple choice questions about it.`,
       kindRule,
       'A table is text: a header row, a separator row, then data rows, with | between cells (separate lines with \\n inside the JSON string), at most 6 data rows and 5 columns.',
-      'A chart is an object: {"type":"bar"|"line"|"pie","title":"","unit":"","categories":["2019","2020"],"series":[{"name":"","values":[120,150]}]}. Use 4 to 6 categories and at most 3 series. A pie chart has exactly one series. Category and series names are short (under 12 characters). Values are plain numbers, not strings.',
+      'A chart is an object: {"type":"bar"|"line"|"pie"|"stacked"|"histogram"|"combo","title":"","unit":"","categories":["2019","2020"],"series":[{"name":"","values":[120,150]}]}. Use 4 to 6 categories and at most 3 series. Category and series names are short (under 12 characters). Values are plain numbers, not strings.',
+      'A pie chart has exactly one series. A stacked chart has two or three series that are piled on top of each other, so the questions can ask about parts and totals. A histogram has exactly one series of frequencies and its categories are class intervals such as "10-20", "20-30". A combo chart draws some series as bars and others as a line: give every series "as":"bar" or "as":"line", with at least one of each (for example sales as bars and profit percent as a line).',
       "Make the numbers realistic and simple (multiples of 5 or 10, totals that give clean percentages) so answers are exact.",
       "Rules for the questions:",
       "- Each question must need the data, and the five together must use different calculations: percentage change, ratio, average, difference, share of the total, comparison.",
