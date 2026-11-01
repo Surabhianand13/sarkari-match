@@ -579,3 +579,122 @@ describe("passage sets", () => {
     expect(Number((await db.query<{ n: string }>("select count(*) as n from question_sets where title in ('Too short', 'No blanks')")).rows[0].n)).toBe(0);
   });
 });
+
+describe("Tier II subjects", () => {
+  it("treats Mathematical Abilities like Quantitative Aptitude, and Statistics as a subject the solver checks", async () => {
+    const { generationPrompt } = await import("@/lib/question-factory/prompts");
+    const { isNumericSubject } = await import("@/lib/question-factory/validator");
+    const base = { exam: "SSC CGL", tier: "Tier II", difficulty: "moderate", count: 2, topic: "Mean" };
+    expect(isNumericSubject("Mathematical Abilities")).toBe(true);
+    expect(isNumericSubject("Statistics")).toBe(false);
+    expect(generationPrompt({ ...base, subject: "Mathematical Abilities" }).prompt).toContain("verification_expression");
+    expect(generationPrompt({ ...base, subject: "Statistics" }).prompt).not.toContain("a plain arithmetic expression");
+  });
+
+  it("always sends Finance and Economics questions to a person, even when the solver agrees", async () => {
+    const { createBatch } = await import("@/lib/question-factory/engine");
+    const id = await createBatch(db, { exam: "SSC CGL", tier: "Tier II", subject: "Finance and Economics", topic: "Demand and Supply", difficulty: "moderate", count: 1, mode: "queue" });
+    const concept: Q = { question: "When the price of a normal good falls and nothing else changes, what happens to the quantity demanded of it?", options: { A: "It rises", B: "It falls", C: "It stays the same", D: "It first falls and then rises" }, correct_answer: "A" };
+    const done = await drain(id, answerer([concept], "Finance and Economics", "Demand and Supply", { solve: () => ({ answer: "A", reasoning: "law of demand", ambiguous: false }) }));
+    expect(done.status).toBe("completed");
+    const row = (await db.query<{ validation_status: string }>("select validation_status from questions where batch_id = $1", [id])).rows[0];
+    expect(row.validation_status).toBe("needs_review");
+  });
+
+  it("lists suggested topics for every Tier I and Tier II section", async () => {
+    const { subjectGuide } = await import("@/lib/question-factory/subjects");
+    expect(subjectGuide.map((item) => item.subject)).toEqual(expect.arrayContaining(["Quantitative Aptitude", "English Comprehension", "Mathematical Abilities", "Statistics", "Finance and Economics", "Computer Knowledge"]));
+    expect(subjectGuide.every((item) => item.topics.length >= 10 && new Set(item.topics).size === item.topics.length)).toBe(true);
+  });
+});
+
+describe("dated current affairs", () => {
+  const noteTitle = "Sports roundup Oct 2026";
+  const noteBody = "The 2026 national games were held in October 2026 and the host state won the overall trophy with 120 medals. The marathon was won by a runner from Kenya.";
+  const dated = {
+    exam: "SSC CGL", tier: "Tier I", subject: "General Awareness", topic: "Current Affairs", difficulty: "moderate",
+    question: "Which state won the overall trophy at the national games held in October 2026?",
+    options: { A: "The host state", B: "Kerala", C: "Punjab", D: "Odisha" }, correct_answer: "A",
+    explanation: worked("A", "The host state"), estimated_time_seconds: 40,
+    source: noteTitle, as_of: "2026-10-20", shelf_life_months: 12
+  };
+
+  async function start() {
+    const { addSource } = await import("@/lib/question-factory/knowledge");
+    const { createBatch } = await import("@/lib/question-factory/engine");
+    if (!(await db.query("select 1 from knowledge_sources where title = $1", [noteTitle])).rowCount) {
+      await addSource(db, { exam: "SSC CGL", subject: "General Awareness", kind: "current_affairs", title: noteTitle, body: noteBody, asOf: "2026-10-20" });
+    }
+    return createBatch(db, { exam: "SSC CGL", tier: "Tier I", subject: "General Awareness", topic: "Current Affairs", difficulty: "moderate", count: 1, mode: "queue" });
+  }
+
+  const solve = () => ({ answer: "A", reasoning: "from the note", ambiguous: false });
+  const review = (stem: string, extra: Record<string, unknown> = {}) => ({ ok: true, issues: [], question: stem, steps_ok: true, step_errors: [], in_syllabus: true, level: "as_expected", reason: "Fine.", ...extra });
+
+  it("tells the writer to use only the notes and to cite and date each question", async () => {
+    const { advanceBatch, queueAi } = await import("@/lib/question-factory/engine");
+    const { pendingTasks } = await import("@/lib/question-factory/queue");
+    const id = await start();
+    await advanceBatch(db, queueAi(db), id, { budgetMs: 3000 });
+    const [task] = await pendingTasks(db, { batchId: id });
+    expect(task.request.prompt).toContain(`[Source: ${noteTitle}, as of 2026-10-20]`);
+    expect(task.request.prompt).toContain("Use ONLY facts stated in the source notes");
+    expect(task.request.prompt).toContain('"shelf_life_months"');
+  });
+
+  it("stores the source and dates, and checks the answer against the cited note", async () => {
+    const id = await start();
+    let reviewPrompt = "";
+    await drain(id, (task) => {
+      const stem = /Question: (.*)\n/.exec(task.request.prompt)?.[1] ?? "";
+      if (task.stage === "write") return { questions: [dated] };
+      if (task.stage === "solve") return solve();
+      reviewPrompt = task.request.prompt;
+      return review(stem, { supported: true, evidence: "the host state won the overall trophy" });
+    });
+    expect(reviewPrompt).toContain(noteBody);
+    expect(reviewPrompt).toContain('"supported": true only if the note itself states the keyed answer');
+    const row = (await db.query<{ fact_as_of: string; valid_until: string; source_title: string; validation_status: string; validation_notes: { flags?: string[] } }>("select fact_as_of::text, valid_until::text, source_title, validation_status, validation_notes from questions where batch_id = $1", [id])).rows[0];
+    expect(row).toMatchObject({ fact_as_of: "2026-10-20", valid_until: "2027-10-20", source_title: noteTitle, validation_status: "needs_review" });
+    expect((row.validation_notes.flags ?? []).some((flag) => /no source note or date/.test(flag))).toBe(false);
+  });
+
+  it("sends a question to the fixer when the note does not state the answer, with the note in front of the fixer", async () => {
+    const id = await start();
+    const question = "Which state topped the medal table at the national games of October 2026, according to the roundup?";
+    let fixPrompt = "";
+    let reviews = 0;
+    const done = await drain(id, (task) => {
+      const stem = /Question: (.*)\n/.exec(task.request.prompt)?.[1] ?? "";
+      if (task.stage === "write") return { questions: [{ ...dated, question }] };
+      if (task.stage === "solve") return solve();
+      if (task.stage === "review") {
+        reviews++;
+        // The first review finds that the note does not say this; once the fixer has rewritten it, the note supports it.
+        return review(stem, reviews === 1 ? { supported: false, evidence: "The note names no state apart from the host." } : { supported: true, evidence: "the host state won" });
+      }
+      fixPrompt = task.request.prompt;
+      return { question: `${question} Answer from the note.`, options: dated.options, correct_answer: "A", explanation: dated.explanation, estimated_time_seconds: 40 };
+    });
+    expect(done.status).toBe("completed");
+    expect(fixPrompt).toContain(`The source note "${noteTitle}" does not state the keyed answer`);
+    expect(fixPrompt).toContain("This question must stay inside this source note");
+    expect(fixPrompt).toContain(noteBody);
+    const row = (await db.query<{ fix_attempts: number; source_title: string }>("select fix_attempts, source_title from questions where batch_id = $1", [id])).rows[0];
+    expect(row).toMatchObject({ fix_attempts: 1, source_title: noteTitle });
+  });
+
+  it("flags a question that has no source or date", async () => {
+    const id = await start();
+    await drain(id, (task) => {
+      const stem = /Question: (.*)\n/.exec(task.request.prompt)?.[1] ?? "";
+      if (task.stage === "write") return { questions: [{ ...dated, question: "Which runner won the marathon at the national games in October 2026, according to the roundup?", options: { A: "A runner from Kenya", B: "A runner from Ethiopia", C: "A runner from Punjab", D: "A runner from Kerala" }, explanation: worked("A", "A runner from Kenya"), source: "", as_of: "", shelf_life_months: 12 }] };
+      if (task.stage === "solve") return solve();
+      return review(stem);
+    });
+    const row = (await db.query<{ fact_as_of: string | null; source_title: string | null; validation_notes: { flags?: string[] } }>("select fact_as_of, source_title, validation_notes from questions where batch_id = $1", [id])).rows[0];
+    expect(row.fact_as_of).toBeNull();
+    expect(row.source_title).toBeNull();
+    expect((row.validation_notes.flags ?? []).some((flag) => /no source note or date/.test(flag))).toBe(true);
+  });
+});

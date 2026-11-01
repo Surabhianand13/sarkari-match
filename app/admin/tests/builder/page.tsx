@@ -27,7 +27,7 @@ export default async function TestBuilderPage({ searchParams }: { searchParams: 
   const [series, bank, tests] = await Promise.all([
     db.query<{ id: string; title: string; exam: string }>("select s.id, s.title, e.name as exam from test_series s join exams e on e.id = s.exam_id order by e.name, s.title"),
     db.query<{ exam: string; subject: string; difficulty: string; n: string }>(
-      "select e.name as exam, q.subject, q.difficulty, count(*) as n from questions q join exams e on e.id = q.exam_id where q.validation_status = 'published' group by 1, 2, 3 order by 1, 2, 3"),
+      "select e.name as exam, q.subject, q.difficulty, count(*) as n from questions q join exams e on e.id = q.exam_id where q.validation_status = 'published' and (q.valid_until is null or q.valid_until >= current_date) group by 1, 2, 3 order by 1, 2, 3"),
     db.query<{ series: string; kind: string; level: string | null; status: string; n: string }>(
       "select s.title as series, t.kind, t.level, t.status, count(*) as n from tests t join test_series s on s.id = t.series_id group by 1, 2, 3, 4 order by 1, 2, 3, 4")
   ]);

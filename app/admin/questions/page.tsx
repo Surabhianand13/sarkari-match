@@ -4,6 +4,7 @@ import { AdminHeader, ButtonLinkSmall, DataTable, Flash, StatusPill, SubmitButto
 import { bulkSetQuestionStatus } from "@/app/admin/questions/actions";
 import { adminDb } from "@/lib/admin/db";
 import { validationStatuses } from "@/lib/tests/question-schema";
+import { freshnessState, SOON_DAYS } from "@/lib/freshness";
 
 export const metadata = { title: "Question review" };
 
@@ -12,8 +13,9 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
   const pageSize = 50;
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
   const db = await adminDb();
-  const statusFilter = status === "review" ? ["auto_passed", "needs_review"] : validationStatuses.includes(status as never) ? [status] : validationStatuses.slice();
-  const [counts, bank, rows] = await Promise.all([
+  const expiring = status === "expiring";
+  const statusFilter = status === "review" ? ["auto_passed", "needs_review"] : expiring ? ["published", "approved", "auto_passed", "needs_review"] : validationStatuses.includes(status as never) ? [status] : validationStatuses.slice();
+  const [counts, bank, rows, expiringCount] = await Promise.all([
     db.query<{ validation_status: string; n: string }>("select validation_status, count(*) as n from questions group by 1"),
     db.query<{ subject: string; topic: string; published: string; approved: string; review: string }>(
       `select subject, topic,
@@ -23,19 +25,21 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
          from questions where validation_status in ('published', 'approved', 'auto_passed', 'needs_review')
         group by subject, topic order by subject, topic`
     ),
-    db.query<{ id: string; stem: string; subject: string; topic: string; difficulty: string; validation_status: string; generator_model: string | null; in_set: boolean; has_figure: boolean; has_image: boolean }>(
-      `select id, stem, subject, topic, difficulty, validation_status, generator_model, set_id is not null as in_set, figure is not null as has_figure, image_id is not null as has_image from questions
+    db.query<{ id: string; stem: string; subject: string; topic: string; difficulty: string; validation_status: string; generator_model: string | null; in_set: boolean; has_figure: boolean; has_image: boolean; valid_until: string | null }>(
+      `select id, stem, subject, topic, difficulty, validation_status, generator_model, set_id is not null as in_set, figure is not null as has_figure, image_id is not null as has_image, valid_until::text as valid_until from questions
        where validation_status = any($1) and ($2 = '' or subject ilike $2 || '%') and ($3 = '' or topic ilike $3 || '%')
-       order by created_at desc limit ${pageSize + 1} offset ${(page - 1) * pageSize}`,
-      [statusFilter, subject.replace(/[%_\\]/g, ""), topic.replace(/[%_\\]/g, "")]
-    )
+         and ($4::boolean = false or (valid_until is not null and valid_until <= current_date + ${SOON_DAYS}))
+       order by ${expiring ? "valid_until, created_at desc" : "created_at desc"} limit ${pageSize + 1} offset ${(page - 1) * pageSize}`,
+      [statusFilter, subject.replace(/[%_\\]/g, ""), topic.replace(/[%_\\]/g, ""), expiring]
+    ),
+    db.query<{ n: string }>(`select count(*) as n from questions where validation_status in ('published', 'approved', 'auto_passed', 'needs_review') and valid_until is not null and valid_until <= current_date + ${SOON_DAYS}`)
   ]);
   const hasNext = rows.rows.length > pageSize;
   const visible = rows.rows.slice(0, pageSize);
   const pageHref = (target: number) => `/admin/questions?status=${status}&subject=${encodeURIComponent(subject)}&topic=${encodeURIComponent(topic)}&page=${target}` as Route;
   const countFor = (key: string) => counts.rows.find((row) => row.validation_status === key)?.n ?? "0";
   const back = `/admin/questions?status=${status}`;
-  const tabs: Array<[string, string]> = [["review", `Needs review (${Number(countFor("auto_passed")) + Number(countFor("needs_review"))})`], ...validationStatuses.map((s) => [s, `${s.replace("_", " ")} (${countFor(s)})`] as [string, string])];
+  const tabs: Array<[string, string]> = [["review", `Needs review (${Number(countFor("auto_passed")) + Number(countFor("needs_review"))})`], ["expiring", `Facts to re-check (${expiringCount.rows[0].n})`], ...validationStatuses.map((s) => [s, `${s.replace("_", " ")} (${countFor(s)})`] as [string, string])];
 
   return (
     <div className="grid gap-4">
@@ -76,7 +80,7 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
             <tr key={q.id}>
               <Td><input type="checkbox" name="question_id" value={q.id} className="size-4" aria-label="Select question" /></Td>
               <Td className="max-w-md">{q.stem.length > 140 ? `${q.stem.slice(0, 140)}...` : q.stem}</Td>
-              <Td>{q.subject} / {q.topic}{q.in_set ? " · data set" : ""}{q.has_figure ? " · figure" : ""}{q.has_image ? " · image" : ""}</Td>
+              <Td>{q.subject} / {q.topic}{q.in_set ? " · data set" : ""}{q.has_figure ? " · figure" : ""}{q.has_image ? " · image" : ""}{q.valid_until && freshnessState(q.valid_until) === "expired" ? " · facts expired" : q.valid_until && freshnessState(q.valid_until) === "soon" ? ` · facts valid until ${q.valid_until}` : ""}</Td>
               <Td>{q.difficulty}</Td>
               <Td className="text-xs">{q.generator_model ?? "human"}</Td>
               <Td><StatusPill status={q.validation_status} /></Td>

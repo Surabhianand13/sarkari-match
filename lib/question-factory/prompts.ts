@@ -1,3 +1,6 @@
+import { isNumericSubject } from "./validator";
+import { isTimeSensitive } from "@/lib/freshness";
+
 export const PROMPT_VERSION = "qf-v6";
 
 // Every explanation uses this layout, one labelled line per part, so the learner sees a worked solution instead of a sentence.
@@ -46,8 +49,21 @@ function contextBlock(context?: PromptContext) {
   return parts.join("\n\n");
 }
 
+// Rules for questions whose answer can go out of date. The writer may only use the notes it is given, and must say which note and when.
+function currentAffairsRules(hasNotes: boolean) {
+  return hasNotes
+    ? [
+        "Current affairs rules:",
+        "- Use ONLY facts stated in the source notes given above. Never use a fact from your own memory, even if you are sure of it.",
+        '- Every question carries "source" (the title of the note it comes from, exactly as in that note\'s [Source: ...] header), "as_of" (the date the fact was true, as YYYY-MM-DD: the note\'s date, or a more exact date inside the note) and "shelf_life_months" (how many months the answer stays correct: 12 for most events, 0 for a fact that never changes).',
+        '- Name the year or month in the question. Never ask about "the latest", "the current" or "recently", and do not ask anything that a later event could change without the question saying so.'
+      ].join("\n")
+    : "Current affairs rules: no source notes are on file for this exam, so write only settled facts that will not change, set \"shelf_life_months\" to 0 and leave \"source\" and \"as_of\" empty. A person will check every question.";
+}
+
 export function generationPrompt(input: { exam: string; tier: string; subject: string; topic: string; difficulty: string; count: number; figures?: boolean; context?: PromptContext }) {
-  const numeric = /quant/i.test(input.subject);
+  const numeric = isNumericSubject(input.subject);
+  const dated = isTimeSensitive(input.subject, input.topic);
   return {
     system:
       "You are a senior question setter for Indian government recruitment exams. You write original, unambiguous multiple choice questions with exactly one correct option. " +
@@ -63,8 +79,9 @@ export function generationPrompt(input: { exam: string; tier: string; subject: s
       input.figures ? FIGURE_RULES : "",
       "- Stay inside the standard syllabus for this topic. No trick questions, no ambiguity.",
       contextBlock(input.context),
+      dated ? currentAffairsRules(Boolean(input.context?.currentAffairs)) : "",
       numeric ? '- For every question add "verification_expression": a plain arithmetic expression (numbers, + - * / ^ and brackets only) whose value equals the number in the correct option, ignoring units and the words increase or decrease.' : "",
-      `Return {"questions":[{"exam":"","tier":"","subject":"","topic":"","difficulty":"easy|moderate|hard","question":"","options":{"A":"","B":"","C":"","D":""},"correct_answer":"A|B|C|D","explanation":"","estimated_time_seconds":60,"verification_expression":""${input.figures ? ',"figure":null' : ""}}]}`
+      `Return {"questions":[{"exam":"","tier":"","subject":"","topic":"","difficulty":"easy|moderate|hard","question":"","options":{"A":"","B":"","C":"","D":""},"correct_answer":"A|B|C|D","explanation":"","estimated_time_seconds":60,"verification_expression":""${input.figures ? ',"figure":null' : ""}${dated ? ',"source":"","as_of":"YYYY-MM-DD","shelf_life_months":12' : ""}}]}`
     ]
       .filter(Boolean)
       .join("\n")
@@ -81,7 +98,7 @@ export function solverPrompt(question: string, options: Record<string, string>, 
 }
 
 // One review task covers proofreading and the syllabus check, so a batch needs one round of AI answers for both.
-export function reviewPrompt(input: { exam: string; tier: string; subject: string; topic: string; difficulty: string; question: string; options: Record<string, string>; explanation: string; syllabus?: string; data?: string }) {
+export function reviewPrompt(input: { exam: string; tier: string; subject: string; topic: string; difficulty: string; question: string; options: Record<string, string>; explanation: string; syllabus?: string; data?: string; facts?: string }) {
   return {
     system: "You are a senior paper-setter and proofreader preparing an Indian government exam paper. Fix wording only; never change what is asked, the numbers, or which option is correct. Respond with JSON only.",
     prompt: [
@@ -92,13 +109,14 @@ export function reviewPrompt(input: { exam: string; tier: string; subject: strin
       'Check the explanation line by line as a careful teacher: redo every calculation and every fact in it. steps_ok is false if ANY step has a wrong number, a wrong rule, a wrong fact, a skipped jump that hides an error, or if the working does not end at the marked answer. List each problem in step_errors. Do not fix a wrong step silently: report it.',
       'ok is false only if the wording is confusing in a way you cannot fix without changing the question. in_syllabus is false if the topic is outside the syllabus. level is "harder" only if clearly beyond the intended difficulty for this exam stage.',
       "Keep any table and the maths notation exactly as written (| rows, ^ and _), and never merge a table into a sentence. Flag a question that depends on a figure, graph or picture that is not given above as not ok, because learners cannot see one. Data or a figure given above is shown to learners, so the question may refer to it.",
+      input.facts ? `Source note this question was written from. It is the only authority: the keyed answer must be stated in it.\n${input.facts}\nAdd "supported": true only if the note itself states the keyed answer, otherwise false, and "evidence": a short quote from the note that proves it (empty if none).` : "",
       'Keep the explanation as separate labelled lines (Key idea, Step 1, Step 2, Answer, Why not the others, Shortcut), separated by \\n. Fix wording or a wrong step, but never merge the lines into one paragraph and never shorten it to a single sentence. If a required line is missing, add it.'
     ].join("\n\n")
   };
 }
 
-export function fixPrompt(input: { exam: string; tier: string; question: string; options: Record<string, string>; correct_answer: string; explanation: string; subject: string; topic: string; difficulty: string; reasons: string[]; explanationOnly?: boolean; data?: string }) {
-  const numeric = /quant/i.test(input.subject);
+export function fixPrompt(input: { exam: string; tier: string; question: string; options: Record<string, string>; correct_answer: string; explanation: string; subject: string; topic: string; difficulty: string; reasons: string[]; explanationOnly?: boolean; data?: string; facts?: string }) {
+  const numeric = isNumericSubject(input.subject);
   return {
     system: "You are a senior question setter repairing a faulty exam question. Keep the same topic and difficulty. Respond with JSON only.",
     prompt: [
@@ -106,6 +124,7 @@ export function fixPrompt(input: { exam: string; tier: string; question: string;
       input.explanationOnly
         ? `Only the explanation needs work. Keep the question, the four options and the marked correct answer (${input.correct_answer}) exactly as they are, and rewrite only the explanation so every step is correct and it ends at the marked answer.`
         : "Repair it so exactly one option is correct and the wording is clear. If it cannot be saved, replace it with a fresh original question on the same topic.",
+      input.facts ? `This question must stay inside this source note, the only facts you may use:\n${input.facts}` : "",
       input.data ? `This question is shown with the data or figure below. It is fixed: do not change it, keep the question about it, and make every number you use come from it.\n${input.data}` : "",
       `Question: ${input.question}\nA) ${input.options.A}\nB) ${input.options.B}\nC) ${input.options.C}\nD) ${input.options.D}\nMarked correct: ${input.correct_answer}\nExplanation: ${input.explanation}`,
       EXPLANATION_FORMAT,

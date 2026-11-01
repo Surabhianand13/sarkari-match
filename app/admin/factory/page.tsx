@@ -3,10 +3,11 @@ import { startFactoryRun, startRecheck, startTranslationRun } from "@/app/admin/
 import { adminDb } from "@/lib/admin/db";
 import { providerStatus } from "@/lib/question-factory/providers";
 import { templateTopics } from "@/lib/question-factory/templates";
+import { factorySubjects, subjectGuide } from "@/lib/question-factory/subjects";
 
 export const metadata = { title: "Question factory" };
 
-const subjects = ["Quantitative Aptitude", "General Intelligence and Reasoning", "English Comprehension", "General Awareness"];
+const subjects = factorySubjects;
 
 export default async function FactoryPage({ searchParams }: { searchParams: Promise<{ notice?: string; error?: string }> }) {
   const { notice, error } = await searchParams;
@@ -42,6 +43,19 @@ export default async function FactoryPage({ searchParams }: { searchParams: Prom
           <label className="flex items-center gap-2 text-sm font-bold text-primary md:col-span-2"><input type="checkbox" name="include_approved" className="size-4" /> Also include approved questions (they go back to review)</label>
           <div className="flex items-end"><SubmitButton variant="secondary">Re-check questions</SubmitButton></div>
         </form>
+      </Card>
+
+      <Card title="Suggested topics for each SSC CGL section">
+        <p className="mb-3 text-sm text-muted">Topics to start from, one per line, ready to paste into the Topics box of Start a run. They follow the usual syllabus: check them against the latest SSC notification, and upload the official syllabus under Factory sources so the factory checks against it.</p>
+        <div className="grid gap-2">
+          {subjectGuide.map((item) => (
+            <details key={item.subject} className="rounded-xl border border-border bg-white px-4 py-3">
+              <summary className="cursor-pointer text-sm font-black text-primary">{item.subject} <span className="font-semibold text-muted">({item.paper}, {item.topics.length} topics)</span></summary>
+              {item.note && <p className="mt-2 text-xs font-semibold text-muted">{item.note}</p>}
+              <textarea readOnly rows={Math.min(item.topics.length, 10)} value={item.topics.join("\n")} aria-label={`Suggested topics for ${item.subject}`} className={`${inputClass} mt-2`} />
+            </details>
+          ))}
+        </div>
       </Card>
 
       <Card title="Translate to Hindi">

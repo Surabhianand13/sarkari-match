@@ -9,6 +9,7 @@ import type { Difficulty } from "./templates";
 import { createHash } from "node:crypto";
 import { parseChart } from "@/lib/chart";
 import { figureToText, parseFigure, toFigure, type FigureSpec } from "@/lib/figure";
+import { isTimeSensitive, parseFreshness } from "@/lib/freshness";
 import { figureSeed } from "@/lib/figure-seed";
 import { setContextText, setProblem, toQuestionSet, type QuestionSet, type SetContentKind } from "@/lib/question-sets";
 import { isExplanationReason, isNumericSubject, runCodeValidation, type ValidationCheck } from "./validator";
@@ -127,6 +128,8 @@ type Row = {
   pipeline_stage: string;
   set_id: string | null;
   figure: unknown;
+  source_title: string | null;
+  fact_as_of: string | null;
 };
 
 type Env = { db: Db; ai: AiPort; batch: Batch; knowledge: () => Promise<Knowledge>; setFor: (row: Pick<Row, "set_id">) => Promise<QuestionSet | null> };
@@ -138,6 +141,13 @@ async function dataFor(env: Env, row: Row): Promise<string | undefined> {
   const figure = toFigure(row.figure);
   const parts = [set ? setContextText(set) : "", figure ? figureToText(figure) : ""].filter(Boolean);
   return parts.length ? parts.join("\n\n") : undefined;
+}
+
+// The source note a current-affairs question cites, as the reviewer and fixer should read it.
+async function factsFor(env: Env, row: Row): Promise<string | undefined> {
+  if (!row.source_title) return undefined;
+  const note = (await env.knowledge()).currentAffairsNotes.find((item) => item.title === row.source_title);
+  return note ? `[Source: ${note.title}${note.asOf ? `, as of ${note.asOf}` : ""}]\n${note.body.slice(0, 3500)}` : undefined;
 }
 
 // Different figures must never look like the same question, so a figure question's hash includes its figure.
@@ -260,6 +270,9 @@ async function solveStage(env: Env, row: Row) {
     else if (solver.ambiguous) reasons.push("The independent solver found more than one defensible answer.");
   }
   const next: Notes = { ...notes, checks, solver, proven };
+  // An event question with no source note or date cannot be checked against its source, and can never be expired.
+  const undated = "Facts: this question has no source note or date, so its answer cannot be checked against a source or expire.";
+  if (env.ai.mode !== "rules" && isTimeSensitive(row.subject, row.topic) && (!row.source_title || !row.fact_as_of) && !(notes.flags ?? []).includes(undated)) next.flags = [...(notes.flags ?? []), undated];
   if (reasons.length) return failOrFix(env, row, "solve", reasons, next);
   await save(env, row, { stage: "language", notes: next });
   await logEvent(env.db, env.batch.id, row.id, "solve", "passed", proven ? "Answer proven by exact arithmetic." : solver ? "An independent solver reached the same answer." : "Code checks passed.");
@@ -283,15 +296,23 @@ async function languageStage(env: Env, row: Row) {
   issues.push(...stem.issues, ...explanation.issues);
 
   let review: Notes["review"];
+  const factFlags: string[] = [];
   if (env.ai.mode !== "rules") {
     const knowledge = await env.knowledge();
     const data = await dataFor(env, row);
+    const facts = await factsFor(env, row);
     const reply = parseJsonObject(
       await env.ai.complete(
         ctx(env, row, "review"),
-        reviewPrompt({ exam: env.batch.config.examName, tier: row.tier ?? env.batch.config.tier, subject: row.subject, topic: row.topic, difficulty: row.difficulty, question, options, explanation: steps, syllabus: knowledge.syllabus, data })
+        reviewPrompt({ exam: env.batch.config.examName, tier: row.tier ?? env.batch.config.tier, subject: row.subject, topic: row.topic, difficulty: row.difficulty, question, options, explanation: steps, syllabus: knowledge.syllabus, data, facts })
       )
     ) as { ok?: unknown; issues?: unknown; question?: unknown; explanation?: unknown; steps_ok?: unknown; step_errors?: unknown; in_syllabus?: unknown; level?: unknown; reason?: unknown };
+    // The answer must be stated in the note the question cites, not just sound right to the AI.
+    if (facts) {
+      const evidence = typeof (reply as { evidence?: unknown }).evidence === "string" ? (reply as { evidence: string }).evidence.trim() : "";
+      if ((reply as { supported?: unknown }).supported === false) return failOrFix(env, row, "review", [`The source note "${row.source_title}" does not state the keyed answer.${evidence ? ` ${evidence}` : ""}`], { ...row.validation_notes, flags: [...(row.validation_notes.flags ?? [])] });
+      if ((reply as { supported?: unknown }).supported !== true) factFlags.push("Facts: the reviewer did not confirm the answer against the source note.");
+    }
     // A reviewer who found a wrong step sends the question to the fixer; wording edits alone are never trusted to repair it.
     if (reply.steps_ok === false) {
       const errors = Array.isArray(reply.step_errors) ? reply.step_errors.map(String).filter(Boolean) : [];
@@ -315,7 +336,7 @@ async function languageStage(env: Env, row: Row) {
   }
 
   const changed = question !== row.stem || steps !== row.explanation || optionKeys.some((key) => options[key] !== row.options[key]);
-  const notes: Notes = { ...row.validation_notes, review, language: { fixes: [...new Set(fixes)], issues }, flags: [...(row.validation_notes.flags ?? []), ...issues.map((issue) => `Language: ${issue}`)] };
+  const notes: Notes = { ...row.validation_notes, review, language: { fixes: [...new Set(fixes)], issues }, flags: [...(row.validation_notes.flags ?? []), ...factFlags, ...issues.map((issue) => `Language: ${issue}`)] };
   const draft: QuestionDraft = { ...rowDraft(env, row), question, options, explanation: steps };
   const result = await save(env, row, changed ? { stage: "syllabus", notes, draft } : { stage: "syllabus", notes });
   if (result === "duplicate") return logEvent(env.db, env.batch.id, row.id, "language", "rejected", "After proofreading this became identical to another question.");
@@ -389,7 +410,7 @@ async function fixStage(env: Env, row: Row) {
   const data = await dataFor(env, row);
   const raw = await env.ai.complete(
     ctx(env, row, "fix"),
-    fixPrompt({ exam: env.batch.config.examName, tier: row.tier ?? env.batch.config.tier, question: row.stem, options: row.options, correct_answer: row.correct_option, explanation: row.explanation, subject: row.subject, topic: row.topic, difficulty: row.difficulty, reasons, explanationOnly, data })
+    fixPrompt({ exam: env.batch.config.examName, tier: row.tier ?? env.batch.config.tier, question: row.stem, options: row.options, correct_answer: row.correct_option, explanation: row.explanation, subject: row.subject, topic: row.topic, difficulty: row.difficulty, reasons, explanationOnly, data, facts: await factsFor(env, row) })
   );
   const reply = parseJsonObject(raw) as Record<string, unknown>;
   const parsed = questionDraftSchema.safeParse(
@@ -435,7 +456,7 @@ async function claim(db: Db, batchId: string, stage: string, limit: number) {
        select id from questions where batch_id = $1 and pipeline_stage = $2 and waiting_ai = false
          and (claimed_at is null or claimed_at < now() - interval '2 minutes')
        order by created_at limit $3 for update skip locked)
-     returning id, subject, topic, tier, difficulty, stem, options, correct_option, explanation, est_time_seconds, validation_notes, fix_attempts, pipeline_stage, set_id, figure`,
+     returning id, subject, topic, tier, difficulty, stem, options, correct_option, explanation, est_time_seconds, validation_notes, fix_attempts, pipeline_stage, set_id, figure, source_title, fact_as_of::text as fact_as_of`,
     [batchId, stage, limit]
   );
   return result.rows;
@@ -446,15 +467,16 @@ async function insertCandidate(env: Env, examId: string, candidate: Candidate, g
   const notes: Notes = { verification_expression: candidate.verificationExpression ?? null, ...(candidate.template ? { template: candidate.template } : {}) };
   const inserted = await env.db.query<{ id: string }>(
     `insert into questions (exam_id, tier, subject, topic, difficulty, stem, options, correct_option, explanation, est_time_seconds, source_type,
-       validation_status, validation_notes, generator_model, critic_model, prompt_version, batch_id, content_hash, pipeline_stage, set_id, set_position, figure)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'original_ai_generated','pending',$11,$12,$13,$14,$15,$16,'solve',$17,$18,$19)
+       validation_status, validation_notes, generator_model, critic_model, prompt_version, batch_id, content_hash, pipeline_stage, set_id, set_position, figure, fact_as_of, valid_until, source_title)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'original_ai_generated','pending',$11,$12,$13,$14,$15,$16,'solve',$17,$18,$19,$20,$21,$22)
      on conflict (content_hash) do nothing returning id`,
     [
       examId, draft.tier ?? env.batch.config.tier, env.batch.subject, draft.topic || env.batch.topic || env.batch.subject, draft.difficulty, draft.question,
       JSON.stringify(draft.options), draft.correct_answer, draft.explanation, draft.estimated_time_seconds, JSON.stringify(notes), generator,
       env.ai.mode === "rules" ? "rules" : env.ai.model, PROMPT_VERSION, env.batch.id,
       figure ? hashFor(draft, figure) : contentHash(member ? { ...draft, question: `${member.seed}\n${draft.question}` } : draft), member?.setId ?? null, member?.position ?? null,
-      figure ? JSON.stringify(figure) : null
+      figure ? JSON.stringify(figure) : null,
+      candidate.freshness?.factAsOf ?? null, candidate.freshness?.validUntil ?? null, candidate.freshness?.sourceTitle ?? null
     ]
   );
   return inserted.rows[0]?.id ?? null;
@@ -465,6 +487,8 @@ async function storeWritten(env: Env, examId: string, raw: string) {
   let stored = 0;
   let rejected = 0;
   let duplicates = 0;
+  const dated = isTimeSensitive(env.batch.subject, env.batch.topic);
+  const notes = dated ? (await env.knowledge()).currentAffairsNotes : [];
   for (const item of parsed.questions ?? []) {
     const draft = questionDraftSchema.safeParse({ source_type: "original_ai_generated", exam: env.batch.config.examName, subject: env.batch.subject, ...(item as object) });
     if (!draft.success) {
@@ -484,7 +508,9 @@ async function storeWritten(env: Env, examId: string, raw: string) {
       }
       figure = parsedFigure.figure;
     }
-    const id = await insertCandidate(env, examId, { draft: draft.data, verificationExpression: typeof expression === "string" ? expression : null }, env.ai.model, undefined, figure);
+    // Questions about events carry the note they came from and the date their facts were true, so they can be checked and can expire.
+    const freshness = dated ? parseFreshness(item as { source?: unknown; as_of?: unknown; shelf_life_months?: unknown }, notes.map((note) => note.title)) : undefined;
+    const id = await insertCandidate(env, examId, { draft: draft.data, verificationExpression: typeof expression === "string" ? expression : null, freshness }, env.ai.model, undefined, figure);
     if (id) stored++;
     else duplicates++;
   }
