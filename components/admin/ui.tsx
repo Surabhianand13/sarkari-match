@@ -47,14 +47,14 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
   );
 }
 
-export function SubmitButton({ children, variant = "primary", name, value }: { children: React.ReactNode; variant?: "primary" | "secondary" | "danger"; name?: string; value?: string }) {
+export function SubmitButton({ children, variant = "primary", name, value, formAction }: { children: React.ReactNode; variant?: "primary" | "secondary" | "danger"; name?: string; value?: string; formAction?: (formData: FormData) => void | Promise<void> }) {
   const styles = {
     primary: "bg-[linear-gradient(135deg,#18B943,#0D9488)] text-white shadow-green",
     secondary: "border border-border bg-white text-primary",
     danger: "border border-red-200 bg-red-50 text-error"
   }[variant];
   return (
-    <button name={name} value={value} className={`min-h-11 rounded-full px-5 text-sm font-black ${styles}`}>
+    <button name={name} value={value} formAction={formAction} className={`min-h-11 rounded-full px-5 text-sm font-black ${styles}`}>
       {children}
     </button>
   );

@@ -7,11 +7,18 @@ import { getJobs } from "@/lib/data/jobs";
 import { EmptyState, SearchCommandBar, SectionHeading } from "@/components/design-system";
 import { buildMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = buildMetadata({
-  title: "Latest Govt Job and Exam Notifications 2026",
-  description: "Search and filter active govt job and exam notifications by qualification, state, department and closing date. Verified, with official application links.",
-  path: "/jobs"
-});
+type JobsSearchParams = { q?: string; state?: string; department?: string; qualification?: string };
+
+// Filtered views are the same list narrowed down, so they stay out of the index; /jobs itself and the hub pages carry the ranking.
+export async function generateMetadata({ searchParams }: { searchParams?: Promise<JobsSearchParams> }): Promise<Metadata> {
+  const filters = (await searchParams) ?? {};
+  return buildMetadata({
+    title: "Latest Govt Job and Exam Notifications 2026",
+    description: "Search and filter active govt job and exam notifications by qualification, state, department and closing date. Verified, with official application links.",
+    path: "/jobs",
+    noindex: Boolean(filters.q || filters.state || filters.department || filters.qualification)
+  });
+}
 
 const discoveryCards = [
   ["/jobs/central", Landmark, "Central Govt", "UPSC, SSC, Railways, PSUs"],
@@ -21,7 +28,7 @@ const discoveryCards = [
   ["/eligibility", Wand2, "Eligibility match", "See only what you can apply for"]
 ] as const;
 
-export default async function JobsPage({ searchParams }: { searchParams?: Promise<{ q?: string; state?: string; department?: string; qualification?: string }> }) {
+export default async function JobsPage({ searchParams }: { searchParams?: Promise<JobsSearchParams> }) {
   const resolvedSearchParams = await searchParams;
   const q = resolvedSearchParams?.q?.toLowerCase();
   const state = resolvedSearchParams?.state?.toLowerCase();
