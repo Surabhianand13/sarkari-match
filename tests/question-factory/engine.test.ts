@@ -616,7 +616,7 @@ describe("dated current affairs", () => {
     question: "Which state won the overall trophy at the national games held in October 2026?",
     options: { A: "The host state", B: "Kerala", C: "Punjab", D: "Odisha" }, correct_answer: "A",
     explanation: worked("A", "The host state"), estimated_time_seconds: 40,
-    source: noteTitle, as_of: "2026-10-20", shelf_life_months: 12
+    source: noteTitle, as_of: "2026-10"
   };
 
   async function start() {
@@ -631,7 +631,7 @@ describe("dated current affairs", () => {
   const solve = () => ({ answer: "A", reasoning: "from the note", ambiguous: false });
   const review = (stem: string, extra: Record<string, unknown> = {}) => ({ ok: true, issues: [], question: stem, steps_ok: true, step_errors: [], in_syllabus: true, level: "as_expected", reason: "Fine.", ...extra });
 
-  it("tells the writer to use only the notes and to cite and date each question", async () => {
+  it("tells the writer to use only the notes and to cite each question and give its month", async () => {
     const { advanceBatch, queueAi } = await import("@/lib/question-factory/engine");
     const { pendingTasks } = await import("@/lib/question-factory/queue");
     const id = await start();
@@ -639,10 +639,11 @@ describe("dated current affairs", () => {
     const [task] = await pendingTasks(db, { batchId: id });
     expect(task.request.prompt).toContain(`[Source: ${noteTitle}, as of 2026-10-20]`);
     expect(task.request.prompt).toContain("Use ONLY facts stated in the source notes");
-    expect(task.request.prompt).toContain('"shelf_life_months"');
+    expect(task.request.prompt).toContain('"as_of":"YYYY-MM"');
+    expect(task.request.prompt).not.toContain("shelf_life");
   });
 
-  it("stores the source and dates, and checks the answer against the cited note", async () => {
+  it("stores the source and the month, and checks the answer against the cited note", async () => {
     const id = await start();
     let reviewPrompt = "";
     await drain(id, (task) => {
@@ -654,9 +655,9 @@ describe("dated current affairs", () => {
     });
     expect(reviewPrompt).toContain(noteBody);
     expect(reviewPrompt).toContain('"supported": true only if the note itself states the keyed answer');
-    const row = (await db.query<{ fact_as_of: string; valid_until: string; source_title: string; validation_status: string; validation_notes: { flags?: string[] } }>("select fact_as_of::text, valid_until::text, source_title, validation_status, validation_notes from questions where batch_id = $1", [id])).rows[0];
-    expect(row).toMatchObject({ fact_as_of: "2026-10-20", valid_until: "2027-10-20", source_title: noteTitle, validation_status: "needs_review" });
-    expect((row.validation_notes.flags ?? []).some((flag) => /no source note or date/.test(flag))).toBe(false);
+    const row = (await db.query<{ fact_as_of: string; source_title: string; validation_status: string; validation_notes: { flags?: string[] } }>("select fact_as_of::text, source_title, validation_status, validation_notes from questions where batch_id = $1", [id])).rows[0];
+    expect(row).toMatchObject({ fact_as_of: "2026-10-01", source_title: noteTitle, validation_status: "needs_review" });
+    expect((row.validation_notes.flags ?? []).some((flag) => /no source note or month/.test(flag))).toBe(false);
   });
 
   it("sends a question to the fixer when the note does not state the answer, with the note in front of the fixer", async () => {
@@ -684,17 +685,17 @@ describe("dated current affairs", () => {
     expect(row).toMatchObject({ fix_attempts: 1, source_title: noteTitle });
   });
 
-  it("flags a question that has no source or date", async () => {
+  it("flags a question that has no source or month", async () => {
     const id = await start();
     await drain(id, (task) => {
       const stem = /Question: (.*)\n/.exec(task.request.prompt)?.[1] ?? "";
-      if (task.stage === "write") return { questions: [{ ...dated, question: "Which runner won the marathon at the national games in October 2026, according to the roundup?", options: { A: "A runner from Kenya", B: "A runner from Ethiopia", C: "A runner from Punjab", D: "A runner from Kerala" }, explanation: worked("A", "A runner from Kenya"), source: "", as_of: "", shelf_life_months: 12 }] };
+      if (task.stage === "write") return { questions: [{ ...dated, question: "Which runner won the marathon at the national games in October 2026, according to the roundup?", options: { A: "A runner from Kenya", B: "A runner from Ethiopia", C: "A runner from Punjab", D: "A runner from Kerala" }, explanation: worked("A", "A runner from Kenya"), source: "", as_of: "" }] };
       if (task.stage === "solve") return solve();
       return review(stem);
     });
     const row = (await db.query<{ fact_as_of: string | null; source_title: string | null; validation_notes: { flags?: string[] } }>("select fact_as_of, source_title, validation_notes from questions where batch_id = $1", [id])).rows[0];
     expect(row.fact_as_of).toBeNull();
     expect(row.source_title).toBeNull();
-    expect((row.validation_notes.flags ?? []).some((flag) => /no source note or date/.test(flag))).toBe(true);
+    expect((row.validation_notes.flags ?? []).some((flag) => /no source note or month/.test(flag))).toBe(true);
   });
 });

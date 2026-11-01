@@ -37,9 +37,9 @@ function hindiVersion(row: HindiRow): HindiVersion | null {
 }
 
 async function loadQuestions(db: Db, testId: string, defaultMarks: number) {
-  const { rows } = await db.query<{ id: string; stem: string; options: Record<string, string>; correct_option: string; explanation: string; subject: string; topic: string; marks: string | null; section: string | null; position: number; section_position: number | null; set_id: string | null; set_title: string | null; set_stimulus: string | null; set_chart: unknown; set_kind: string | null; figure: unknown; image_id: string | null; image_alt: string | null; hi_stem: string | null; hi_options: Record<string, string> | null; hi_explanation: string | null; hi_figure: unknown; hi_set_title: string | null; hi_set_stimulus: string | null; hi_set_chart: unknown }>(
+  const { rows } = await db.query<{ id: string; stem: string; options: Record<string, string>; correct_option: string; explanation: string; subject: string; topic: string; marks: string | null; section: string | null; position: number; section_position: number | null; set_id: string | null; set_title: string | null; set_stimulus: string | null; set_chart: unknown; set_kind: string | null; figure: unknown; image_id: string | null; image_alt: string | null; fact_as_of: string | null; hi_stem: string | null; hi_options: Record<string, string> | null; hi_explanation: string | null; hi_figure: unknown; hi_set_title: string | null; hi_set_stimulus: string | null; hi_set_chart: unknown }>(
     `select q.id, q.stem, q.options, q.correct_option, q.explanation, q.subject, q.topic, tq.marks, ts.name as section, tq.position, ts.position as section_position,
-            q.set_id, qs.title as set_title, qs.stimulus as set_stimulus, qs.chart as set_chart, qs.kind as set_kind, q.figure, q.image_id, qi.alt as image_alt,
+            q.set_id, qs.title as set_title, qs.stimulus as set_stimulus, qs.chart as set_chart, qs.kind as set_kind, q.figure, q.image_id, qi.alt as image_alt, q.fact_as_of::text as fact_as_of,
             qt.stem as hi_stem, qt.options as hi_options, qt.explanation as hi_explanation, qt.figure as hi_figure, st.title as hi_set_title, st.stimulus as hi_set_stimulus, st.chart as hi_set_chart
      from test_questions tq join questions q on q.id = tq.question_id left join test_sections ts on ts.id = tq.section_id left join question_sets qs on qs.id = q.set_id
           left join question_images qi on qi.id = q.image_id
@@ -55,6 +55,7 @@ async function loadQuestions(db: Db, testId: string, defaultMarks: number) {
     set: row.set_id ? toQuestionSet({ id: row.set_id, title: row.set_title ?? "", stimulus: row.set_stimulus ?? "", chart: row.set_chart, kind: row.set_kind }) : null,
     drawing: toFigure(row.figure),
     image: row.image_id ? { id: row.image_id, alt: row.image_alt ?? "" } : null,
+    factMonth: row.fact_as_of,
     hindi: hindiVersion(row)
   }));
 }
@@ -81,7 +82,7 @@ export async function startAttempt(userId: string, testId: string): Promise<Star
   return { ok: true, attemptId: created.rows[0].id };
 }
 
-export type PlayerQuestion = { id: string; stem: string; options: Record<string, string>; section: string; marks: number; set: QuestionSet | null; figure: FigureSpec | null; image: QuestionImage | null; hi: HindiVersion | null };
+export type PlayerQuestion = { id: string; stem: string; options: Record<string, string>; section: string; marks: number; set: QuestionSet | null; figure: FigureSpec | null; image: QuestionImage | null; factMonth: string | null; hi: HindiVersion | null };
 
 export type PlayerData = {
   attemptId: string;
@@ -117,7 +118,7 @@ export async function getPlayerData(userId: string, attemptId: string): Promise<
     negativeMarks: Number(meta.negative_marks),
     deadlineAt: attempt.deadline_at,
     serverNow: new Date().toISOString(),
-    questions: questions.map((q) => ({ id: q.id, stem: q.stem, options: q.options, section: q.section, marks: q.marksValue, set: q.set, figure: q.drawing, image: q.image, hi: q.hindi ? { ...q.hindi, explanation: undefined } : null })),
+    questions: questions.map((q) => ({ id: q.id, stem: q.stem, options: q.options, section: q.section, marks: q.marksValue, set: q.set, figure: q.drawing, image: q.image, factMonth: q.fact_as_of, hi: q.hindi ? { ...q.hindi, explanation: undefined } : null })),
     answers: Object.fromEntries(saved.rows.map((row) => [row.question_id, { selected: row.selected_option, marked: row.marked_for_review }]))
   };
 }
@@ -168,7 +169,7 @@ export async function submitAttempt(userId: string, attemptId: string): Promise<
   return true;
 }
 
-export type SolutionRow = { id: string; section: string; stem: string; options: Record<string, string>; correct: string; selected: string | null; explanation: string; topic: string; marks: number; outcome: "correct" | "incorrect" | "unattempted"; set: QuestionSet | null; figure: FigureSpec | null; image: QuestionImage | null; hi: HindiVersion | null };
+export type SolutionRow = { id: string; section: string; stem: string; options: Record<string, string>; correct: string; selected: string | null; explanation: string; topic: string; marks: number; outcome: "correct" | "incorrect" | "unattempted"; set: QuestionSet | null; figure: FigureSpec | null; image: QuestionImage | null; factMonth: string | null; hi: HindiVersion | null };
 
 export type ResultData = {
   attemptId: string;
@@ -209,7 +210,7 @@ export async function getResultData(userId: string, attemptId: string): Promise<
     result: attempt.result_json,
     solutions: questions.map((q) => {
       const selected = given.get(q.id) ?? null;
-      return { id: q.id, section: q.section, stem: q.stem, options: q.options, correct: q.correct_option, selected, explanation: q.explanation, topic: `${q.subject} / ${q.topic}`, marks: q.marksValue, outcome: !selected ? "unattempted" : selected === q.correct_option ? "correct" : "incorrect", set: q.set, figure: q.drawing, image: q.image, hi: q.hindi };
+      return { id: q.id, section: q.section, stem: q.stem, options: q.options, correct: q.correct_option, selected, explanation: q.explanation, topic: `${q.subject} / ${q.topic}`, marks: q.marksValue, outcome: !selected ? "unattempted" : selected === q.correct_option ? "correct" : "incorrect", set: q.set, figure: q.drawing, image: q.image, factMonth: q.fact_as_of, hi: q.hindi };
     })
   };
 }

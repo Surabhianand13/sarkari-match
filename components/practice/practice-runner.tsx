@@ -7,6 +7,7 @@ import { LevelStepper } from "@/components/practice/level-stepper";
 import { QuestionFigure } from "@/components/question-figure";
 import { Inline, Rich } from "@/components/rich-text";
 import { SolutionText } from "@/components/solution-text";
+import { FactMonth } from "@/components/fact-month";
 import { LanguageSwitch, useQuestionLanguage } from "@/components/language-switch";
 import { localize } from "@/lib/localize";
 import type { Level, PracticeSession } from "@/lib/practice-shared";
@@ -89,6 +90,7 @@ export function PracticeRunner({ session }: { session: PracticeSession }) {
         {anyHindi && <div className="mb-3 flex justify-end"><LanguageSwitch lang={lang} onChange={setLang} /></div>}
         {lang === "hi" && !view.translated && <p className="mb-2 text-xs font-bold text-muted">This question is available in English only.</p>}
         <div lang={view.translated ? "hi" : undefined}>
+        <FactMonth value={question.factMonth} lang={view.translated ? "hi" : "en"} />
         <QuestionFigure figure={view.figure} image={question.image} />
         <Rich text={view.stem} className="text-lg font-bold leading-8 text-foreground" />
         <div className="mt-5 grid gap-3">

@@ -13,8 +13,7 @@ export type QuestionFormValues = {
   correct_option?: string;
   explanation?: string;
   est_time_seconds?: number;
-  fact_as_of?: string | null;
-  valid_until?: string | null;
+  fact_month?: string | null;
 };
 
 export function QuestionForm({ values = {}, lockExam = false }: { values?: QuestionFormValues; lockExam?: boolean }) {
@@ -34,8 +33,7 @@ export function QuestionForm({ values = {}, lockExam = false }: { values?: Quest
         </select>
       </Field>
       <Field label="Time (seconds)"><input name="est_time_seconds" type="number" min="10" defaultValue={values.est_time_seconds ?? 60} className={inputClass} /></Field>
-      <Field label="Facts true as of (optional)" hint="For current affairs and other facts that change."><input name="fact_as_of" type="date" defaultValue={values.fact_as_of ?? ""} className={inputClass} /></Field>
-      <Field label="Re-check on (optional)" hint="After this date the question stays out of new tests and practice, and appears under Facts to re-check. Leave empty if it never expires."><input name="valid_until" type="date" defaultValue={values.valid_until ?? ""} className={inputClass} /></Field>
+      <Field label="Month of the facts (optional)" hint="For current affairs: learners see this month with the question, for example October 2026."><input name="fact_month" type="month" defaultValue={values.fact_month ?? ""} className={inputClass} /></Field>
       <div className="md:col-span-2"><Field label="Question" hint="Tables: one row per line with | between cells, then a separator row |---|---|. Maths: √ π ² and ^ _ for powers and subscripts (x^2, a_1). Add a figure or picture on the review page after saving."><textarea name="question" required rows={5} defaultValue={values.stem} className={inputClass} /></Field></div>
       {["A", "B", "C", "D"].map((key) => (
         <Field key={key} label={`Option ${key}`}><input name={`option_${key}`} required defaultValue={options[key]} className={inputClass} /></Field>

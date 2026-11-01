@@ -1,40 +1,34 @@
-// Questions whose answer can go out of date. Pure helpers, safe to import anywhere.
+// Questions about events (current affairs). Each carries the month its facts are from, shown to learners as "October 2026".
+// Pure helpers, safe to import anywhere.
 
-// Topics where a correct answer today may be wrong later: events, office holders, awards, schemes, rankings.
+// Topics where the answer depends on when it was asked: events, office holders, awards, schemes, rankings.
 const TIME_SENSITIVE = /current affairs|current events|awards?|appointments?|summits?|budget|schemes?|rankings?|sports events?|important days|who is|office holders?/i;
 
 export const isTimeSensitive = (subject: string, topic: string | null | undefined) => /current/i.test(subject) || TIME_SENSITIVE.test(topic ?? "");
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const toDate = (value: string) => new Date(`${value}T00:00:00Z`);
-const toIso = (date: Date) => date.toISOString().slice(0, 10);
+const MONTH = /^(\d{4})-(\d{2})(?:-\d{2})?$/;
 
-export const SOON_DAYS = 30;
-export const MAX_SHELF_LIFE_MONTHS = 60;
+export type FactMonth = { factAsOf: string | null; sourceTitle: string | null };
 
-export type Freshness = { factAsOf: string | null; validUntil: string | null; sourceTitle: string | null };
-
-// The date a question should be re-checked: the day its facts were true, plus how long they last. Zero months means it never expires.
-export function addMonths(date: string, months: number): string {
-  const result = toDate(date);
-  result.setUTCMonth(result.getUTCMonth() + months);
-  return toIso(result);
-}
-
-// Reads the dating fields a writer returned, ignoring anything that is not a real date or a sensible number of months.
-export function parseFreshness(item: { source?: unknown; as_of?: unknown; shelf_life_months?: unknown }, knownTitles: string[], today = new Date()): Freshness {
-  const asOf = typeof item.as_of === "string" && DATE.test(item.as_of.trim()) ? item.as_of.trim() : null;
-  const real = asOf && !Number.isNaN(toDate(asOf).getTime()) && toDate(asOf).getTime() <= today.getTime() + 24 * 3600 * 1000 && asOf >= "2000-01-01" ? asOf : null;
-  const months = typeof item.shelf_life_months === "number" && Number.isInteger(item.shelf_life_months) && item.shelf_life_months >= 0 && item.shelf_life_months <= MAX_SHELF_LIFE_MONTHS ? item.shelf_life_months : 12;
+// Reads the dating a writer returned: a month (YYYY-MM or a full date) that is not in the future, and a source that is a note we have.
+export function parseFactMonth(item: { source?: unknown; as_of?: unknown }, knownTitles: string[], today = new Date()): FactMonth {
+  const match = typeof item.as_of === "string" ? MONTH.exec(item.as_of.trim()) : null;
+  const year = match ? Number(match[1]) : 0;
+  const month = match ? Number(match[2]) : 0;
+  const thisMonth = today.getUTCFullYear() * 12 + today.getUTCMonth();
+  const valid = match && month >= 1 && month <= 12 && year >= 2000 && year * 12 + (month - 1) <= thisMonth + 1;
   const cited = typeof item.source === "string" ? item.source.trim().toLowerCase() : "";
-  const sourceTitle = knownTitles.find((title) => title.trim().toLowerCase() === cited) ?? null;
-  return { factAsOf: real, validUntil: real && months > 0 ? addMonths(real, months) : null, sourceTitle };
+  return { factAsOf: valid ? `${match![1]}-${match![2]}-01` : null, sourceTitle: knownTitles.find((title) => title.trim().toLowerCase() === cited) ?? null };
 }
 
-export type FreshnessState = "expired" | "soon" | "fresh" | "none";
+const MONTHS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTHS_HI = ["जनवरी", "फ़रवरी", "मार्च", "अप्रैल", "मई", "जून", "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर"];
 
-export function freshnessState(validUntil: string | null | undefined, today = new Date()): FreshnessState {
-  if (!validUntil) return "none";
-  const days = (toDate(validUntil.slice(0, 10)).getTime() - Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())) / (24 * 3600 * 1000);
-  return days < 0 ? "expired" : days <= SOON_DAYS ? "soon" : "fresh";
+// "October 2026" (or "अक्टूबर 2026") from a stored date such as 2026-10-01. Null when there is no date.
+export function monthYearLabel(value: string | null | undefined, lang: "en" | "hi" = "en"): string | null {
+  const match = value ? MONTH.exec(value.slice(0, 10)) : null;
+  if (!match) return null;
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return null;
+  return `${(lang === "hi" ? MONTHS_HI : MONTHS_EN)[month - 1]} ${match[1]}`;
 }

@@ -1,9 +1,6 @@
--- Questions whose answer can go out of date (current affairs, office holders, rankings). A question records the source note it was
--- written from, the date its facts were true, and the date it should be re-checked. After that date it is kept out of new tests
--- and practice and listed for review. A question with no valid_until never expires.
+-- Questions about events (current affairs) record the month their facts are from and the source note they were written from. The
+-- month is shown to learners with the question, so a reader can see how recent it is. Nothing expires: old questions stay usable.
 
 alter table public.questions
   add column fact_as_of date,
-  add column valid_until date,
   add column source_title text;
-create index questions_valid_until_idx on public.questions (valid_until) where valid_until is not null;

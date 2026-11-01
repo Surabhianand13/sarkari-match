@@ -55,10 +55,10 @@ function currentAffairsRules(hasNotes: boolean) {
     ? [
         "Current affairs rules:",
         "- Use ONLY facts stated in the source notes given above. Never use a fact from your own memory, even if you are sure of it.",
-        '- Every question carries "source" (the title of the note it comes from, exactly as in that note\'s [Source: ...] header), "as_of" (the date the fact was true, as YYYY-MM-DD: the note\'s date, or a more exact date inside the note) and "shelf_life_months" (how many months the answer stays correct: 12 for most events, 0 for a fact that never changes).',
-        '- Name the year or month in the question. Never ask about "the latest", "the current" or "recently", and do not ask anything that a later event could change without the question saying so.'
+        '- Every question carries "source" (the title of the note it comes from, exactly as in that note\'s [Source: ...] header) and "as_of" (the month the fact is from, as YYYY-MM: the month of the event in the note, or the note\'s own month). Learners are shown this month with the question.',
+        '- Ask about a specific event, not about "the latest", "the current" or "recently", because the reader is shown the month the fact is from.'
       ].join("\n")
-    : "Current affairs rules: no source notes are on file for this exam, so write only settled facts that will not change, set \"shelf_life_months\" to 0 and leave \"source\" and \"as_of\" empty. A person will check every question.";
+    : "Current affairs rules: no source notes are on file for this exam, so write only settled facts that will not change and leave \"source\" and \"as_of\" empty. A person will check every question.";
 }
 
 export function generationPrompt(input: { exam: string; tier: string; subject: string; topic: string; difficulty: string; count: number; figures?: boolean; context?: PromptContext }) {
@@ -81,7 +81,7 @@ export function generationPrompt(input: { exam: string; tier: string; subject: s
       contextBlock(input.context),
       dated ? currentAffairsRules(Boolean(input.context?.currentAffairs)) : "",
       numeric ? '- For every question add "verification_expression": a plain arithmetic expression (numbers, + - * / ^ and brackets only) whose value equals the number in the correct option, ignoring units and the words increase or decrease.' : "",
-      `Return {"questions":[{"exam":"","tier":"","subject":"","topic":"","difficulty":"easy|moderate|hard","question":"","options":{"A":"","B":"","C":"","D":""},"correct_answer":"A|B|C|D","explanation":"","estimated_time_seconds":60,"verification_expression":""${input.figures ? ',"figure":null' : ""}${dated ? ',"source":"","as_of":"YYYY-MM-DD","shelf_life_months":12' : ""}}]}`
+      `Return {"questions":[{"exam":"","tier":"","subject":"","topic":"","difficulty":"easy|moderate|hard","question":"","options":{"A":"","B":"","C":"","D":""},"correct_answer":"A|B|C|D","explanation":"","estimated_time_seconds":60,"verification_expression":""${input.figures ? ',"figure":null' : ""}${dated ? ',"source":"","as_of":"YYYY-MM"' : ""}}]}`
     ]
       .filter(Boolean)
       .join("\n")

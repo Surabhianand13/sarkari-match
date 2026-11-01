@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { CheckCircle2, CircleSlash, XCircle } from "lucide-react";
 import { ButtonLink } from "@/components/design-system";
 import { Inline, Rich } from "@/components/rich-text";
+import { FactMonth } from "@/components/fact-month";
 import { QuestionFigure } from "@/components/question-figure";
 import { SetStimulus } from "@/components/set-stimulus";
 import { SolutionText } from "@/components/solution-text";
@@ -88,6 +89,7 @@ export default async function ResultPage({ params, searchParams }: { params: Pro
               return (
               <li key={solution.id} lang={view.translated ? "hi" : undefined} className="rounded-3xl bg-white p-5 shadow-soft">
                 <p className="text-xs font-black uppercase tracking-wide text-muted">Q{position + 1} · {solution.section} · {solution.topic}</p>
+                <div className="mt-2"><FactMonth value={solution.factMonth} lang={view.translated ? "hi" : "en"} /></div>
                 {view.set && (position > 0 && data.solutions[position - 1].set?.id === view.set.id
                   ? <p className="mt-2 rounded-xl bg-surface px-3 py-2 text-xs font-bold text-muted">{view.translated ? "ऊपर के प्रश्न के साथ दिए गए आँकड़ों का उपयोग करें।" : "Uses the data shown with the question above."}</p>
                   : <div className="mt-2"><SetStimulus set={view.set} lang={view.translated ? "hi" : "en"} /></div>)}

@@ -7,6 +7,7 @@ import { Clock, LayoutGrid } from "lucide-react";
 import { Inline, Rich } from "@/components/rich-text";
 import { QuestionFigure } from "@/components/question-figure";
 import { SetStimulus } from "@/components/set-stimulus";
+import { FactMonth } from "@/components/fact-month";
 import { LanguageSwitch, useQuestionLanguage } from "@/components/language-switch";
 import { localize } from "@/lib/localize";
 import type { PlayerData } from "@/lib/tests/attempts";
@@ -198,6 +199,7 @@ export function TestPlayer({ data }: { data: PlayerData }) {
           </div>
           {lang === "hi" && !view.translated && <p className="mt-2 text-xs font-bold text-muted">This question is available in English only.</p>}
           <div lang={view.translated ? "hi" : undefined}>
+            <div className="mt-3"><FactMonth value={current.factMonth} lang={view.translated ? "hi" : "en"} /></div>
             {view.set && <div className="mt-3"><SetStimulus set={view.set} lang={view.translated ? "hi" : "en"} /></div>}
             <QuestionFigure figure={view.figure} image={current.image} />
             <Rich text={view.stem} className="mt-3 text-lg font-bold leading-8 text-foreground" />

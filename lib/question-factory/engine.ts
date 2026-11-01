@@ -9,7 +9,7 @@ import type { Difficulty } from "./templates";
 import { createHash } from "node:crypto";
 import { parseChart } from "@/lib/chart";
 import { figureToText, parseFigure, toFigure, type FigureSpec } from "@/lib/figure";
-import { isTimeSensitive, parseFreshness } from "@/lib/freshness";
+import { isTimeSensitive, parseFactMonth } from "@/lib/freshness";
 import { figureSeed } from "@/lib/figure-seed";
 import { setContextText, setProblem, toQuestionSet, type QuestionSet, type SetContentKind } from "@/lib/question-sets";
 import { isExplanationReason, isNumericSubject, runCodeValidation, type ValidationCheck } from "./validator";
@@ -270,8 +270,8 @@ async function solveStage(env: Env, row: Row) {
     else if (solver.ambiguous) reasons.push("The independent solver found more than one defensible answer.");
   }
   const next: Notes = { ...notes, checks, solver, proven };
-  // An event question with no source note or date cannot be checked against its source, and can never be expired.
-  const undated = "Facts: this question has no source note or date, so its answer cannot be checked against a source or expire.";
+  // An event question with no source note or month cannot be checked against its source, and cannot be dated for learners.
+  const undated = "Facts: this question has no source note or month, so its answer cannot be checked against a source or dated.";
   if (env.ai.mode !== "rules" && isTimeSensitive(row.subject, row.topic) && (!row.source_title || !row.fact_as_of) && !(notes.flags ?? []).includes(undated)) next.flags = [...(notes.flags ?? []), undated];
   if (reasons.length) return failOrFix(env, row, "solve", reasons, next);
   await save(env, row, { stage: "language", notes: next });
@@ -467,8 +467,8 @@ async function insertCandidate(env: Env, examId: string, candidate: Candidate, g
   const notes: Notes = { verification_expression: candidate.verificationExpression ?? null, ...(candidate.template ? { template: candidate.template } : {}) };
   const inserted = await env.db.query<{ id: string }>(
     `insert into questions (exam_id, tier, subject, topic, difficulty, stem, options, correct_option, explanation, est_time_seconds, source_type,
-       validation_status, validation_notes, generator_model, critic_model, prompt_version, batch_id, content_hash, pipeline_stage, set_id, set_position, figure, fact_as_of, valid_until, source_title)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'original_ai_generated','pending',$11,$12,$13,$14,$15,$16,'solve',$17,$18,$19,$20,$21,$22)
+       validation_status, validation_notes, generator_model, critic_model, prompt_version, batch_id, content_hash, pipeline_stage, set_id, set_position, figure, fact_as_of, source_title)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'original_ai_generated','pending',$11,$12,$13,$14,$15,$16,'solve',$17,$18,$19,$20,$21)
      on conflict (content_hash) do nothing returning id`,
     [
       examId, draft.tier ?? env.batch.config.tier, env.batch.subject, draft.topic || env.batch.topic || env.batch.subject, draft.difficulty, draft.question,
@@ -476,7 +476,7 @@ async function insertCandidate(env: Env, examId: string, candidate: Candidate, g
       env.ai.mode === "rules" ? "rules" : env.ai.model, PROMPT_VERSION, env.batch.id,
       figure ? hashFor(draft, figure) : contentHash(member ? { ...draft, question: `${member.seed}\n${draft.question}` } : draft), member?.setId ?? null, member?.position ?? null,
       figure ? JSON.stringify(figure) : null,
-      candidate.freshness?.factAsOf ?? null, candidate.freshness?.validUntil ?? null, candidate.freshness?.sourceTitle ?? null
+      candidate.freshness?.factAsOf ?? null, candidate.freshness?.sourceTitle ?? null
     ]
   );
   return inserted.rows[0]?.id ?? null;
@@ -508,8 +508,8 @@ async function storeWritten(env: Env, examId: string, raw: string) {
       }
       figure = parsedFigure.figure;
     }
-    // Questions about events carry the note they came from and the date their facts were true, so they can be checked and can expire.
-    const freshness = dated ? parseFreshness(item as { source?: unknown; as_of?: unknown; shelf_life_months?: unknown }, notes.map((note) => note.title)) : undefined;
+    // Questions about events carry the note they came from and the month their facts are from, so they can be checked and dated for learners.
+    const freshness = dated ? parseFactMonth(item as { source?: unknown; as_of?: unknown }, notes.map((note) => note.title)) : undefined;
     const id = await insertCandidate(env, examId, { draft: draft.data, verificationExpression: typeof expression === "string" ? expression : null, freshness }, env.ai.model, undefined, figure);
     if (id) stored++;
     else duplicates++;

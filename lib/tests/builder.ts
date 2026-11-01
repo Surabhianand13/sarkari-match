@@ -201,7 +201,7 @@ export function defaultPrefix(input: Pick<BuildInput, "kind" | "level" | "sectio
 async function loadSetPool(db: Db, examId: string, section: BuildSection): Promise<Candidate[]> {
   const { rows } = await db.query<{ id: string; topic: string; difficulty: Difficulty; members: string[]; used: string }>(
     `select s.id, s.topic, s.difficulty, array_agg(q.id order by q.set_position, q.created_at) as members, max(coalesce(u.n, 0)) as used
-       from question_sets s join questions q on q.set_id = s.id and q.validation_status = 'published' and (q.valid_until is null or q.valid_until >= current_date)
+       from question_sets s join questions q on q.set_id = s.id and q.validation_status = 'published'
        left join (select question_id, count(*) as n from test_questions group by question_id) u on u.question_id = q.id
       where s.exam_id = $1 and s.subject = $2 and ($3::text is null or s.topic = $3)
       group by s.id, s.topic, s.difficulty`,
@@ -215,7 +215,7 @@ async function loadPool(db: Db, examId: string, section: BuildSection): Promise<
   const { rows } = await db.query<{ id: string; topic: string; difficulty: Difficulty; used: string }>(
     `select q.id, q.topic, q.difficulty, coalesce(u.n, 0) as used
        from questions q left join (select question_id, count(*) as n from test_questions group by question_id) u on u.question_id = q.id
-      where q.exam_id = $1 and q.validation_status = 'published' and (q.valid_until is null or q.valid_until >= current_date) and q.set_id is null and q.subject = $2 and ($3::text is null or q.topic = $3)`,
+      where q.exam_id = $1 and q.validation_status = 'published' and q.set_id is null and q.subject = $2 and ($3::text is null or q.topic = $3)`,
     [examId, section.subject, section.topic ?? null]
   );
   return rows.map((row) => ({ id: row.id, topic: row.topic, difficulty: row.difficulty, used: Number(row.used) }));

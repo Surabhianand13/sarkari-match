@@ -10,7 +10,7 @@ import { saveQuestionImage, setQuestionStatus } from "@/app/admin/questions/acti
 import { saveTranslation, setSetTranslationStatus, setTranslationStatus } from "@/app/admin/translations/actions";
 import { Chart } from "@/components/chart";
 import { toFigure } from "@/lib/figure";
-import { freshnessState } from "@/lib/freshness";
+import { monthYearLabel } from "@/lib/freshness";
 import { adminDb } from "@/lib/admin/db";
 import { summariseChecks } from "@/lib/question-factory/checks-summary";
 import { canTransition, type ValidationStatus } from "@/lib/tests/question-schema";
@@ -75,8 +75,7 @@ export default async function QuestionPage({ params, searchParams }: { params: P
     ? (await db.query<{ title: string; stimulus: string; chart: unknown; status: string; kind: string }>(
         "select t.title, t.stimulus, t.chart, t.status, s.kind from set_translations t join question_sets s on s.id = t.set_id where t.set_id = $1 and t.lang = 'hi'", [q.set_id])).rows[0]
     : null;
-  const dates = (await db.query<{ fact_as_of: string | null; valid_until: string | null; source_title: string | null }>("select fact_as_of::text, valid_until::text, source_title from questions where id = $1", [id])).rows[0];
-  const freshness = freshnessState(dates?.valid_until);
+  const dates = (await db.query<{ fact_as_of: string | null; source_title: string | null }>("select fact_as_of::text, source_title from questions where id = $1", [id])).rows[0];
   const status = q.validation_status;
   const notes = q.validation_notes ?? {};
   const allowed = buttons.filter(([to, label]) => canTransition(status, to) && !(label === "Unpublish" && status !== "published") && !(label === "Approve" && status === "published"));
@@ -93,11 +92,10 @@ export default async function QuestionPage({ params, searchParams }: { params: P
           {q.critic_model && <span>Checked by: {q.critic_model}</span>}
           {q.prompt_version && <span>Prompt: {q.prompt_version}</span>}
         </div>
-        {(dates?.fact_as_of || dates?.valid_until || dates?.source_title) && (
-          <p className={`mb-3 rounded-xl px-4 py-3 text-sm font-bold ${freshness === "expired" ? "bg-red-50 text-error" : freshness === "soon" ? "bg-amber-soft text-warning" : "bg-surface text-muted"}`}>
-            {dates.fact_as_of ? `Facts true as of ${dates.fact_as_of}. ` : ""}
-            {dates.source_title ? `Source note: ${dates.source_title}. ` : ""}
-            {dates.valid_until ? (freshness === "expired" ? `Expired on ${dates.valid_until}: it is kept out of new tests and practice until it is re-checked.` : `Re-check by ${dates.valid_until}.`) : "Never expires."}
+        {(dates?.fact_as_of || dates?.source_title) && (
+          <p className="mb-3 rounded-xl bg-surface px-4 py-3 text-sm font-bold text-muted">
+            {dates.fact_as_of ? `Current affairs from ${monthYearLabel(dates.fact_as_of)}. ` : ""}
+            {dates.source_title ? `Source note: ${dates.source_title}.` : ""}
           </p>
         )}
         <form className="grid gap-3">
@@ -210,7 +208,7 @@ export default async function QuestionPage({ params, searchParams }: { params: P
       </Card>
       <Card title="Edit">
         <p className="mb-3 text-xs font-semibold text-muted">Editing an approved or published question sends it back to review.</p>
-        <QuestionForm lockExam values={{ id, tier: q.tier, subject: q.subject, topic: q.topic, difficulty: q.difficulty, stem: q.stem, options: q.options, correct_option: q.correct_option, explanation: q.explanation, est_time_seconds: q.est_time_seconds, fact_as_of: dates?.fact_as_of, valid_until: dates?.valid_until }} />
+        <QuestionForm lockExam values={{ id, tier: q.tier, subject: q.subject, topic: q.topic, difficulty: q.difficulty, stem: q.stem, options: q.options, correct_option: q.correct_option, explanation: q.explanation, est_time_seconds: q.est_time_seconds, fact_month: dates?.fact_as_of?.slice(0, 7) }} />
       </Card>
     </div>
   );

@@ -16,7 +16,7 @@ export async function getSubjects(): Promise<SubjectSummary[]> {
   const db = await getDb();
   if (!db) return [];
   const result = await db.query<{ subject: string; topic: string; n: string }>(
-    "select subject, topic, count(*) as n from questions where validation_status = 'published' and set_id is null and (valid_until is null or valid_until >= current_date) group by subject, topic order by subject, topic"
+    "select subject, topic, count(*) as n from questions where validation_status = 'published' and set_id is null group by subject, topic order by subject, topic"
   );
   const bySubject = new Map<string, SubjectSummary>();
   for (const row of result.rows) {
@@ -38,7 +38,7 @@ export async function getLevels(userId: string): Promise<Record<string, { level:
 // Picks random published questions for one difficulty. The offset trick avoids sorting the whole bank by random(),
 // which would be slow with lakhs of questions; ids are random UUIDs, so a window of ids is already a random sample.
 async function pickQuestions(db: Db, subject: string, topic: string | null, difficulty: string, count: number, exclude: string[]) {
-  const filter = "validation_status = 'published' and set_id is null and (valid_until is null or valid_until >= current_date) and subject = $1 and ($2::text is null or topic = $2) and difficulty = $3 and not (id = any($4::uuid[]))";
+  const filter = "validation_status = 'published' and set_id is null and subject = $1 and ($2::text is null or topic = $2) and difficulty = $3 and not (id = any($4::uuid[]))";
   const total = Number((await db.query<{ n: string }>(`select count(*) as n from questions where ${filter}`, [subject, topic, difficulty, exclude])).rows[0].n);
   if (!total) return [];
   const offset = Math.floor(Math.random() * Math.max(0, total - count + 1));
@@ -82,8 +82,8 @@ export async function getSession(userId: string, sessionId: string): Promise<Pra
   const session = (await db.query<{ id: string; subject: string; topic: string | null; level: Level; status: "in_progress" | "completed"; total: number; correct: number }>(
     "select id, subject, topic, level, status, total, correct from practice_sessions where id = $1 and user_id = $2", [sessionId, userId])).rows[0];
   if (!session) return null;
-  const rows = await db.query<{ id: string; stem: string; options: Record<string, string>; position: number; selected_option: string | null; correct_option: string; explanation: string; figure: unknown; image_id: string | null; image_alt: string | null; hi_stem: string | null; hi_options: Record<string, string> | null; hi_explanation: string | null; hi_figure: unknown }>(
-    `select q.id, q.stem, q.options, pa.position, pa.selected_option, q.correct_option, q.explanation, q.figure, q.image_id, qi.alt as image_alt,
+  const rows = await db.query<{ id: string; stem: string; options: Record<string, string>; position: number; selected_option: string | null; correct_option: string; explanation: string; figure: unknown; image_id: string | null; image_alt: string | null; fact_as_of: string | null; hi_stem: string | null; hi_options: Record<string, string> | null; hi_explanation: string | null; hi_figure: unknown }>(
+    `select q.id, q.stem, q.options, pa.position, pa.selected_option, q.correct_option, q.explanation, q.figure, q.image_id, qi.alt as image_alt, q.fact_as_of::text as fact_as_of,
             qt.stem as hi_stem, qt.options as hi_options, qt.explanation as hi_explanation, qt.figure as hi_figure
        from practice_answers pa join questions q on q.id = pa.question_id left join question_images qi on qi.id = q.image_id
        left join question_translations qt on qt.question_id = q.id and qt.lang = 'hi' and qt.status = 'approved' where pa.session_id = $1 order by pa.position`, [sessionId]);
@@ -95,6 +95,7 @@ export async function getSession(userId: string, sessionId: string): Promise<Pra
       id: row.id, stem: row.stem, options: row.options, position: row.position, selected: row.selected_option,
       correctOption: row.selected_option ? row.correct_option : null, explanation: row.selected_option ? row.explanation : null,
       figure: toFigure(row.figure), image: row.image_id ? { id: row.image_id, alt: row.image_alt ?? "" } : null,
+      factMonth: row.fact_as_of,
       // The Hindi solution is only sent for a question the learner has already answered.
       hi: row.hi_stem && row.hi_options ? { stem: row.hi_stem, options: row.hi_options, explanation: row.selected_option ? row.hi_explanation : null, figure: toFigure(row.hi_figure), set: null } : null
     }))
