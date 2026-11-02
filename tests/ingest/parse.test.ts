@@ -386,3 +386,71 @@ describe("a qualification that names its posts", () => {
     ]);
   });
 });
+
+describe("a listing laid out as a table", () => {
+  const row = (date: string, board: string, post: string, qualification: string, advt: string, last: string) => `${date} | ${board} | ${post} | ${qualification} | ${advt} | ${last} | Get Details`;
+  const listing: CapturePayload = {
+    mode: "list",
+    url: "https://www.rival-jobs.example/latest-notifications/",
+    title: "Latest notifications",
+    text: "",
+    tables: [],
+    links: [
+      { href: "https://www.rival-jobs.example/articles/nainital-bank-hr-advisor-3077747", text: "Get Details", context: row("02/11/2026", "Nainital Bank", "HR Advisor – 1 Posts", "Retired Staff", "–", "07-11-2026") },
+      { href: "https://www.rival-jobs.example/articles/becil-data-entry-operator-3077702", text: "Get Details", context: row("31/10/2026", "BECIL", "Data Entry Operator – 23 Posts", "12TH", "566", "17-11-2026") },
+      { href: "https://www.rival-jobs.example/articles/kpsc-vet-cutoff-3070001", text: "View", context: "18/07/2026 | KPSC | Veterinary Officer Cut Off Marks 2024 | | | | View" },
+      { href: "https://www.rival-jobs.example/about", text: "Get Details", context: "" }
+    ]
+  };
+
+  it("takes the title, the date it was posted and the last date from the row", () => {
+    expect(parseListing(listing)).toEqual([
+      { title: "Nainital Bank HR Advisor – 1 Posts", url: "https://www.rival-jobs.example/articles/nainital-bank-hr-advisor-3077747", leadType: "recruitment", postedOn: "2026-11-02", lastDate: "2026-11-07" },
+      { title: "BECIL Data Entry Operator – 23 Posts", url: "https://www.rival-jobs.example/articles/becil-data-entry-operator-3077702", leadType: "recruitment", postedOn: "2026-10-31", lastDate: "2026-11-17" }
+    ]);
+  });
+});
+
+describe("what changed on a notification's page", () => {
+  it("lists a revised last date or vacancy count and ignores what was never read before", async () => {
+    const { diffParsed } = await import("@/lib/ingest/changes");
+    const before = { applicationEndDate: "2026-11-15", vacancyCount: 100, notificationNumber: "A/1", posts: [] };
+    expect(diffParsed(before, { applicationEndDate: "2026-11-22", vacancyCount: 100, notificationNumber: "a/1", salaryText: "Rs. 30,000" })).toEqual([{ field: "applicationEndDate", label: "Last date", from: "2026-11-15", to: "2026-11-22" }]);
+    expect(diffParsed(undefined, { applicationEndDate: "2026-11-22" })).toEqual([]);
+    expect(diffParsed({ posts: [] }, { applicationEndDate: "2026-11-22" })).toEqual([]);
+  });
+});
+
+describe("listing menus", () => {
+  it("does not turn a category link or a menu item into a notification", () => {
+    const entries = parseListing({
+      mode: "list",
+      url: "https://www.rival-jobs.example/",
+      title: "Home",
+      text: "",
+      tables: [],
+      links: [
+        { href: "https://www.rival-jobs.example/latest-notifications/", text: "Latest Notifications" },
+        { href: "https://www.rival-jobs.example/bank-jobs/", text: "Bank Jobs Recruitment 2026" },
+        { href: "https://www.rival-jobs.example/articles/kea-fda-sda-online-form-2026-3077000", text: "KEA FDA SDA Online Form 2026 (5,431 Vacancy)" }
+      ]
+    });
+    expect(entries.map((entry) => entry.title)).toEqual(["KEA FDA SDA Online Form 2026 (5,431 Vacancy)"]);
+  });
+});
+
+describe("a total row that is narrower than the table", () => {
+  it("reads 'Total | 7,268' as the total and not as a post called 7,268", () => {
+    const payload: CapturePayload = {
+      mode: "page",
+      url: "https://rival-jobs.example/odisha-police-constable-2026",
+      title: "Odisha Police Constable Recruitment 2026",
+      text: "Total Vacancies\t7,268",
+      links: [],
+      tables: [[["S. No.", "Post Name", "No. of Posts"], ["1", "Constable (Civil)", "4,219"], ["2", "Constable (Communication)", "300"], ["3", "Traffic Constable", "4"], ["Total", "7,268"]]]
+    };
+    const parsed = parseCapture(payload, context);
+    expect(parsed.posts.map((post) => [post.title, post.vacancyCount])).toEqual([["Constable (Civil)", 4219], ["Constable (Communication)", 300], ["Traffic Constable", 4]]);
+    expect(parsed.vacancyCount).toBe(7268);
+  });
+});

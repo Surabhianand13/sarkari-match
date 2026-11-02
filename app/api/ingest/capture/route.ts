@@ -16,7 +16,7 @@ async function authorise(request: Request) {
   if (!db) return { error: jsonError("The database is not configured.", 503) };
   const token = await authenticateIngestToken(db, request.headers.get("authorization"));
   if (!token) return { error: jsonError("This token is not valid. Make a new one in the admin dashboard.", 401) };
-  if (!(await checkRateLimit(`ingest:${token.id}`, 300, 3600))) return { error: jsonError("Too many captures this hour. Try again later.", 429) };
+  if (!(await checkRateLimit(`ingest:${token.id}`, 3000, 3600))) return { error: jsonError("Too many captures this hour. Try again later.", 429) };
   return { db, token };
 }
 

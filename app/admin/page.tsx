@@ -12,6 +12,7 @@ export default async function AdminPage() {
     ["Active notifications", stats?.activeNotifications, "/admin/posts", `${stats?.activePosts ?? 0} posts open for applications · ${stats?.upcomingNotifications ?? 0} not open yet`],
     ["Past notifications", stats?.pastNotifications, "/admin/posts", "Moved to closed automatically after their last date"],
     ["Competitor leads to review", stats?.leadsPending, "/admin/leads", "Spotted on other sites, not yet checked"],
+    ["Changed on the source", stats?.sourceUpdates, "/admin/leads?status=updated", "A last date or vacancy count moved since it was read"],
     ["Recruitments in draft or review", stats?.draftRecruitments, "/admin/recruitments", "Waiting to be published"],
     ["Closing in 7 days", stats?.closingSoon, "/admin/posts", "Check these first"],
     ["Open error reports", stats?.reportsOpen, "/admin/reports", "Reported by candidates"],

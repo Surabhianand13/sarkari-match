@@ -91,6 +91,8 @@ export function publishProblems(fields: LeadFields, options: { detailCaptured: b
   // A last date in the past is fine: past notifications are kept as an archive and shown as closed.
   if (!fields.applicationEndDate) problems.push("Add the last date to apply.");
   if (!fields.posts.length) problems.push("Add at least one post.");
+  const numbered = fields.posts.find((post) => /^[\d,.\s]+$/.test(post.title));
+  if (numbered) problems.push(`A post is named "${numbered.title}", which is a number. Remove that line from the posts, or give it the post's name.`);
   return problems;
 }
 

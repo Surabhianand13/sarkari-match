@@ -15,6 +15,12 @@ A Chrome extension for the admin team. On a notification page of another site (f
 - **Collect headlines from this listing page** on a home or listing page. Each new recruitment headline becomes a lead marked "Headline only"; open its page and Analyse to fill in the details. Admit cards, results and menu links are skipped.
 - The same notification seen on two sites becomes one lead. Where the sites disagree (a last date, a vacancy count) the dashboard shows both.
 
+## One-click sync
+
+- **Check for new and updated notifications** (the top button) reads the latest listings on FreeJobAlert and Adda247, asks the dashboard which notifications are new, headline-only or updated on the site, and opens only those in background tabs. Chrome asks once to allow the two sites.
+- **Bring in the last 6 months** (a link under the buttons) does the same across the category and state pages, once, for the archive. Keep its tab open while it runs. Stopping and starting again carries on, because the dashboard remembers what it has read.
+- It reads two pages at a time with a pause between them, and publishes nothing.
+
 ## What it reads and sends
 
 - Only when you click, and only the tab you are on (`activeTab`). It runs no code in the background and reads no other tabs.

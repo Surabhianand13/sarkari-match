@@ -1,5 +1,6 @@
 import { writeAudit } from "@/lib/admin/audit";
 import { slugify } from "@/lib/admin/forms";
+import { diffParsed, type Change, type SourceUpdate } from "@/lib/ingest/changes";
 import { formatProblems, mergeFields, missingFields, publishProblems, type LeadFields } from "@/lib/ingest/fields";
 import {
   cleanUrl,
@@ -46,6 +47,8 @@ export type LeadRow = {
   official_application_url: string | null;
   official_website_url: string | null;
   posts: LeadPost[];
+  source_updates: SourceUpdate[];
+  updates_seen_at: string | null;
   matched_recruitment_id: string | null;
   recruitment_id: string | null;
   review_notes: string | null;
@@ -55,9 +58,9 @@ export type LeadRow = {
   updated_at: string;
 };
 
-const LEAD_COLUMNS = `id, status, lead_type, detail_captured, organisation_id, organisation_name, title, notification_number, state_name, qualification_text, salary_text,
+export const LEAD_COLUMNS = `id, status, lead_type, detail_captured, organisation_id, organisation_name, title, notification_number, state_name, qualification_text, salary_text,
   notification_date::text, application_start_date::text, application_end_date::text, vacancy_count, official_notification_url, official_application_url,
-  official_website_url, posts, matched_recruitment_id, recruitment_id, review_notes, reviewed_by, reviewed_at::text, created_at::text, updated_at::text`;
+  official_website_url, posts, source_updates, updates_seen_at::text, matched_recruitment_id, recruitment_id, review_notes, reviewed_by, reviewed_at::text, created_at::text, updated_at::text`;
 
 export function fieldsOf(row: LeadRow): LeadFields {
   return {
@@ -157,13 +160,15 @@ export type IngestResult = {
   missing: string[];
   found: { organisation?: string; lastDate?: string; vacancies?: number; posts: number; officialNotification: boolean; officialApplication: boolean };
   alreadyLive?: { id: string; title: string };
+  // What the source page now says differently from when it was last read.
+  changes?: Change[];
 };
 
 export type ListIngestResult = { mode: "list"; spotted: number; created: number; seenOnAnotherSite: number; alreadyKnown: number; alreadyReviewed: number };
 
-type SaveInput = { parsed: ParsedLead; sourceUrl: string; site: string; pageTitle: string; text: string | null; tokenId: string | null; detail: boolean };
+type SaveInput = { parsed: ParsedLead; sourceUrl: string; site: string; pageTitle: string; text: string | null; tokenId: string | null; detail: boolean; listingDate?: string };
 
-async function saveParsed(db: Db, input: SaveInput): Promise<IngestResult> {
+export async function saveParsed(db: Db, input: SaveInput): Promise<IngestResult> {
   return db.transaction(async (tx) => {
     const { parsed, sourceUrl, detail } = input;
     let leadId = (await tx.query<{ lead_id: string }>("select lead_id from lead_sources where source_url = $1", [sourceUrl])).rows[0]?.lead_id;
@@ -182,11 +187,12 @@ async function saveParsed(db: Db, input: SaveInput): Promise<IngestResult> {
     const { links, ...parsedFields } = parsed;
     const writeSource = async (id: string) =>
       tx.query(
-        `insert into lead_sources (lead_id, token_id, site, source_url, page_title, captured_text, links, parsed)
-         values ($1, $2, $3, $4, $5, $6, $7, $8)
+        `insert into lead_sources (lead_id, token_id, site, source_url, page_title, captured_text, links, parsed, listing_date)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          on conflict (source_url) do update set token_id = excluded.token_id, page_title = excluded.page_title, captured_text = coalesce(excluded.captured_text, lead_sources.captured_text),
-           links = excluded.links, parsed = excluded.parsed, captured_at = now()`,
-        [id, input.tokenId, input.site, sourceUrl, input.pageTitle.slice(0, 300), input.text, JSON.stringify(links), JSON.stringify(parsedFields)]
+           links = excluded.links, parsed = case when $10::boolean then excluded.parsed else lead_sources.parsed end,
+           listing_date = coalesce(excluded.listing_date, lead_sources.listing_date), captured_at = now()`,
+        [id, input.tokenId, input.site, sourceUrl, input.pageTitle.slice(0, 300), input.text, JSON.stringify(links), JSON.stringify(parsedFields), input.listingDate ?? null, detail]
       );
     const sourceCount = async (id: string) => Number((await tx.query<{ count: string }>("select count(*) from lead_sources where lead_id = $1", [id])).rows[0].count);
     const summarise = (fields: LeadFields): IngestResult["found"] => ({
@@ -200,19 +206,24 @@ async function saveParsed(db: Db, input: SaveInput): Promise<IngestResult> {
 
     if (leadId) {
       const row = (await tx.query<LeadRow>(`select ${LEAD_COLUMNS} from notification_leads where id = $1 for update`, [leadId])).rows[0];
+      // What this page said last time, so a revised date or vacancy count can be told apart from a first reading.
+      const before = (await tx.query<{ parsed: Partial<ParsedLead> }>("select parsed from lead_sources where source_url = $1", [sourceUrl])).rows[0];
       await writeSource(leadId);
       const existing = fieldsOf(row);
+      // A headline-only stub has no posts, so its first full reading is new information, not a change.
+      const changes = detail && before && (before.parsed.posts?.length ?? 0) > 0 ? diffParsed(before.parsed, parsedFields) : [];
+      if (changes.length) await recordUpdate(tx, leadId, row.source_updates, { at: new Date().toISOString(), site: input.site, url: sourceUrl, changes });
       // A lead someone already approved or rejected keeps its decision. The new page is only recorded as another source.
       if (row.status !== "pending") {
-        return { mode: "page", outcome: "already_reviewed", leadId, status: row.status, title: row.title, sources: await sourceCount(leadId), matchReason, missing: [], found: summarise(existing) };
+        return { mode: "page", outcome: "already_reviewed", leadId, status: row.status, title: row.title, sources: await sourceCount(leadId), matchReason, missing: [], found: summarise(existing), ...(changes.length ? { changes } : {}) };
       }
-      const merged = mergeFields(existing, incomingFields(parsed));
+      const merged = followChanges(mergeFields(existing, incomingFields(parsed)), existing, changes, incomingFields(parsed));
       const upgraded = detail && !row.detail_captured;
       const title = upgraded ? parsed.title : row.title;
       const matched = row.matched_recruitment_id ? null : await findExistingRecruitment(tx, { ...merged, title });
       await saveFields(tx, leadId, { ...merged, title }, { detailCaptured: row.detail_captured || detail, leadType: upgraded ? parsed.leadType : row.lead_type, matchedRecruitmentId: matched?.id ?? row.matched_recruitment_id });
       const alreadyLive = matched ?? (row.matched_recruitment_id ? (await tx.query<{ id: string; title: string }>("select id, title from recruitments where id = $1", [row.matched_recruitment_id])).rows[0] : undefined);
-      return { mode: "page", outcome: "merged", leadId, status: "pending", title, sources: await sourceCount(leadId), matchReason, missing: missingFields(merged), found: summarise(merged), alreadyLive };
+      return { mode: "page", outcome: "merged", leadId, status: "pending", title, sources: await sourceCount(leadId), matchReason, missing: missingFields(merged), found: summarise(merged), alreadyLive, ...(changes.length ? { changes } : {}) };
     }
 
     const fields = mergeFields({ ...blankFields(parsed.title) }, incomingFields(parsed));
@@ -226,6 +237,23 @@ async function saveParsed(db: Db, input: SaveInput): Promise<IngestResult> {
     await writeSource(id);
     return { mode: "page", outcome: "created", leadId: id, status: "pending", title: fields.title, sources: 1, missing: missingFields(fields), found: summarise(fields), alreadyLive: matched ?? undefined };
   });
+}
+
+// Keeps the reader's record of what changed. Newest last, and only the last twenty are kept.
+async function recordUpdate(db: Db, leadId: string, existing: SourceUpdate[] | null, update: SourceUpdate) {
+  await db.query("update notification_leads set source_updates = $2, updated_at = now() where id = $1", [leadId, JSON.stringify([...(existing ?? []), update].slice(-20))]);
+}
+
+// A pending lead follows its source when the source changes a value the lead still has as the source first gave it.
+// A value someone edited by hand is left alone, and the change is only flagged.
+function followChanges(merged: LeadFields, existing: LeadFields, changes: Change[], incoming: Partial<LeadFields>): LeadFields {
+  const next = { ...merged } as Record<string, unknown>;
+  for (const change of changes) {
+    const key = change.field as keyof LeadFields;
+    const current = existing[key];
+    if (current !== null && current !== undefined && String(current).trim().toLowerCase() === change.from.trim().toLowerCase() && incoming[key] !== undefined && incoming[key] !== null) next[change.field] = incoming[key];
+  }
+  return next as LeadFields;
 }
 
 function blankFields(title: string): LeadFields {
@@ -258,7 +286,7 @@ export async function ingestPage(db: Db, payload: CapturePayload, tokenId: strin
   const parsed = parseCapture(payload, await loadParseContext(db));
   const sourceUrl = cleanUrl(payload.url);
   if (!sourceUrl) throw new LeadError("The page address is not a web link.");
-  return saveParsed(db, { parsed, sourceUrl, site: siteOf(sourceUrl), pageTitle: payload.title, text: payload.text.slice(0, 60_000), tokenId, detail: true });
+  return saveParsed(db, { parsed, sourceUrl, site: siteOf(sourceUrl), pageTitle: payload.title, text: payload.text.slice(0, 60_000), tokenId, detail: true, listingDate: payload.listingDate });
 }
 
 // A listing page: every headline becomes a lead that still needs its detail page analysed.
@@ -305,24 +333,27 @@ export type LeadListItem = {
   created_at: string;
   sites: string;
   source_count: number;
+  updated_unseen: boolean;
 };
 
-export async function listLeads(db: Db, status: LeadStatus | "all", limit = 200): Promise<LeadListItem[]> {
+export async function listLeads(db: Db, status: LeadStatus | "all" | "updated", limit = 200): Promise<LeadListItem[]> {
   const { rows } = await db.query<LeadListItem>(
     `select l.id, l.status, l.lead_type, l.detail_captured, l.title, coalesce(o.name, l.organisation_name) as organisation, l.application_end_date::text,
             l.vacancy_count, l.official_notification_url, l.official_application_url, l.posts, l.matched_recruitment_id, l.created_at::text,
             (select coalesce(string_agg(distinct s.site, ', '), '') from lead_sources s where s.lead_id = l.id) as sites,
-            (select count(*) from lead_sources s where s.lead_id = l.id)::int as source_count
+            (select count(*) from lead_sources s where s.lead_id = l.id)::int as source_count,
+            (jsonb_array_length(l.source_updates) > 0 and (l.updates_seen_at is null or l.updates_seen_at < (l.source_updates->-1->>'at')::timestamptz)) as updated_unseen
      from notification_leads l left join organisations o on o.id = l.organisation_id
-     ${status === "all" ? "" : "where l.status = $2"} order by l.created_at desc limit $1`,
-    status === "all" ? [limit] : [limit, status]
+     ${status === "all" ? "" : status === "updated" ? "where (jsonb_array_length(l.source_updates) > 0 and (l.updates_seen_at is null or l.updates_seen_at < (l.source_updates->-1->>'at')::timestamptz))" : "where l.status = $2"} order by l.created_at desc limit $1`,
+    status === "all" || status === "updated" ? [limit] : [limit, status]
   );
   return rows;
 }
 
-export async function leadCounts(db: Db): Promise<Record<LeadStatus | "all", number>> {
+export async function leadCounts(db: Db): Promise<Record<LeadStatus | "all" | "updated", number>> {
   const { rows } = await db.query<{ status: LeadStatus; count: string }>("select status, count(*) from notification_leads group by status");
-  const counts = { pending: 0, published: 0, drafted: 0, rejected: 0, duplicate: 0, all: 0 };
+  const counts = { pending: 0, published: 0, drafted: 0, rejected: 0, duplicate: 0, all: 0, updated: 0 };
+  counts.updated = Number((await db.query<{ count: string }>(`select count(*) from notification_leads l where jsonb_array_length(l.source_updates) > 0 and (l.updates_seen_at is null or l.updates_seen_at < (l.source_updates->-1->>'at')::timestamptz)`)).rows[0].count);
   for (const row of rows) {
     counts[row.status] = Number(row.count);
     counts.all += Number(row.count);

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SarkariMatch sync</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <h1 id="heading">Check for new and updated notifications</h1>
+      <p class="hint" id="intro"></p>
+      <button id="start" class="primary">Start</button>
+      <button id="stop" class="secondary" hidden>Stop after the current page</button>
+      <p id="status" role="status" aria-live="polite"></p>
+      <progress id="bar" value="0" max="1" hidden></progress>
+      <dl id="counts" class="counts" hidden></dl>
+      <p id="links" class="footer"></p>
+      <ul id="log" class="log"></ul>
+    </main>
+    <script type="module" src="sync.js"></script>
+  </body>
+</html>

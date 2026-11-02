@@ -18,6 +18,8 @@ export function extractPage(mode) {
   // The label next to a link: the first cell of its table row ("Apply Online"), or the words around it.
   const contextOf = (anchor) => {
     const row = anchor.closest("tr");
+    // A listing laid out as a table: the whole row says what the link is ("date | board | post | qualification | last date").
+    if (mode === "list") return row && row.cells.length > 2 ? [...row.cells].slice(0, 10).map((cell) => oneLine(cell.innerText, 120)).join(" | ").slice(0, 400) : "";
     if (row && row.cells.length > 1 && !row.cells[0].contains(anchor)) return oneLine(row.cells[0].innerText, 200);
     const holder = anchor.closest("li, p, td, th");
     return holder ? oneLine(holder.innerText.replace(anchor.innerText, ""), 200) : "";
@@ -26,10 +28,10 @@ export function extractPage(mode) {
   const found = new Map();
   const collect = (container) => {
     for (const anchor of container.querySelectorAll("a[href]")) {
-      if (found.size >= 600) return;
+      if (found.size >= 3000) return;
       const href = anchor.href;
       if (!/^https?:/i.test(href)) continue;
-      const context = mode === "page" ? contextOf(anchor) : "";
+      const context = contextOf(anchor);
       const existing = found.get(href);
       // The same address often appears in the text and again in the links table. Keep the one that has a label.
       if (existing && (existing.context || !context)) continue;
