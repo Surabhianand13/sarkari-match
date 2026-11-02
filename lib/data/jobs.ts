@@ -8,6 +8,7 @@ export type JobPostRow = {
   title: string;
   description: string | null;
   vacancy_count: number | null;
+  vacancy_total: number | null;
   salary_text: string | null;
   application_status: JobPost["applicationStatus"];
   published_at: string | null;
@@ -38,7 +39,8 @@ export function toJobPost(row: JobPostRow): JobPost {
     department: row.department_name ?? "General",
     state: row.state_name ?? "Central Government",
     qualification: qualificationLabelFor(row.eligibility_rules),
-    vacancyCount: row.vacancy_count ?? 0,
+    vacancyCount: row.vacancy_count ?? row.vacancy_total ?? 0,
+    vacancyShared: row.vacancy_count == null && row.vacancy_total != null,
     salaryText: row.salary_text ?? "As per official notification",
     applicationEndDate: row.application_end_date ?? "",
     applicationStatus: row.application_status,
@@ -56,7 +58,7 @@ const iso = (column: string) => `to_char(${column} at time zone 'UTC', 'YYYY-MM-
 const JOB_POST_SELECT = `
   select jp.id, jp.slug, jp.title, jp.description, jp.vacancy_count, jp.salary_text, jp.application_status,
          ${iso("jp.published_at")} as published_at, jp.eligibility_rules,
-         r.title as recruitment_title, r.application_end_date::text as application_end_date,
+         r.title as recruitment_title, r.vacancy_total, r.application_end_date::text as application_end_date,
          r.official_notification_url, r.official_application_url, ${iso("r.verified_at")} as verified_at,
          o.name as organisation_name, d.name as department_name, s.name as state_name
   from job_posts jp

@@ -7,7 +7,9 @@ export type JobPost = {
   department: string;
   state: string;
   qualification: string;
+  // The notification-wide total, shown with a * because the notification gives no count for this post alone.
   vacancyCount: number;
+  vacancyShared: boolean;
   salaryText: string;
   applicationEndDate: string;
   applicationStatus: "open" | "closed" | "upcoming";
@@ -135,6 +137,7 @@ export const demoJobs: JobPost[] = [
     state: "Central Government",
     qualification: "Graduate",
     vacancyCount: 120,
+    vacancyShared: false,
     salaryText: "Level 6, as per official notification",
     applicationEndDate: "2026-08-15",
     applicationStatus: "open",
@@ -154,6 +157,7 @@ export const demoJobs: JobPost[] = [
     state: "Karnataka",
     qualification: "ITI",
     vacancyCount: 80,
+    vacancyShared: false,
     salaryText: "Pay matrix level 2",
     applicationEndDate: "2026-07-20",
     applicationStatus: "open",

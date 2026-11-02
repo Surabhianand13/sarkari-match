@@ -22,6 +22,7 @@ import {
   Wand2
 } from "lucide-react";
 import type { JobPost } from "@/lib/data/catalog";
+import { vacancyPhrase } from "@/lib/data/vacancies";
 import { formatDate } from "@/lib/utils/format";
 
 export function ButtonLink({ href, children, variant = "primary", className = "" }: { href: Route | string; children: React.ReactNode; variant?: "primary" | "secondary" | "dark" | "ghost"; className?: string }) {
@@ -164,7 +165,7 @@ export function PolishedJobCard({ job, index = 0 }: { job: JobPost; index?: numb
       <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
         <InfoPill icon={GraduationCap} label={job.qualification} />
         <InfoPill icon={MapPin} label={job.state} />
-        <InfoPill icon={BriefcaseBusiness} label={`${job.vacancyCount} vacancies`} />
+        <InfoPill icon={BriefcaseBusiness} label={vacancyPhrase(job)} />
         <InfoPill icon={CalendarClock} label={job.salaryText} />
       </dl>
       <div className="mt-4 rounded-2xl bg-mint/70 p-3 text-sm font-bold leading-6 text-success">

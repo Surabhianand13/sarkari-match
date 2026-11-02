@@ -1,19 +1,7 @@
 import { differenceInYears, parseISO } from "date-fns";
-import type { AgeRule, CandidateProfile, MatchResult, PostRules, QualificationRule } from "./types";
-
-const levelRank: Record<string, number> = {
-  "8th-pass": 1,
-  "10th-pass": 2,
-  "12th-pass": 3,
-  iti: 4,
-  diploma: 5,
-  graduate: 6,
-  btech: 7,
-  postgraduate: 8,
-  nursing: 6,
-  teaching: 6,
-  law: 6
-};
+import { levelRank } from "./levels";
+import { normalizeQualificationLevel } from "./profile";
+import type { AgeRule, CandidateProfile, CandidateQualification, MatchResult, PostRules, QualificationRule } from "./types";
 
 export function ageOnCutoff(dateOfBirth: string, cutoffDate: string) {
   return differenceInYears(parseISO(cutoffDate), parseISO(dateOfBirth));
@@ -68,19 +56,31 @@ function evaluateAge(candidate: CandidateProfile, ageRules: AgeRule[], result: M
   }
 }
 
+// "Any graduate" is a rung on the ladder: every higher level, B.E/B.Tech included, meets it. A named B.E/B.Tech requirement is not:
+// a candidate with an ordinary degree does not meet it, and a post graduate may or may not have done B.E/B.Tech first.
+const degreeSpecificLevels = new Set(["btech"]);
+
+type Fit = "yes" | "check" | "no";
+
+function qualificationFit(qualification: CandidateQualification, rule: QualificationRule): Fit {
+  const degreeMatch = rule.acceptedAnyDegree || !rule.degree || qualification.degree?.toLowerCase() === rule.degree.toLowerCase() || Boolean(rule.equivalentAllowed);
+  const specialisationMatch = !rule.specialisation || qualification.specialisation?.toLowerCase() === rule.specialisation.toLowerCase();
+  const finalYearOk = !qualification.finalYear || Boolean(rule.finalYearAllowed);
+  if (!degreeMatch || !specialisationMatch || !finalYearOk) return "no";
+
+  if (degreeSpecificLevels.has(rule.minimumLevel)) {
+    if (qualification.level === rule.minimumLevel || normalizeQualificationLevel(qualification.degree ?? "") === rule.minimumLevel) return "yes";
+    return qualification.level === "postgraduate" ? "check" : "no";
+  }
+  return (levelRank[qualification.level] ?? 0) >= (levelRank[rule.minimumLevel] ?? 0) ? "yes" : "no";
+}
+
 function evaluateQualifications(candidate: CandidateProfile, qualificationRules: QualificationRule[], result: MatchResult) {
   const mandatory = qualificationRules.filter((rule) => rule.mandatory);
   if (!mandatory.length) return;
-  const matched = mandatory.some((rule) =>
-    candidate.qualifications.some((qualification) => {
-      const hasLevel = (levelRank[qualification.level] ?? 0) >= (levelRank[rule.minimumLevel] ?? 0);
-      const degreeMatch = rule.acceptedAnyDegree || !rule.degree || qualification.degree?.toLowerCase() === rule.degree.toLowerCase() || Boolean(rule.equivalentAllowed);
-      const specialisationMatch = !rule.specialisation || qualification.specialisation?.toLowerCase() === rule.specialisation.toLowerCase();
-      const finalYearOk = !qualification.finalYear || Boolean(rule.finalYearAllowed);
-      return hasLevel && degreeMatch && specialisationMatch && finalYearOk;
-    })
-  );
-  if (matched) result.matched_rules.push("Your qualification matches the published qualification rule.");
+  const fits = mandatory.flatMap((rule) => candidate.qualifications.map((qualification) => qualificationFit(qualification, rule)));
+  if (fits.includes("yes")) result.matched_rules.push("Your qualification matches the published qualification rule.");
+  else if (fits.includes("check")) result.warnings.push("This post asks for a B.E/B.Tech degree. Your post graduate profile qualifies only if your first degree was a B.E/B.Tech.");
   else result.failed_rules.push("Your qualification does not match the mandatory qualification rule.");
 }
 

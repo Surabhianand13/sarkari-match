@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanUrl, classifyTitle, findConflicts, findMatch, parseCapture, parseListing, tidyTitle, titleSimilarity, toIsoDate, urlKey, type CapturePayload, type ParseContext } from "@/lib/ingest/parse";
+import { cleanUrl, classifyTitle, findConflicts, findMatch, parseCapture, parseListing, salaryBounds, tidyTitle, titleSimilarity, toIsoDate, urlKey, type CapturePayload, type ParseContext } from "@/lib/ingest/parse";
 
 const context: ParseContext = {
   organisations: [
@@ -335,5 +335,54 @@ describe("findConflicts", () => {
     expect(conflicts).toHaveLength(1);
     expect(conflicts[0]).toMatchObject({ field: "applicationEndDate", label: "Last date" });
     expect(conflicts[0].values.map((value) => value.site)).toEqual(["a.example", "b.example"]);
+  });
+});
+
+describe("reading the pay", () => {
+  const withText = (text: string, tables: string[][][] = []): CapturePayload => ({ mode: "page", url: "https://rival-jobs.example/court-2026", title: "District Court Recruitment 2026 for 86 Posts", text, links: [], tables });
+
+  it("reads the Salary row of the overview table", () => {
+    const text = ["Company Name\tBengaluru Rural District Court", "No of Posts\t86", "Salary\tRs. 27,000 - Rs. 67,600 per month (pay scale varies by post)", "Qualification\tSSLC"].join("\n");
+    expect(parseCapture(withText(text), context).salaryText).toBe("Rs. 27,000 - Rs. 67,600 per month (pay scale varies by post)");
+    expect(parseCapture(withText("", [[["Salary", "Rs. 27,000 - Rs. 67,600 per month (pay scale varies by post)"]]]), context).salaryText).toContain("27,000");
+  });
+
+  it("reads a pay line, a sentence naming the pay, and the amounts listed under a Salary heading", () => {
+    expect(parseCapture(withText("Pay Scale : Level 6 (Rs. 35,400 - 1,12,400)"), context).salaryText).toBe("Level 6 (Rs. 35,400 - 1,12,400)");
+    expect(parseCapture(withText("Applications are online only. The pay scales range from Rs. 27,000 to Rs. 67,600 per month, depending on the post. Apply early."), context).salaryText).toBe("Rs. 27,000 to Rs. 67,600 per month");
+    const listed = ["Salary/Stipend", "Selected candidates will be paid the following pay scales:", "Typist: Rs. 34,100 - 67,600 (initial pay Rs. 34,100 per month)", "Peon: Rs. 27,000 - 46,675 (initial pay Rs. 27,000 per month)", "How to Apply"].join("\n");
+    expect(parseCapture(withText(listed), context).salaryText).toBe("Rs. 27,000 - Rs. 67,600 per month (varies by post)");
+  });
+
+  it("does not take a salary from words alone, or from fees and dates", () => {
+    expect(parseCapture(withText("Salary\tAs per rules\nApplication Fee\tRs. 500\nPayment Mode\tOnline"), context).salaryText).toBeUndefined();
+    expect(parseCapture(withText("Last date 15/12/2026"), context).salaryText).toBeUndefined();
+  });
+
+  it("keeps the lowest and highest amount beside the text", () => {
+    expect(salaryBounds("Rs. 27,000 - Rs. 67,600 per month")).toEqual({ min: 27000, max: 67600 });
+    expect(salaryBounds("Level 6 (Rs. 35,400 - 1,12,400)")).toEqual({ min: 35400, max: 112400 });
+    expect(salaryBounds("Pay Level 4")).toBeUndefined();
+    expect(salaryBounds("2026")).toBeUndefined();
+  });
+});
+
+describe("a qualification that names its posts", () => {
+  it("gives each post the qualification written for it", () => {
+    const payload: CapturePayload = {
+      mode: "page",
+      url: "https://rival-jobs.example/court-posts-2026",
+      title: "District Court Recruitment 2026 for 86 Posts",
+      text: "Qualification\tII PUC/3-year Diploma in Commercial Practice with typewriting (Typist, Typist-Copyist); SSLC (Process Server, Peon)",
+      links: [],
+      tables: [[["Post Name", "Vacancies"], ["Typist", "8"], ["Typist-Copyist", "18"], ["Process Server", "24"], ["Peon", "36"]]]
+    };
+    const posts = parseCapture(payload, context).posts;
+    expect(posts.map((post) => [post.title, post.qualificationText])).toEqual([
+      ["Typist", "II PUC/3-year Diploma in Commercial Practice with typewriting"],
+      ["Typist-Copyist", "II PUC/3-year Diploma in Commercial Practice with typewriting"],
+      ["Process Server", "SSLC"],
+      ["Peon", "SSLC"]
+    ]);
   });
 });

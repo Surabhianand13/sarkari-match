@@ -46,6 +46,7 @@ export type ParsedLead = {
   stateName?: string;
   notificationNumber?: string;
   qualificationText?: string;
+  salaryText?: string;
   notificationDate?: string;
   applicationStartDate?: string;
   applicationEndDate?: string;
@@ -358,6 +359,79 @@ function chooseLink(links: DetectedLink[], kind: LinkKind) {
 
 // ---- The whole page ----
 
+// ---- Pay ----
+
+const payLabel = String.raw`(?:salary|pay\s*scales?|pay\s*band|pay\s*level|pay\s*matrix|remuneration|stipend|emoluments?|(?:monthly|consolidated)\s*(?:pay|salary))(?:\s*/\s*(?:salary|stipend|pay\s*scales?))?`;
+const money = String.raw`(?:rs\.?|₹|inr)\s*[\d,]+(?:\.\d+)?(?:\s*(?:-|–|—|to)\s*(?:(?:rs\.?|₹|inr)\s*)?[\d,]+(?:\.\d+)?)?(?:\s*(?:/-|per\s*month|p\.?\s*m\.?|monthly|per\s*annum|p\.?\s*a\.?))*`;
+
+function tidyPay(value: string) {
+  return value.replace(/\s+/g, " ").trim().replace(/^[:\-–\s]+|[;,.\s]+$/g, "").slice(0, 200);
+}
+
+// The pay a page states: the "Salary" row of its overview table, a "Pay Scale: ..." line, a sentence naming the pay with an amount,
+// or the amounts listed under a "Salary" heading. Always text for a person to check, never a number the site computes with.
+function readSalary(text: string, tables: string[][][]) {
+  for (const table of tables) {
+    for (const row of table) {
+      if (row.length >= 2 && new RegExp(`^\\s*${payLabel}\\s*(?:details?)?\\s*:?\\s*$`, "i").test(row[0]) && /\d/.test(row[1])) return tidyPay(row[1]);
+    }
+  }
+  const labelled = text.match(new RegExp(`(?:^|\\n)[ \\t]*${payLabel}[ \\t]*(?:details?)?[ \\t]*[:\\t–-][ \\t]*([^\\n\\t]{3,200})`, "i"));
+  if (labelled && /\d/.test(labelled[1])) return tidyPay(labelled[1]);
+
+  for (const sentence of text.split(/(?<=[.!?])\s+(?=[A-Z])|\n+/)) {
+    if (!new RegExp(payLabel, "i").test(sentence)) continue;
+    const amount = sentence.match(new RegExp(money, "i"));
+    if (amount) return tidyPay(amount[0]);
+  }
+
+  const lines = text.split("\n").map((line) => line.trim());
+  const heading = lines.findIndex((line) => new RegExp(`^${payLabel}\\s*(?:details?)?\\s*:?$`, "i").test(line));
+  if (heading >= 0) {
+    const block: string[] = [];
+    for (const line of lines.slice(heading + 1, heading + 12)) {
+      if (!line) continue;
+      if (block.length && line.length < 40 && !/\d/.test(line)) break;
+      block.push(line);
+    }
+    const amounts = payAmounts(block.join("\n"));
+    if (amounts.length > 1) return `Rs. ${Math.min(...amounts).toLocaleString("en-IN")} - Rs. ${Math.max(...amounts).toLocaleString("en-IN")} per month (varies by post)`;
+    const first = block.find((line) => /\d/.test(line));
+    if (first) return tidyPay(first);
+  }
+  return undefined;
+}
+
+function payAmounts(text: string) {
+  const amounts: number[] = [];
+  for (const match of text.matchAll(/\d[\d,]*(?:\.\d+)?/g)) {
+    const raw = match[0];
+    const value = Number(raw.replace(/,/g, ""));
+    if (!Number.isFinite(value) || value < 1000 || value > 1_000_000) continue;
+    if (!raw.includes(",") && looksLikeYear(value)) continue;
+    amounts.push(Math.round(value));
+  }
+  return amounts;
+}
+
+// The lowest and highest amount in a pay text, stored beside it so the site can sort and filter by pay later.
+export function salaryBounds(text?: string | null): { min: number; max: number } | undefined {
+  const amounts = text ? payAmounts(text) : [];
+  return amounts.length ? { min: Math.min(...amounts), max: Math.max(...amounts) } : undefined;
+}
+
+// "II PUC/Diploma (Typist, Typist-Copyist); SSLC (Process Server, Peon)": a qualification that names the posts it is for.
+function qualificationsByPost(posts: LeadPost[], qualificationText?: string): LeadPost[] {
+  if (!qualificationText || !qualificationText.includes(";")) return posts;
+  const bySegment = qualificationText.split(";").map((segment) => segment.trim().match(/^(.+?)\s*\(([^()]+)\)\.?$/)).filter((found): found is RegExpMatchArray => Boolean(found));
+  if (bySegment.length < 2) return posts;
+  return posts.map((post) => {
+    if (post.qualificationText) return post;
+    const own = bySegment.find(([, , names]) => names.split(/,|\/|\band\b/i).some((name) => name.trim().toLowerCase() === post.title.toLowerCase()));
+    return own ? { ...post, qualificationText: own[1].trim().slice(0, 200) } : post;
+  });
+}
+
 export function parseCapture(payload: CapturePayload, context: ParseContext): ParsedLead {
   const text = payload.text.replace(/\r/g, "");
   const title = cleanTitle(payload.title);
@@ -369,6 +443,7 @@ export function parseCapture(payload: CapturePayload, context: ParseContext): Pa
   const posts = tablePosts.length ? tablePosts : readOverviewPosts(payload.tables);
   const vacancyCount = readVacancyCount(title, text) ?? total ?? (posts.length && posts.every((post) => post.vacancyCount) ? posts.reduce((sum, post) => sum + (post.vacancyCount ?? 0), 0) : undefined);
   const qualificationText = readQualification(title, text);
+  const salaryText = readSalary(text, payload.tables);
 
   return {
     leadType: classifyTitle(title),
@@ -378,6 +453,7 @@ export function parseCapture(payload: CapturePayload, context: ParseContext): Pa
     stateName: readState(title, text, context),
     notificationNumber: readNotificationNumber(text),
     qualificationText,
+    ...(salaryText ? { salaryText } : {}),
     notificationDate: dateAfterLabel(text, String.raw`notification\s*date|date\s*of\s*(?:notification|advertisement|publication)|advt\.?\s*date|release\s*date|(?:^|\n)\s*notification(?=[ \t]*[:\t\n])`, /$^/),
     applicationStartDate: dateAfterLabel(text, String.raw`start(?:ing)?\s*date|begin(?:ning)?\s*(?:date|of)?|commencement|opening\s*date|(?:application|registration)s?\s*(?:start|begin|open)s?|start\s*of\s*(?:online\s*)?application|apply\s*online\s*(?:start|begin)s?`),
     applicationEndDate: dateAfterLabel(text, String.raw`last\s*date|closing\s*date|end\s*date|apply\s*(?:online\s*)?(?:till|before|until|up\s*to|upto)|(?:application|registration)s?\s*(?:end|close)s?|deadline`),
@@ -385,7 +461,7 @@ export function parseCapture(payload: CapturePayload, context: ParseContext): Pa
     officialNotificationUrl: chooseLink(links, "notification")?.href,
     officialApplicationUrl: chooseLink(links, "apply")?.href,
     officialWebsiteUrl: chooseLink(links, "website")?.href ?? (organisation?.website ? (cleanUrl(organisation.website) ?? undefined) : undefined),
-    posts: posts.length ? posts.map((post) => (post.inferred && !post.vacancyCount && posts.length === 1 && vacancyCount ? { ...post, vacancyCount } : post)) : title ? [{ title: fallbackPostTitle(title), ...(vacancyCount ? { vacancyCount } : {}), inferred: true }] : [],
+    posts: posts.length ? qualificationsByPost(posts, qualificationText).map((post) => (post.inferred && !post.vacancyCount && posts.length === 1 && vacancyCount ? { ...post, vacancyCount } : post)) : title ? [{ title: fallbackPostTitle(title), ...(vacancyCount ? { vacancyCount } : {}), inferred: true }] : [],
     links
   };
 }

@@ -20,6 +20,7 @@ export function RecruitmentForm({ values = {}, organisations }: { values?: Recru
       <Field label="Notification date"><input name="notification_date" type="date" defaultValue={v("notification_date")} className={inputClass} /></Field>
       <Field label="Applications open"><input name="application_start_date" type="date" defaultValue={v("application_start_date")} className={inputClass} /></Field>
       <Field label="Last date to apply"><input name="application_end_date" type="date" defaultValue={v("application_end_date")} className={inputClass} /></Field>
+      <Field label="Total vacancies" hint="For a notification that gives one total for all its posts. Posts with no count of their own show it with a *."><input name="vacancy_total" type="number" min="1" defaultValue={v("vacancy_total")} className={inputClass} /></Field>
       <Field label="Official notification link"><input name="official_notification_url" type="url" defaultValue={v("official_notification_url")} className={inputClass} /></Field>
       <Field label="Official application link"><input name="official_application_url" type="url" defaultValue={v("official_application_url")} className={inputClass} /></Field>
       <Field label="Official website"><input name="official_website_url" type="url" defaultValue={v("official_website_url")} className={inputClass} /></Field>
