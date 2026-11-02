@@ -283,11 +283,14 @@ function readPosts(tables: string[][][]): { posts: LeadPost[]; total?: number } 
     for (const row of table.slice(headerIndex + 1)) {
       const title = (row[postColumn] ?? "").replace(/\s+/g, " ").trim();
       const vacancy = vacancyColumn >= 0 ? readNumber((row[vacancyColumn] ?? "").match(/\d[\d,]*/)?.[0] ?? "") : undefined;
-      if (/^total\b/i.test(title)) {
-        total = vacancy ?? total;
+      // A total row is often two cells in a wider table ("Total | 7,268"), so the label may not be in the post column.
+      const filled = row.map((cell) => cell.trim()).filter(Boolean);
+      if (/^total\b/i.test(title) || (filled.length <= 2 && /^(?:grand\s+)?total\b/i.test(filled[0] ?? ""))) {
+        total = vacancy ?? readNumber([...filled].reverse().find((cell) => /\d/.test(cell))?.match(/\d[\d,]*/)?.[0] ?? "") ?? total;
         continue;
       }
-      if (!title || title.length > 150 || /^\d+$/.test(title) || /^s\.?\s*no/i.test(title)) continue;
+      // A number is never a post name: it is a count that landed in the wrong column.
+      if (!title || title.length > 150 || /^[\d,.\s]+$/.test(title) || /^s\.?\s*no/i.test(title)) continue;
       if (posts.some((post) => post.title.toLowerCase() === title.toLowerCase())) continue;
       const qualification = qualificationColumn >= 0 ? (row[qualificationColumn] ?? "").replace(/\s+/g, " ").trim().slice(0, 200) : "";
       posts.push({ title, ...(vacancy ? { vacancyCount: vacancy } : {}), ...(qualification ? { qualificationText: qualification } : {}) });

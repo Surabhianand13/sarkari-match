@@ -451,3 +451,12 @@ async function planListing2(slug: string) {
   await planListing(db, listingOf([{ slug, date: "01/11/2026", last: "30-12-2099" }]), noToken);
   return (await db.query<{ lead_id: string }>("select lead_id from lead_sources where source_url = $1", [`https://rival-two.example/${slug}`])).rows[0].lead_id;
 }
+
+describe("a post that is only a number", () => {
+  it("cannot be published, so a count in the wrong column never becomes a post", async () => {
+    const { ingestPage, approveLead, getLead, fieldsOf, LeadError } = await import("@/lib/ingest/leads");
+    const result = await ingestPage(db, fresh("hotel"), noToken);
+    const fields = fieldsOf((await getLead(db, result.leadId))!.lead);
+    await expect(approveLead(db, { id: result.leadId, actorId: adminId, mode: "publish", fields: { ...fields, posts: [...fields.posts, { title: "7,268" }] }, note: "Checked on hotel.gov.in, all details match." })).rejects.toThrow(LeadError);
+  });
+});

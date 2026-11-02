@@ -438,3 +438,19 @@ describe("listing menus", () => {
     expect(entries.map((entry) => entry.title)).toEqual(["KEA FDA SDA Online Form 2026 (5,431 Vacancy)"]);
   });
 });
+
+describe("a total row that is narrower than the table", () => {
+  it("reads 'Total | 7,268' as the total and not as a post called 7,268", () => {
+    const payload: CapturePayload = {
+      mode: "page",
+      url: "https://rival-jobs.example/odisha-police-constable-2026",
+      title: "Odisha Police Constable Recruitment 2026",
+      text: "Total Vacancies\t7,268",
+      links: [],
+      tables: [[["S. No.", "Post Name", "No. of Posts"], ["1", "Constable (Civil)", "4,219"], ["2", "Constable (Communication)", "300"], ["3", "Traffic Constable", "4"], ["Total", "7,268"]]]
+    };
+    const parsed = parseCapture(payload, context);
+    expect(parsed.posts.map((post) => [post.title, post.vacancyCount])).toEqual([["Constable (Civil)", 4219], ["Constable (Communication)", 300], ["Traffic Constable", 4]]);
+    expect(parsed.vacancyCount).toBe(7268);
+  });
+});
