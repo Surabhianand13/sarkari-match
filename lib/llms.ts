@@ -2,6 +2,7 @@ import { absoluteUrl, brand } from "@/lib/brand";
 import { jobsForDepartment, jobsForQualification, jobsForState } from "@/lib/data/hubs";
 import { departmentLabels, departments, qualificationLabels, qualificationPages, stateLabels, states } from "@/lib/data/catalog";
 import { getJobs } from "@/lib/data/jobs";
+import { vacancyPlain } from "@/lib/data/vacancies";
 import { getPublishedPosts } from "@/lib/blog";
 import { getPublishedSeries, formatPrice } from "@/lib/tests/catalog";
 
@@ -40,7 +41,7 @@ export async function buildLlmsText(full: boolean) {
 
   const shown = full ? jobs : jobs.slice(0, 25);
   for (const job of shown) {
-    const detail = `${job.organisation}; ${job.qualification}; ${job.state}; ${job.vacancyCount} vacancies; last date ${job.applicationEndDate || "see notification"}`;
+    const detail = `${job.organisation}; ${job.qualification}; ${job.state}; ${vacancyPlain(job)}; last date ${job.applicationEndDate || "see notification"}`;
     lines.push(`- [${job.title}](${absoluteUrl(`/jobs/${job.slug}`)}): ${detail}`);
   }
 

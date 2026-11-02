@@ -10,6 +10,7 @@ export type LeadFields = {
   notificationNumber: string | null;
   stateName: string | null;
   qualificationText: string | null;
+  salaryText: string | null;
   notificationDate: string | null;
   applicationStartDate: string | null;
   applicationEndDate: string | null;
@@ -51,6 +52,7 @@ export function leadFieldsFromForm(formData: FormData): LeadFields {
     notificationNumber: optionalText(formData, "notification_number"),
     stateName: optionalText(formData, "state_name"),
     qualificationText: optionalText(formData, "qualification_text"),
+    salaryText: optionalText(formData, "salary_text"),
     notificationDate: optionalText(formData, "notification_date"),
     applicationStartDate: optionalText(formData, "application_start_date"),
     applicationEndDate: optionalText(formData, "application_end_date"),
@@ -125,6 +127,7 @@ export function mergeFields(existing: LeadFields, incoming: Partial<LeadFields>)
     notificationNumber: pick("notificationNumber"),
     stateName: pick("stateName"),
     qualificationText: pick("qualificationText"),
+    salaryText: pick("salaryText"),
     notificationDate: pick("notificationDate"),
     applicationStartDate: pick("applicationStartDate"),
     applicationEndDate: pick("applicationEndDate"),

@@ -254,3 +254,45 @@ describe("saving edits", () => {
     expect((await getLead(db, result.leadId))!.lead).toMatchObject({ organisation_name: "India Post", vacancy_count: 100, application_end_date: "2099-06-01" });
   });
 });
+
+describe("a total with no split by post, and the pay", () => {
+  it("publishes the total for posts without a count, marked as shared, and carries the pay across", async () => {
+    const { ingestPage, approveLead, getLead, fieldsOf } = await import("@/lib/ingest/leads");
+    const result = await ingestPage(
+      db,
+      page({
+        url: "https://rival-one.example/tgpsc-planning-2026",
+        title: "TGPSC Mandal Planning Statistical Officer Recruitment 2026 for 102 Posts",
+        text: ["Organization Name : Telangana Planning Commission", "Last Date to Apply Online : 27/11/2099", "Total Vacancy : 102", "Salary\tRs. 27,000 - Rs. 67,600 per month (pay scale varies by post)", "Qualification : Any Graduate"].join("\n"),
+        links: [{ href: "https://websitenew.tgpsc.gov.in/notice/planning.pdf", text: "Download Notification" }, { href: "https://tgpsc.gov.in/apply", text: "Apply Online" }],
+        tables: [[["Post Name", "Qualification"], ["Mandal Planning", "Any Graduate"], ["Statistical Officer / Assistant Statistical Officer", "Any Graduate"]]]
+      }),
+      noToken
+    );
+    const fields = fieldsOf((await getLead(db, result.leadId))!.lead);
+    expect(fields).toMatchObject({ vacancyCount: 102, salaryText: "Rs. 27,000 - Rs. 67,600 per month (pay scale varies by post)" });
+    expect(fields.posts.map((post) => post.vacancyCount)).toEqual([undefined, undefined]);
+
+    const { recruitmentId } = await approveLead(db, { id: result.leadId, actorId: adminId, mode: "publish", fields: { ...fields, organisationName: "Telangana Planning Commission" }, note: "Checked the PDF on tgpsc.gov.in: total and pay match." });
+    expect((await db.query<{ vacancy_total: number }>("select vacancy_total from recruitments where id = $1", [recruitmentId])).rows[0].vacancy_total).toBe(102);
+    const posts = await db.query<{ vacancy_count: number | null; salary_text: string; salary_min: number; salary_max: number }>("select vacancy_count, salary_text, salary_min, salary_max from job_posts where recruitment_id = $1", [recruitmentId]);
+    expect(posts.rows).toHaveLength(2);
+    expect(posts.rows.every((post) => post.vacancy_count === null && post.salary_min === 27000 && post.salary_max === 67600 && post.salary_text.includes("27,000"))).toBe(true);
+
+    const { getJobs } = await import("@/lib/data/jobs");
+    const live = (await getJobs()).filter((job) => job.recruitmentTitle.includes("TGPSC"));
+    expect(live).toHaveLength(2);
+    expect(live.every((job) => job.vacancyCount === 102 && job.vacancyShared && job.salaryText.includes("67,600"))).toBe(true);
+    const rules = (await db.query<{ rules: { qualificationRules: Array<{ minimumLevel: string }> } }>("select eligibility_rules as rules from job_posts where recruitment_id = $1", [recruitmentId])).rows[0].rules;
+    expect(rules.qualificationRules[0].minimumLevel).toBe("graduate");
+  });
+
+  it("shows a star only where the number is the whole notification total", async () => {
+    const { vacancyFigure, vacancyPhrase, vacancyPlain } = await import("@/lib/data/vacancies");
+    expect(vacancyFigure({ vacancyCount: 102, vacancyShared: true })).toBe("102*");
+    expect(vacancyFigure({ vacancyCount: 3000, vacancyShared: false })).toBe("3,000");
+    expect(vacancyFigure({ vacancyCount: 0, vacancyShared: false })).toBe("As per notification");
+    expect(vacancyPhrase({ vacancyCount: 0, vacancyShared: false })).toBe("Vacancies as per notification");
+    expect(vacancyPlain({ vacancyCount: 102, vacancyShared: true })).toBe("102 vacancies in total");
+  });
+});

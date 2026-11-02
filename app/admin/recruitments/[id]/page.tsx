@@ -33,7 +33,7 @@ export default async function RecruitmentPage({ params, searchParams }: { params
   const db = await adminDb();
   const { rows } = await db.query(
     `select id, organisation_id, title, slug, notification_number, notification_date::text, application_start_date::text, application_end_date::text,
-            official_notification_url, official_application_url, official_website_url, summary, verification_notes, editorial_status, verified_at::text
+            official_notification_url, official_application_url, official_website_url, summary, verification_notes, vacancy_total::text, editorial_status, verified_at::text
      from recruitments where id = $1`,
     [id]
   );

@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { adminDb, friendlyDbError } from "@/lib/admin/db";
 import { writeAudit } from "@/lib/admin/audit";
-import { optionalText, slugify, text } from "@/lib/admin/forms";
+import { integer, optionalText, slugify, text } from "@/lib/admin/forms";
 import { goTo, withMessage } from "@/lib/admin/nav";
 import { revalidatePublicContent } from "@/lib/admin/revalidate";
 import { requireAdmin } from "@/lib/auth/guards";
@@ -33,6 +33,8 @@ export async function saveRecruitment(formData: FormData) {
     goTo(withMessage(base, "error", "Choose an organisation, enter a title and use valid https links."));
   }
 
+  const total = integer(formData, "vacancy_total");
+  const vacancyTotal = total !== null && total > 0 ? total : null;
   const values = [
     text(formData, "organisation_id"),
     title,
@@ -43,7 +45,8 @@ export async function saveRecruitment(formData: FormData) {
     optionalText(formData, "application_end_date"),
     ...urls,
     optionalText(formData, "summary"),
-    optionalText(formData, "verification_notes")
+    optionalText(formData, "verification_notes"),
+    vacancyTotal
   ];
 
   const db = await adminDb();
@@ -54,15 +57,15 @@ export async function saveRecruitment(formData: FormData) {
       await db.query(
         `update recruitments set organisation_id=$1, title=$2, slug=$3, notification_number=$4, notification_date=$5, application_start_date=$6,
            application_end_date=$7, official_notification_url=$8, official_application_url=$9, official_website_url=$10, summary=$11,
-           verification_notes=$12, updated_at=now() where id=$13`,
+           verification_notes=$12, vacancy_total=$13, updated_at=now() where id=$14`,
         [...values, id]
       );
       await writeAudit(db, { actorId: admin.id, action: "recruitment.update", entityType: "recruitment", entityId: id, before: before.rows[0], after: { title } });
     } else {
       const created = await db.query<{ id: string }>(
         `insert into recruitments (organisation_id, title, slug, notification_number, notification_date, application_start_date, application_end_date,
-           official_notification_url, official_application_url, official_website_url, summary, verification_notes)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning id`,
+           official_notification_url, official_application_url, official_website_url, summary, verification_notes, vacancy_total)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning id`,
         values
       );
       savedId = created.rows[0].id;

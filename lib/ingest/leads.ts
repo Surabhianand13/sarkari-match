@@ -6,6 +6,7 @@ import {
   findMatch,
   parseCapture,
   parseListing,
+  salaryBounds,
   siteOf,
   vacancyFromTitle,
   type CapturePayload,
@@ -35,6 +36,7 @@ export type LeadRow = {
   notification_number: string | null;
   state_name: string | null;
   qualification_text: string | null;
+  salary_text: string | null;
   notification_date: string | null;
   application_start_date: string | null;
   application_end_date: string | null;
@@ -52,7 +54,7 @@ export type LeadRow = {
   updated_at: string;
 };
 
-const LEAD_COLUMNS = `id, status, lead_type, detail_captured, organisation_id, organisation_name, title, notification_number, state_name, qualification_text,
+const LEAD_COLUMNS = `id, status, lead_type, detail_captured, organisation_id, organisation_name, title, notification_number, state_name, qualification_text, salary_text,
   notification_date::text, application_start_date::text, application_end_date::text, vacancy_count, official_notification_url, official_application_url,
   official_website_url, posts, matched_recruitment_id, recruitment_id, review_notes, reviewed_by, reviewed_at::text, created_at::text, updated_at::text`;
 
@@ -64,6 +66,7 @@ export function fieldsOf(row: LeadRow): LeadFields {
     notificationNumber: row.notification_number,
     stateName: row.state_name,
     qualificationText: row.qualification_text,
+    salaryText: row.salary_text,
     notificationDate: row.notification_date,
     applicationStartDate: row.application_start_date,
     applicationEndDate: row.application_end_date,
@@ -82,6 +85,7 @@ function incomingFields(parsed: ParsedLead): Partial<LeadFields> {
     notificationNumber: parsed.notificationNumber ?? null,
     stateName: parsed.stateName ?? null,
     qualificationText: parsed.qualificationText ?? null,
+    salaryText: parsed.salaryText ?? null,
     notificationDate: parsed.notificationDate ?? null,
     applicationStartDate: parsed.applicationStartDate ?? null,
     applicationEndDate: parsed.applicationEndDate ?? null,
@@ -133,7 +137,7 @@ async function loadLeadCandidates(db: Db): Promise<LeadCandidate[]> {
 async function findExistingRecruitment(db: Db, parsed: Pick<LeadFields, "title" | "organisationName" | "notificationNumber" | "vacancyCount" | "officialNotificationUrl" | "officialApplicationUrl">) {
   const { rows } = await db.query<{ id: string; title: string; organisation_name: string; notification_number: string | null; official_notification_url: string | null; official_application_url: string | null; vacancy_count: number | null }>(
     `select r.id, r.title, o.name as organisation_name, r.notification_number, r.official_notification_url, r.official_application_url,
-            (select sum(vacancy_count) from job_posts where recruitment_id = r.id)::int as vacancy_count
+            coalesce(r.vacancy_total, (select sum(vacancy_count) from job_posts where recruitment_id = r.id))::int as vacancy_count
      from recruitments r join organisations o on o.id = r.organisation_id
      where r.editorial_status <> 'archived' and r.created_at > now() - interval '400 days' order by r.created_at desc limit 1500`
   );
@@ -228,7 +232,7 @@ async function saveParsed(db: Db, input: SaveInput): Promise<IngestResult> {
 
 function blankFields(title: string): LeadFields {
   return {
-    organisationId: null, organisationName: null, title, notificationNumber: null, stateName: null, qualificationText: null, notificationDate: null,
+    organisationId: null, organisationName: null, title, notificationNumber: null, stateName: null, qualificationText: null, salaryText: null, notificationDate: null,
     applicationStartDate: null, applicationEndDate: null, vacancyCount: null, officialNotificationUrl: null, officialApplicationUrl: null, officialWebsiteUrl: null, posts: []
   };
 }
@@ -240,13 +244,13 @@ async function saveFields(db: Db, id: string, fields: LeadFields, extra?: { deta
        notification_date = $8, application_start_date = $9, application_end_date = $10, vacancy_count = $11,
        official_notification_url = $12, official_application_url = $13, official_website_url = $14, posts = $15,
        detail_captured = coalesce($16, detail_captured), lead_type = coalesce($17, lead_type),
-       matched_recruitment_id = case when $18 then $19 else matched_recruitment_id end, updated_at = now()
+       matched_recruitment_id = case when $18 then $19 else matched_recruitment_id end, salary_text = $20, updated_at = now()
      where id = $1`,
     [
       id, fields.organisationId, fields.organisationName, fields.title, fields.notificationNumber, fields.stateName, fields.qualificationText,
       fields.notificationDate, fields.applicationStartDate, fields.applicationEndDate, fields.vacancyCount,
       fields.officialNotificationUrl, fields.officialApplicationUrl, fields.officialWebsiteUrl, JSON.stringify(fields.posts),
-      extra?.detailCaptured ?? null, extra?.leadType ?? null, extra !== undefined && "matchedRecruitmentId" in extra, extra?.matchedRecruitmentId ?? null
+      extra?.detailCaptured ?? null, extra?.leadType ?? null, extra !== undefined && "matchedRecruitmentId" in extra, extra?.matchedRecruitmentId ?? null, fields.salaryText
     ]
   );
 }
@@ -417,22 +421,25 @@ export async function approveLead(db: Db, input: { id: string; actorId: string; 
     const live = mode === "publish";
     const recruitment = await tx.query<{ id: string }>(
       `insert into recruitments (organisation_id, title, slug, notification_number, notification_date, application_start_date, application_end_date,
-         official_notification_url, official_application_url, official_website_url, verification_notes, status, editorial_status, verified_at, verified_by, published_at)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::editorial_status, case when $14::boolean then now() end, case when $14::boolean then $15::uuid end, case when $14::boolean then now() end) returning id`,
+         official_notification_url, official_application_url, official_website_url, verification_notes, status, editorial_status, verified_at, verified_by, published_at, vacancy_total)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::editorial_status, case when $14::boolean then now() end, case when $14::boolean then $15::uuid end, case when $14::boolean then now() end, $16) returning id`,
       [
         organisationId, fields.title, recruitmentSlug, fields.notificationNumber, fields.notificationDate, fields.applicationStartDate, fields.applicationEndDate,
-        fields.officialNotificationUrl, fields.officialApplicationUrl, fields.officialWebsiteUrl, note || null, live ? "published" : "draft", live ? "published" : "draft", live, input.actorId
+        fields.officialNotificationUrl, fields.officialApplicationUrl, fields.officialWebsiteUrl, note || null, live ? "published" : "draft", live ? "published" : "draft", live, input.actorId, fields.vacancyCount
       ]
     );
     const recruitmentId = recruitment.rows[0].id;
 
+    const pay = salaryBounds(fields.salaryText);
     for (const post of fields.posts) {
+      // A lone post with no count of its own holds the whole total. With several, the total stays on the recruitment and the site marks it with a "*".
+      const vacancies = post.vacancyCount ?? (fields.posts.length === 1 ? fields.vacancyCount : null);
       const status = fields.applicationStartDate && fields.applicationStartDate > today ? "upcoming" : fields.applicationEndDate && fields.applicationEndDate < today ? "closed" : "open";
       const slug = await uniqueSlug(tx, "job_posts", slugify(`${post.title}-${recruitmentSlug}`));
       await tx.query(
-        `insert into job_posts (recruitment_id, title, slug, vacancy_count, application_status, eligibility_rules, active, published_at)
-         values ($1,$2,$3,$4,$5,$6,$7::boolean, case when $7::boolean then now() end)`,
-        [recruitmentId, post.title, slug, post.vacancyCount ?? null, status, JSON.stringify(qualificationRules(post, fields.qualificationText)), live]
+        `insert into job_posts (recruitment_id, title, slug, vacancy_count, application_status, eligibility_rules, active, published_at, salary_text, salary_min, salary_max)
+         values ($1,$2,$3,$4,$5,$6,$7::boolean, case when $7::boolean then now() end, $8, $9, $10)`,
+        [recruitmentId, post.title, slug, vacancies, status, JSON.stringify(qualificationRules(post, fields.qualificationText)), live, fields.salaryText, pay?.min ?? null, pay?.max ?? null]
       );
     }
 

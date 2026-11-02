@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { ArrowUpRight, CalendarClock, MapPin, Users } from "lucide-react";
 import type { JobPost } from "@/lib/data/catalog";
+import { vacancyPhrase } from "@/lib/data/vacancies";
 
 function deadline(value: string) {
   const date = new Date(value);
@@ -21,7 +22,7 @@ export function NotificationTile({ job }: { job: JobPost }) {
       <p className="mt-1 text-sm font-semibold text-muted">{job.organisation}</p>
       <dl className="mt-4 grid gap-2 text-sm font-semibold text-primary">
         <div className="flex items-center gap-2"><MapPin size={15} className="text-success" aria-hidden="true" /><dt className="sr-only">Location</dt><dd>{job.state}</dd></div>
-        <div className="flex items-center gap-2"><Users size={15} className="text-success" aria-hidden="true" /><dt className="sr-only">Vacancies</dt><dd>{job.vacancyCount.toLocaleString("en-IN")} vacancies · {job.qualification}</dd></div>
+        <div className="flex items-center gap-2"><Users size={15} className="text-success" aria-hidden="true" /><dt className="sr-only">Vacancies</dt><dd>{vacancyPhrase(job)} · {job.qualification}</dd></div>
         {last && <div className="flex items-center gap-2"><CalendarClock size={15} className="text-success" aria-hidden="true" /><dt className="sr-only">Last date</dt><dd>Last date {last}</dd></div>}
       </dl>
     </Link>

@@ -9,6 +9,7 @@ import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { JsonLd } from "@/components/seo/json-ld";
 import { absoluteUrl } from "@/lib/brand";
 import { getJobWithRulesBySlug, getJobs } from "@/lib/data/jobs";
+import { sharedVacancyNote, vacancyFigure, vacancyPlain } from "@/lib/data/vacancies";
 import { breadcrumbJsonLd, buildMetadata } from "@/lib/seo";
 import { formatDate } from "@/lib/utils/format";
 import { buildWhatsAppShareUrl } from "@/lib/utils/whatsapp-share";
@@ -41,7 +42,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { job } = found;
   return buildMetadata({
     title: `${job.title}: Eligibility, Age Limit, Last Date and Apply Online`,
-    description: `${job.title} by ${job.organisation}: ${job.vacancyCount} vacancies, ${job.qualification} qualification, last date ${dateOrEmpty(job.applicationEndDate)}. Check eligibility and apply through the official link.`,
+    description: `${job.title} by ${job.organisation}: ${vacancyPlain(job)}, ${job.qualification} qualification, last date ${dateOrEmpty(job.applicationEndDate)}. Check eligibility and apply through the official link.`,
     path: `/jobs/${job.slug}`,
     type: "article"
   });
@@ -74,7 +75,7 @@ export default async function JobDetailPage({ params }: { params: Params }) {
     { title: "Other conditions", items: rules.otherRules.map((rule) => rule.ruleText) }
   ].filter((group) => group.items.length);
 
-  const overview = `${job.title} is a ${job.department} govt job notification from ${job.organisation} for ${job.qualification} candidates, with ${job.vacancyCount} vacancies in ${job.state}. ${
+  const overview = `${job.title} is a ${job.department} govt job notification from ${job.organisation} for ${job.qualification} candidates, with ${vacancyPlain(job)} in ${job.state}. ${
     job.applicationEndDate ? `Applications close on ${formatDate(job.applicationEndDate)}.` : "Check the official notification for the closing date."
   } This page was last verified on ${dateOrEmpty(job.verifiedAt)} against the official notification.`;
 
@@ -109,7 +110,12 @@ export default async function JobDetailPage({ params }: { params: Params }) {
     },
     {
       title: "Vacancies and salary",
-      body: <p className="text-muted">Total vacancies: {job.vacancyCount}. Pay: {job.salaryText}.</p>
+      body: (
+        <div className="text-muted">
+          <p>Vacancies: {vacancyFigure(job)}. Pay: {job.salaryText}.</p>
+          {job.vacancyShared && <p className="mt-1 text-sm">{sharedVacancyNote}</p>}
+        </div>
+      )
     },
     {
       title: "How to apply",
@@ -194,16 +200,17 @@ export default async function JobDetailPage({ params }: { params: Params }) {
           <Row label="Department" value={job.department} />
           <Row label="Location" value={job.state} />
           <Row label="Qualification" value={job.qualification} />
-          <Row label="Vacancies" value={String(job.vacancyCount)} />
+          <Row label="Vacancies" value={vacancyFigure(job)} />
           <Row label="Salary" value={job.salaryText} />
           <Row label="Last verified" value={dateOrEmpty(job.verifiedAt)} />
           <Row label="Verified by" value="Sarkari Match editorial team" />
         </dl>
+        {job.vacancyShared && <p className="mt-3 text-sm text-muted">{sharedVacancyNote}</p>}
         <div className="mt-5 rounded-3xl bg-[linear-gradient(135deg,#EAFBF0,#E8F8FA)] p-5">
           <div className="grid gap-3 sm:grid-cols-4">
             <Fact icon={GraduationCap} label="Qualification" value={job.qualification} />
             <Fact icon={MapPin} label="Location" value={job.state} />
-            <Fact icon={BriefcaseBusiness} label="Vacancies" value={`${job.vacancyCount}`} />
+            <Fact icon={BriefcaseBusiness} label="Vacancies" value={vacancyFigure(job)} />
             <Fact icon={CalendarClock} label="Last date" value={dateOrEmpty(job.applicationEndDate)} />
           </div>
         </div>
