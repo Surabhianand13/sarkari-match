@@ -3,7 +3,8 @@ import Link from "next/link";
 import type { Route } from "next";
 import { AlertTriangle, ExternalLink } from "lucide-react";
 import { AdminHeader, ButtonLinkSmall, Card, Field, Flash, StatusPill, SubmitButton, inputClass } from "@/components/admin/ui";
-import { reviewLead } from "@/app/admin/leads/actions";
+import { applySourceUpdates, dismissSourceUpdates, reviewLead } from "@/app/admin/leads/actions";
+import { applicableFields, latestChanges } from "@/lib/ingest/changes";
 import { uuidPattern } from "@/lib/admin/api";
 import { adminDb } from "@/lib/admin/db";
 import { listOrganisationOptions, listStates } from "@/lib/admin/lookups";
@@ -59,6 +60,26 @@ export default async function ReviewLeadPage({ params, searchParams }: { params:
                 ))}
               </ul>
             </div>
+          )}
+
+          {lead.source_updates.length > 0 && (
+            <Card title="Changed on the source">
+              <p className="text-sm text-muted">The page this notification came from now says something different from when it was first read. {pending ? "Values you have not edited were updated for you; the rest are only listed here." : "The decision on this lead is kept as it was."} Check the official notification before relying on any of these.</p>
+              <ul className="mt-3 grid gap-2 text-sm">
+                {[...lead.source_updates].reverse().map((update) => (
+                  <li key={`${update.at}-${update.url}`} className="rounded-xl bg-surface p-3">
+                    <p className="text-xs font-black text-muted">{update.site} · {new Date(update.at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</p>
+                    {update.changes.map((change) => <p key={change.field}><b>{change.label}:</b> {change.from} <span className="text-muted">to</span> <b>{change.to}</b></p>)}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 flex flex-wrap gap-3">
+                {lead.recruitment_id && [...latestChanges(lead.source_updates).keys()].some((field) => field in applicableFields) && (
+                  <form action={applySourceUpdates}><input type="hidden" name="id" value={lead.id} /><SubmitButton>Apply the dates and vacancies to the recruitment</SubmitButton></form>
+                )}
+                <form action={dismissSourceUpdates}><input type="hidden" name="id" value={lead.id} /><SubmitButton variant="secondary">Mark as seen</SubmitButton></form>
+              </div>
+            </Card>
           )}
 
           <Card title={pending ? "Details" : "Details as reviewed"}>

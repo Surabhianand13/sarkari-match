@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "SarkariMatch Collector",
-  "version": "0.1.0",
-  "description": "Reads the notification page you have open and sends it to the SarkariMatch admin dashboard as a lead to review. It never publishes anything.",
+  "version": "0.2.0",
+  "description": "Reads notification pages on other sites and sends them to the SarkariMatch admin dashboard as leads to review. It never publishes anything.",
   "permissions": ["activeTab", "scripting", "storage"],
   "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
   "action": {

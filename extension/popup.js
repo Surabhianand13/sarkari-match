@@ -108,3 +108,11 @@ document.getElementById("settings").addEventListener("click", (event) => {
   event.preventDefault();
   chrome.runtime.openOptionsPage();
 });
+
+for (const [id, mode] of [["check", "check"], ["backfill", "backfill"]]) {
+  document.getElementById(id).addEventListener("click", (event) => {
+    event.preventDefault();
+    chrome.tabs.create({ url: chrome.runtime.getURL(`sync.html?mode=${mode}`) });
+    window.close();
+  });
+}

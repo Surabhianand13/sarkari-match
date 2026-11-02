@@ -22,3 +22,13 @@ input { min-height: 40px; padding: 0 12px; border: 1px solid var(--line); border
 .card li.missing::before { content: "\2717\00a0"; color: var(--bad); }
 .footer { margin: 10px 0 0; font-size: 12px; }
 a { color: var(--teal); font-weight: 700; }
+progress { width: 100%; height: 10px; margin: 8px 0; }
+.counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+.counts div { padding: 8px 10px; border-radius: 12px; background: var(--soft); }
+.counts dt { color: var(--muted); font-size: 11.5px; font-weight: 700; }
+.counts dd { margin: 0; font-size: 20px; font-weight: 800; }
+.log { max-height: 340px; margin: 10px 0 0; padding: 0; overflow: auto; list-style: none; font-size: 12.5px; }
+.log li { padding: 5px 0; border-bottom: 1px solid var(--line); }
+.log li.changed { color: var(--warn); font-weight: 700; }
+.log li.failed { color: var(--bad); }
+button[hidden], progress[hidden], dl[hidden] { display: none; }

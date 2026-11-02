@@ -8,6 +8,7 @@ export type AdminStats = {
   publishedNotifications: number;
   draftRecruitments: number;
   leadsPending: number;
+  sourceUpdates: number;
   closingSoon: number;
   reportsOpen: number;
   questionsAwaitingReview: number;
@@ -39,6 +40,7 @@ export async function getAdminStats(): Promise<AdminStats | null> {
       (select count(*) from job_posts where active and published_at is not null) as "publishedNotifications",
       (select count(*) from recruitments where editorial_status in ('draft','needs_review','reviewed')) as "draftRecruitments",
       (select count(*) from notification_leads where status = 'pending' and detail_captured) as "leadsPending",
+      (select count(*) from notification_leads where jsonb_array_length(source_updates) > 0 and (updates_seen_at is null or updates_seen_at < (source_updates->-1->>'at')::timestamptz)) as "sourceUpdates",
       (select count(*) from job_posts jp join recruitments r on r.id = jp.recruitment_id
          where jp.active and r.application_end_date between current_date and current_date + 7) as "closingSoon",
       (select count(*) from reports where status = 'open') as "reportsOpen",

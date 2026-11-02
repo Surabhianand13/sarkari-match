@@ -33,6 +33,14 @@ Only recruitments can be published. Admit cards, results and answer keys are rec
 
 Payments, subscriptions and test access are read-only views. Error reports from candidates can be resolved under Reports.
 
+### One-click sync and the 6-month backfill
+
+In the extension popup, **Check for new and updated notifications** reads FreeJobAlert's and Adda247's latest listings, opens each notification from the last 30 days that is new or was updated, and sends it to the review queue. A notification the site has updated since it was last read is read again; one that has not changed is skipped. **Bring in the last 6 months** (a link at the bottom of the popup) does the same once across the category and state pages, for the archive. It opens pages in background tabs, two at a time, so keep its tab open (it can take an hour or more). Stop it whenever you like and run it again: pages already read are skipped.
+
+Nothing is published by the sync. When a notification's own page changes (a last date extended, a vacancy count revised), the lead shows **Changed on the source** with the old and new value. A pending lead follows the change for any field you have not edited yourself. For a lead that is already published, **Apply the dates and vacancies to the recruitment** copies the new last date, start date and vacancy total onto the live recruitment after you have checked the official notification. The Overview shows how many are waiting.
+
+To publish many at once, open the Pending tab: leads marked Ready have every detail the site needs. Tick them (or **Select all ready**), write what you checked, tick the confirmation and **Publish ticked leads**. A lead missing something is skipped and listed, never half published.
+
 ### Open and past notifications
 
 Nobody moves a notification to past by hand. The site works out open, upcoming or past from the application start and last dates every time: a notification stays open through its last date and shows as past the next day. Open ones are listed first, the home page shows only open ones, and `/jobs` has an Open now / Past switch. A post you set to Closed stays closed whatever its dates say. The admin Overview shows how many notifications are active (and how many posts are open), how many are not open yet, and how many are past.

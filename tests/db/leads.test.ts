@@ -343,3 +343,111 @@ describe("past notifications and the active count", () => {
     expect(after.pastNotifications - before.pastNotifications).toBe(2);
   });
 });
+
+// A notification page that shares nothing with the others above, so it stays its own lead.
+const fresh = (slug: string, overrides: { lastDate?: string; vacancies?: number } = {}): CapturePayload =>
+  page({
+    url: `https://rival-two.example/${slug}`,
+    title: `${slug} Technical Assistant Recruitment 2026 for ${overrides.vacancies ?? 50} Posts`,
+    text: [`Organization Name : ${slug} Board`, `Advt. No. : ${slug.toUpperCase()}/2026/01`, `Last Date to Apply Online : ${overrides.lastDate ?? "30/12/2099"}`, `Total Vacancy : ${overrides.vacancies ?? 50}`, "Qualification : Any Graduate"].join("\n"),
+    links: [{ href: `https://${slug}.gov.in/notice.pdf`, text: "Download Notification" }, { href: `https://${slug}.gov.in/apply`, text: "Apply Online" }],
+    tables: [[["Post Name", "Vacancy"], ["Technical Assistant", String(overrides.vacancies ?? 50)]]]
+  });
+
+// Distinct names, because two near-identical headlines would be taken for the same notification.
+const boards: Record<string, string> = { alpha: "Coal Mines Authority", bravo: "Textile Commission", oldie: "Salt Department", golf: "Harbour Trust" };
+const posts: Record<string, string> = { alpha: "Pharmacist", bravo: "Welder", oldie: "Stenographer", golf: "Lab Attendant" };
+const listingOf = (rows: Array<{ slug: string; date: string; last: string }>): CapturePayload => ({
+  mode: "list",
+  url: "https://rival-two.example/latest/",
+  title: "Latest",
+  text: "",
+  tables: [],
+  links: rows.map((row) => ({ href: `https://rival-two.example/${row.slug}`, text: "Get Details", context: `${row.date} | ${boards[row.slug] ?? row.slug} | ${posts[row.slug] ?? "Technical Assistant"} – 50 Posts | Any Graduate | – | ${row.last} | Get Details` }))
+});
+
+describe("one-click sync", () => {
+  it("sorts a listing into new, headline-only, updated and unchanged, and skips what is older than the cut-off", async () => {
+    const { planListing } = await import("@/lib/ingest/sync");
+    const { ingestPage } = await import("@/lib/ingest/leads");
+    const rows = [{ slug: "alpha", date: "01/11/2026", last: "30-12-2099" }, { slug: "bravo", date: "02/11/2026", last: "30-12-2099" }, { slug: "oldie", date: "01/03/2026", last: "01-04-2026" }];
+
+    const first = await planListing(db, listingOf(rows), noToken, "2026-05-01");
+    expect(first).toMatchObject({ spotted: 3, tooOld: 1, created: 2, unchanged: 0 });
+    expect(first.todo.map((item) => [item.url.split("/").pop(), item.reason])).toEqual([["alpha", "new"], ["bravo", "new"]]);
+
+    // Seen again before any page was read: still headlines only.
+    expect((await planListing(db, listingOf(rows), noToken, "2026-05-01")).todo.map((item) => item.reason)).toEqual(["headline_only", "headline_only"]);
+
+    await ingestPage(db, { ...fresh("alpha"), listingDate: "2026-11-01" }, noToken);
+    const second = await planListing(db, listingOf(rows), noToken, "2026-05-01");
+    expect(second.todo.map((item) => [item.url.split("/").pop(), item.reason])).toEqual([["bravo", "headline_only"]]);
+    expect(second.unchanged).toBe(1);
+
+    // The site shows a newer date for alpha: it was updated.
+    const updated = await planListing(db, listingOf([{ ...rows[0], date: "05/11/2026" }]), noToken, "2026-05-01");
+    expect(updated.todo.map((item) => item.reason)).toEqual(["updated_on_site"]);
+  });
+
+  it("tells a pending lead's changed last date apart, follows it, and keeps a value someone edited by hand", async () => {
+    const { ingestPage, saveLead, getLead, fieldsOf } = await import("@/lib/ingest/leads");
+    const first = await ingestPage(db, fresh("charlie"), noToken);
+    expect(first.changes).toBeUndefined();
+
+    const second = await ingestPage(db, fresh("charlie", { lastDate: "15/01/2100", vacancies: 80 }), noToken);
+    expect(second.changes?.map((change) => [change.field, change.from, change.to])).toEqual([["applicationEndDate", "2099-12-30", "2100-01-15"], ["vacancyCount", "50", "80"]]);
+    const followed = fieldsOf((await getLead(db, first.leadId))!.lead);
+    expect(followed).toMatchObject({ applicationEndDate: "2100-01-15", vacancyCount: 80 });
+
+    // Someone sets the vacancy count by hand; the source changes it again; their value stays and the change is flagged.
+    await saveLead(db, first.leadId, { ...followed, vacancyCount: 75 }, adminId);
+    const third = await ingestPage(db, fresh("charlie", { lastDate: "15/01/2100", vacancies: 90 }), noToken);
+    expect(third.changes?.map((change) => change.field)).toEqual(["vacancyCount"]);
+    const kept = await getLead(db, first.leadId);
+    expect(fieldsOf(kept!.lead).vacancyCount).toBe(75);
+    expect(kept!.lead.source_updates).toHaveLength(2);
+  });
+
+  it("flags a change to a published notification and applies it to the live recruitment only when asked", async () => {
+    const { ingestPage, approveLead, getLead, fieldsOf } = await import("@/lib/ingest/leads");
+    const { applySourceChanges, countUnseenUpdates } = await import("@/lib/ingest/sync");
+    const first = await ingestPage(db, fresh("delta"), noToken);
+    const { recruitmentId } = await approveLead(db, { id: first.leadId, actorId: adminId, mode: "publish", fields: fieldsOf((await getLead(db, first.leadId))!.lead), note: "Checked on delta.gov.in, all details match." });
+
+    const again = await ingestPage(db, fresh("delta", { lastDate: "15/01/2100", vacancies: 60 }), noToken);
+    expect(again.outcome).toBe("already_reviewed");
+    expect(again.changes?.map((change) => change.field)).toEqual(["applicationEndDate", "vacancyCount"]);
+    const before = await db.query<{ application_end_date: string; vacancy_total: number }>("select application_end_date::text, vacancy_total from recruitments where id = $1", [recruitmentId]);
+    expect(before.rows[0]).toEqual({ application_end_date: "2099-12-30", vacancy_total: 50 });
+    expect(await countUnseenUpdates(db)).toBeGreaterThanOrEqual(1);
+    const { listLeads } = await import("@/lib/ingest/leads");
+    expect((await listLeads(db, "updated")).some((lead) => lead.id === first.leadId && lead.updated_unseen)).toBe(true);
+
+    const applied = await applySourceChanges(db, { id: first.leadId, actorId: adminId });
+    expect(applied).toHaveLength(2);
+    const after = await db.query<{ application_end_date: string; vacancy_total: number }>("select application_end_date::text, vacancy_total from recruitments where id = $1", [recruitmentId]);
+    expect(after.rows[0]).toEqual({ application_end_date: "2100-01-15", vacancy_total: 60 });
+    expect((await db.query<{ updates_seen_at: string | null }>("select updates_seen_at from notification_leads where id = $1", [first.leadId])).rows[0].updates_seen_at).not.toBeNull();
+    expect((await listLeads(db, "updated")).some((lead) => lead.id === first.leadId)).toBe(false);
+  });
+
+  it("publishes many ready leads at once and reports the ones that are not ready", async () => {
+    const { ingestPage } = await import("@/lib/ingest/leads");
+    const { bulkPublish } = await import("@/lib/ingest/sync");
+    const a = await ingestPage(db, fresh("echo"), noToken);
+    const b = await ingestPage(db, fresh("foxtrot", { lastDate: "01/01/2020" }), noToken);
+    const headline = await planListing2("golf");
+    const result = await bulkPublish(db, { ids: [a.leadId, b.leadId, headline], actorId: adminId, note: "Archive batch checked against the official sites." });
+    expect(result.published).toBe(2);
+    expect(result.failed).toHaveLength(1);
+    expect(result.failed[0].reason).toMatch(/headline/i);
+    expect(Number((await db.query<{ n: string }>("select count(*) as n from recruitments where title ilike '%foxtrot%' and editorial_status = 'published'")).rows[0].n)).toBe(1);
+  });
+});
+
+// A headline-only lead, as a listing creates it.
+async function planListing2(slug: string) {
+  const { planListing } = await import("@/lib/ingest/sync");
+  await planListing(db, listingOf([{ slug, date: "01/11/2026", last: "30-12-2099" }]), noToken);
+  return (await db.query<{ lead_id: string }>("select lead_id from lead_sources where source_url = $1", [`https://rival-two.example/${slug}`])).rows[0].lead_id;
+}

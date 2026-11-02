@@ -22,8 +22,10 @@ export const capturePayloadSchema = z.object({
   title: z.string().max(500),
   text: z.string().max(120_000),
   // `context` is the label next to a link: the first cell of its table row ("Apply Online"), or the words around it.
-  links: z.array(z.object({ href: z.string().max(2000), text: z.string().max(300), context: z.string().max(200).optional() })).max(600),
-  tables: z.array(z.array(z.array(z.string().max(300)).max(14)).max(100)).max(20)
+  links: z.array(z.object({ href: z.string().max(2000), text: z.string().max(300), context: z.string().max(400).optional() })).max(600),
+  tables: z.array(z.array(z.array(z.string().max(300)).max(14)).max(100)).max(20),
+  // The date a listing showed for this page. A newer one later means the site updated the notification.
+  listingDate: z.string().date().optional()
 });
 export type CapturePayload = z.infer<typeof capturePayloadSchema>;
 
@@ -472,25 +474,54 @@ function fallbackPostTitle(title: string) {
 }
 
 // A listing page: every headline linking to another page on the same site that looks like a notification.
-export function parseListing(payload: CapturePayload): Array<{ title: string; url: string; leadType: LeadType }> {
+export type ListingEntry = { title: string; url: string; leadType: LeadType; postedOn?: string; lastDate?: string };
+
+// A listing laid out as a table has "Get Details" as its link and the notification in the cells around it:
+// "02/11/2026 | Nainital Bank | HR Advisor - 1 Posts | Retired Staff | - | 07-11-2026 | Get Details".
+const genericLinkText = /^(?:get\s*)?(?:details?|more\s*(?:info(?:rmation)?|details?)|read\s*more|view(?:\s*details?)?|click\s*here|apply(?:\s*online)?|link|download)$/i;
+const dateCell = /^\d{1,2}\s*[\/\-.]\s*\d{1,2}\s*[\/\-.]\s*\d{4}$/;
+
+function readRow(context: string | undefined) {
+  const cells = (context ?? "").split(" | ").map((cell) => cell.trim()).filter(Boolean);
+  if (cells.length < 3) return undefined;
+  const postedOn = dateCell.test(cells[0]) ? toIsoDate(cells[0]) : undefined;
+  const lastDate = [...cells.slice(1)].reverse().map((cell) => (dateCell.test(cell) ? toIsoDate(cell) : undefined)).find(Boolean);
+  const words = cells.filter((cell) => !dateCell.test(cell) && !genericLinkText.test(cell) && cell !== "-" && cell !== "\u2013");
+  return { postedOn, lastDate, title: words.slice(0, 2).join(" ").replace(/\s+/g, " ").trim() };
+}
+
+// A category or menu link ("Latest Notifications", "/bank-jobs/") is a listing, not one notification.
+const menuTitle = /^(?:(?:latest|all|new|top|upcoming|govt\.?|government|sarkari)\s+)*(?:notifications?|jobs?|recruitments?|vacancies|updates?|alerts?)$/i;
+function isCategoryUrl(url: string) {
+  try {
+    const segments = new URL(url).pathname.split("/").filter(Boolean);
+    return segments.length <= 1 && new URL(url).pathname.endsWith("/");
+  } catch {
+    return false;
+  }
+}
+
+export function parseListing(payload: CapturePayload): ListingEntry[] {
   const pageSite = siteOf(payload.url);
   const seen = new Set<string>();
-  const entries: Array<{ title: string; url: string; leadType: LeadType }> = [];
+  const entries: ListingEntry[] = [];
   for (const link of payload.links) {
     const url = cleanUrl(link.href);
-    const title = cleanTitle(link.text);
-    if (!url || title.length < 12 || title.length > 200) continue;
+    const row = genericLinkText.test(link.text.trim()) ? readRow(link.context) : undefined;
+    const title = cleanTitle(row?.title || link.text);
+    if (!url || title.length < 12 || title.length > 200 || menuTitle.test(title) || isCategoryUrl(url)) continue;
     const host = siteOf(url);
     if (!hostMatches(host, pageSite) && !hostMatches(pageSite, host)) continue;
     const key = urlKey(url);
     if (!key || seen.has(key) || key === urlKey(payload.url)) continue;
     // Only recruitments become leads (admit cards and results are not published here), and a menu item such as
     // "Engineering Jobs" is not a notification: it needs a notification word or a number in it.
-    const leadType = classifyTitle(title);
-    if (leadType !== "recruitment" || !(/recruitment|vacanc|notification|(?:on|off)line\s*form|bharti|apprentice/i.test(title) || /\d/.test(title))) continue;
+    // A table row that has a last date to apply is a notification even when its title has no recruitment word.
+    const leadType = classifyTitle(title) === "other" && row?.lastDate ? "recruitment" : classifyTitle(title);
+    if (leadType !== "recruitment" || !(row?.lastDate || /recruitment|vacanc|notification|(?:on|off)line\s*form|bharti|apprentice/i.test(title) || /\d/.test(title))) continue;
     seen.add(key);
-    entries.push({ title, url, leadType });
-    if (entries.length >= 200) break;
+    entries.push({ title, url, leadType, ...(row?.postedOn ? { postedOn: row.postedOn } : {}), ...(row?.lastDate ? { lastDate: row.lastDate } : {}) });
+    if (entries.length >= 600) break;
   }
   return entries;
 }

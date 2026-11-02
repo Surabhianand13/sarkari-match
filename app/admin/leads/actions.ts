@@ -9,6 +9,7 @@ import { jobPathsForRecruitment, revalidatePublicContent } from "@/lib/admin/rev
 import { requireAdmin } from "@/lib/auth/guards";
 import { leadFieldsFromForm } from "@/lib/ingest/fields";
 import { LeadError, approveLead, closeLead, saveLead } from "@/lib/ingest/leads";
+import { applySourceChanges, bulkPublish, markUpdatesSeen } from "@/lib/ingest/sync";
 import { createIngestToken, revokeIngestToken } from "@/lib/ingest/tokens";
 
 const LIST = "/admin/leads";
@@ -72,4 +73,42 @@ export async function revokeToken(formData: FormData) {
   await revokeIngestToken(db, id);
   await writeAudit(db, { actorId: admin.id, action: "ingest_token.revoke", entityType: "ingest_token", entityId: id });
   goTo(withMessage(base, "notice", "Token revoked. The extension using it stops working."));
+}
+
+// Publishes the ticked leads, each as it stands, with one shared note. One that is missing something is skipped and listed.
+export async function bulkPublishLeads(formData: FormData) {
+  const admin = await requireAdmin();
+  const ids = formData.getAll("ids").map(String).filter((id) => uuidPattern.test(id));
+  if (!ids.length) goTo(withMessage(LIST, "error", "Tick at least one lead."));
+  if (!checkbox(formData, "verified")) goTo(withMessage(LIST, "error", "Tick the box to confirm you checked these against their official notifications."));
+  const note = text(formData, "note");
+  if (note.length < 10) goTo(withMessage(LIST, "error", "Write what you checked, for example: Archive batch checked against the commission websites."));
+  const result = await bulkPublish(await adminDb(), { ids, actorId: admin.id, note });
+  if (result.published) revalidatePublicContent();
+  const skipped = result.failed.length ? ` Skipped ${result.failed.length}: ${result.failed.slice(0, 3).map((item) => `${item.title.slice(0, 40)} (${item.reason.slice(0, 60)})`).join("; ")}${result.failed.length > 3 ? "; and more" : ""}` : "";
+  goTo(withMessage(LIST, result.published ? "notice" : "error", `Published ${result.published}.${skipped}`));
+}
+
+// Copies the source's newer last date, start date and vacancy total onto the recruitment this lead created.
+export async function applySourceUpdates(formData: FormData) {
+  const admin = await requireAdmin();
+  const id = text(formData, "id");
+  if (!uuidPattern.test(id)) goTo(withMessage(LIST, "error", "Lead not found."));
+  let message: string;
+  try {
+    const applied = await applySourceChanges(await adminDb(), { id, actorId: admin.id });
+    if (applied.length) revalidatePublicContent();
+    message = applied.length ? `Applied to the recruitment. ${applied.join("; ")}.` : "The recruitment already had these values.";
+  } catch (error) {
+    goTo(withMessage(`${LIST}/${id}`, "error", error instanceof LeadError ? error.message : friendlyDbError(error)));
+  }
+  goTo(withMessage(`${LIST}/${id}`, "notice", message));
+}
+
+export async function dismissSourceUpdates(formData: FormData) {
+  await requireAdmin();
+  const id = text(formData, "id");
+  if (!uuidPattern.test(id)) goTo(withMessage(LIST, "error", "Lead not found."));
+  await markUpdatesSeen(await adminDb(), id);
+  goTo(withMessage(`${LIST}/${id}`, "notice", "Marked as seen."));
 }
