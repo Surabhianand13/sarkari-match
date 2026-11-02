@@ -81,15 +81,15 @@ export function formatProblems(fields: LeadFields): string[] {
 }
 
 // What is still missing before a lead can go live. Mirrors what the recruitment publish step requires.
-export function publishProblems(fields: LeadFields, options: { today: string; detailCaptured: boolean; leadType: string }): string[] {
+export function publishProblems(fields: LeadFields, options: { detailCaptured: boolean; leadType: string }): string[] {
   const problems: string[] = [];
   if (options.leadType !== "recruitment") problems.push("Only recruitment notifications can be published. Reject or mark this one as a duplicate.");
   if (!options.detailCaptured) problems.push("This is only a headline from a listing page. Open the page and click Analyse for the details.");
   if (!fields.organisationId && !fields.organisationName) problems.push("Choose the organisation.");
   if (!fields.officialNotificationUrl) problems.push("Add the official notification link.");
   if (!fields.officialApplicationUrl) problems.push("Add the official application link.");
+  // A last date in the past is fine: past notifications are kept as an archive and shown as closed.
   if (!fields.applicationEndDate) problems.push("Add the last date to apply.");
-  else if (fields.applicationEndDate < options.today) problems.push("The last date has already passed.");
   if (!fields.posts.length) problems.push("Add at least one post.");
   return problems;
 }

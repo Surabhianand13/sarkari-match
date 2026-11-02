@@ -1,6 +1,10 @@
 import { getDb } from "@/lib/db";
 
 export type AdminStats = {
+  activeNotifications: number;
+  activePosts: number;
+  upcomingNotifications: number;
+  pastNotifications: number;
   publishedNotifications: number;
   draftRecruitments: number;
   leadsPending: number;
@@ -17,7 +21,21 @@ export async function getAdminStats(): Promise<AdminStats | null> {
   const db = await getDb();
   if (!db) return null;
   const { rows } = await db.query<Record<keyof AdminStats, string>>(`
+    with live as (
+      select jp.recruitment_id,
+             case when jp.application_status = 'closed' or r.application_end_date < (now() at time zone 'Asia/Kolkata')::date then 'past'
+                  when r.application_start_date > (now() at time zone 'Asia/Kolkata')::date or (r.application_start_date is null and jp.application_status = 'upcoming') then 'upcoming'
+                  else 'open' end as state
+      from job_posts jp
+      join recruitments r on r.id = jp.recruitment_id and r.editorial_status = 'published'
+      join organisations o on o.id = r.organisation_id and o.active
+      where jp.active and jp.published_at is not null
+    )
     select
+      (select count(distinct recruitment_id) from live where state = 'open') as "activeNotifications",
+      (select count(*) from live where state = 'open') as "activePosts",
+      (select count(distinct recruitment_id) from live where state = 'upcoming') as "upcomingNotifications",
+      (select count(distinct recruitment_id) from live where recruitment_id not in (select recruitment_id from live where state <> 'past')) as "pastNotifications",
       (select count(*) from job_posts where active and published_at is not null) as "publishedNotifications",
       (select count(*) from recruitments where editorial_status in ('draft','needs_review','reviewed')) as "draftRecruitments",
       (select count(*) from notification_leads where status = 'pending' and detail_captured) as "leadsPending",

@@ -19,7 +19,7 @@ Notifications that other sites (for example FreeJobAlert and Adda247) have alrea
 2. On a notification page of a competitor, click the extension and **Analyse this page**. On a home or listing page, **Collect headlines** adds each new recruitment as a "Headline only" lead to be analysed later.
 3. **One notification, one lead.** The same notification found on two sites is joined into a single lead (same official notification link, same notification number, or a near-identical title), and anything already approved or rejected is never reopened. Where the sites disagree, for example on the last date, the review screen says so.
 4. **Review** each lead: the fields are filled in from the pages (including the salary and a qualification written per post) and can all be edited. When a notification gives one vacancy total and no split by post, leave the post counts empty: the site shows the total with a `*` and a note that it is combined. Write the qualification as the notification does: `Any graduate` for every degree (B.E/B.Tech holders included), `B.E/B.Tech` only when the post needs that degree. Use the official notification, not the competitor's page, to settle every field. The links must be the organisation's own.
-5. **Approve and publish** needs the official notification link, the official application link, a last date that has not passed, at least one post, a note of what you checked, and the tick box. It creates the organisation (if new), the recruitment and its posts and puts them live. **Create a draft recruitment** hands the lead to the normal Recruitments workflow instead. **Reject** and **Duplicate** close the lead.
+5. **Approve and publish** needs the official notification link, the official application link, a last date (a past one is fine: older notifications are kept as an archive and show as closed), at least one post, a note of what you checked, and the tick box. It creates the organisation (if new), the recruitment and its posts and puts them live. **Create a draft recruitment** hands the lead to the normal Recruitments workflow instead. **Reject** and **Duplicate** close the lead.
 
 Only recruitments can be published. Admit cards, results and answer keys are recognised and can only be closed. Posts get a qualification rule from the qualification text; add age rules under Posts afterwards. The text captured from competitor pages is kept for checking only: do not copy it onto the site.
 
@@ -32,3 +32,7 @@ Only recruitments can be published. Admit cards, results and answer keys are rec
 ## Business
 
 Payments, subscriptions and test access are read-only views. Error reports from candidates can be resolved under Reports.
+
+### Open and past notifications
+
+Nobody moves a notification to past by hand. The site works out open, upcoming or past from the application start and last dates every time: a notification stays open through its last date and shows as past the next day. Open ones are listed first, the home page shows only open ones, and `/jobs` has an Open now / Past switch. A post you set to Closed stays closed whatever its dates say. The admin Overview shows how many notifications are active (and how many posts are open), how many are not open yet, and how many are past.

@@ -211,14 +211,14 @@ export default async function HomePage() {
             </Reveal>
             <Reveal delay={120}><div className="animate-float-slow"><HeroDemo /></div></Reveal>
           </div>
-          {jobs.length > 0 && (
+          {jobs.some((job) => job.applicationStatus !== "closed") && (
             <div className="mt-12">
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <h3 className="text-xl font-black text-primary sm:text-2xl">Latest notifications</h3>
                 <Link href="/jobs" className="inline-flex items-center gap-1.5 text-sm font-black text-primary hover:underline">View all <ArrowRight size={15} aria-hidden="true" /></Link>
               </div>
               <div className="-mx-2 mt-5 flex snap-x gap-4 overflow-x-auto px-2 pb-3 md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0 lg:grid-cols-3">
-                {jobs.slice(0, 6).map((job) => <NotificationTile key={job.id} job={job} />)}
+                {jobs.filter((job) => job.applicationStatus !== "closed").slice(0, 6).map((job) => <NotificationTile key={job.id} job={job} />)}
               </div>
             </div>
           )}

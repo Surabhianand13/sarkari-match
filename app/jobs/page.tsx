@@ -7,7 +7,7 @@ import { getJobs } from "@/lib/data/jobs";
 import { EmptyState, SearchCommandBar, SectionHeading } from "@/components/design-system";
 import { buildMetadata } from "@/lib/seo";
 
-type JobsSearchParams = { q?: string; state?: string; department?: string; qualification?: string };
+type JobsSearchParams = { q?: string; state?: string; department?: string; qualification?: string; status?: string };
 
 // Filtered views are the same list narrowed down, so they stay out of the index; /jobs itself and the hub pages carry the ranking.
 export async function generateMetadata({ searchParams }: { searchParams?: Promise<JobsSearchParams> }): Promise<Metadata> {
@@ -16,7 +16,7 @@ export async function generateMetadata({ searchParams }: { searchParams?: Promis
     title: "Latest Govt Job and Exam Notifications 2026",
     description: "Search and filter active govt job and exam notifications by qualification, state, department and closing date. Verified, with official application links.",
     path: "/jobs",
-    noindex: Boolean(filters.q || filters.state || filters.department || filters.qualification)
+    noindex: Boolean(filters.q || filters.state || filters.department || filters.qualification || filters.status)
   });
 }
 
@@ -35,7 +35,10 @@ export default async function JobsPage({ searchParams }: { searchParams?: Promis
   const department = resolvedSearchParams?.department?.toLowerCase();
   const qualification = resolvedSearchParams?.qualification?.toLowerCase();
   const allJobs = await getJobs();
+  const showing = resolvedSearchParams?.status === "open" || resolvedSearchParams?.status === "past" ? resolvedSearchParams.status : "all";
   const jobs = allJobs.filter((job) => {
+    if (showing === "open" && job.applicationStatus === "closed") return false;
+    if (showing === "past" && job.applicationStatus !== "closed") return false;
     if (q && ![job.title, job.recruitmentTitle, job.organisation, job.department, job.state, job.qualification].join(" ").toLowerCase().includes(q)) return false;
     if (state && !job.state.toLowerCase().includes(state.replaceAll("-", " "))) return false;
     if (department && job.department.toLowerCase() !== department) return false;
@@ -80,7 +83,12 @@ export default async function JobsPage({ searchParams }: { searchParams?: Promis
           </form>
           <Link href="/jobs" className="mt-3 inline-flex text-sm font-black text-primary">Reset filters</Link>
         </details>
-        <p className="mt-5 text-sm font-bold text-muted">{jobs.length} notifications found</p>
+        <div className="mt-5 flex flex-wrap items-center gap-2 text-sm font-bold text-muted">
+          <span>{jobs.length} notifications found</span>
+          {([["all", "All"], ["open", "Open now"], ["past", "Past"]] as const).map(([value, label]) => (
+            <Link key={value} href={{ pathname: "/jobs", query: { ...resolvedSearchParams, status: value === "all" ? undefined : value } }} aria-current={showing === value ? "true" : undefined} className={`rounded-full px-3 py-1 ${showing === value ? "bg-primary text-white" : "bg-white text-primary shadow-soft"}`}>{label}</Link>
+          ))}
+        </div>
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {jobs.length ? jobs.map((job, index) => <JobCard key={job.id} job={job} index={index} />) : <EmptyState title="No notifications found" body="Try a broader keyword, remove a filter, or browse by qualification." actionHref="/jobs/qualification/graduate" actionLabel="Browse graduate notifications" />}
         </div>

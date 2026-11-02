@@ -9,7 +9,8 @@ export default async function AdminPage() {
   const [stats, audit] = await Promise.all([getAdminStats(), getRecentAudit()]);
 
   const tiles: Array<[string, number | undefined, string, string]> = [
-    ["Published notifications", stats?.publishedNotifications, "/admin/posts", "Live on the site"],
+    ["Active notifications", stats?.activeNotifications, "/admin/posts", `${stats?.activePosts ?? 0} posts open for applications · ${stats?.upcomingNotifications ?? 0} not open yet`],
+    ["Past notifications", stats?.pastNotifications, "/admin/posts", "Moved to closed automatically after their last date"],
     ["Competitor leads to review", stats?.leadsPending, "/admin/leads", "Spotted on other sites, not yet checked"],
     ["Recruitments in draft or review", stats?.draftRecruitments, "/admin/recruitments", "Waiting to be published"],
     ["Closing in 7 days", stats?.closingSoon, "/admin/posts", "Check these first"],
