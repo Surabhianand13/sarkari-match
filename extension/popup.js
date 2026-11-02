@@ -1,7 +1,7 @@
 import { extractPage } from "./extract.js";
 
 const result = document.getElementById("result");
-const buttons = [document.getElementById("analyse"), document.getElementById("list")];
+const buttons = [document.getElementById("analyse")];
 
 function show(kind, heading, lines = [], link) {
   result.replaceChildren();
@@ -58,19 +58,6 @@ function describePage(data, server) {
   show(kind, heading, data.outcome === "already_reviewed" ? [] : checks, { href: `${server}/admin/leads/${data.leadId}`, label: "Open in the dashboard" });
 }
 
-function describeList(data, server) {
-  if (!data.spotted) {
-    show("warn", "No recruitment headlines found on this page. Open a listing of notifications, or use Analyse on a single notification.");
-    return;
-  }
-  show(
-    "ok",
-    `Found ${data.spotted} recruitment ${data.spotted === 1 ? "headline" : "headlines"}`,
-    [`${data.created} new`, `${data.seenOnAnotherSite} also on another site`, `${data.alreadyKnown} already known`, `${data.alreadyReviewed} already reviewed`],
-    { href: `${server}/admin/leads`, label: "Open the review queue" }
-  );
-}
-
 async function run(mode) {
   const { server, token } = await chrome.storage.local.get({ server: "", token: "" });
   if (!server || !token) {
@@ -93,8 +80,7 @@ async function run(mode) {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || `The server answered ${response.status}.`);
-    if (data.mode === "list") describeList(data, server);
-    else describePage(data, server);
+    describePage(data, server);
   } catch (error) {
     show("error", error instanceof Error ? error.message : "Something went wrong.");
   } finally {
@@ -103,7 +89,16 @@ async function run(mode) {
 }
 
 document.getElementById("analyse").addEventListener("click", () => run("page"));
-document.getElementById("list").addEventListener("click", () => run("list"));
+document.getElementById("list").addEventListener("click", async () => {
+  // The listing is read in the tab you have open, then each notification linked from it is opened in the background.
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !tab.id || !/^https?:/i.test(tab.url || "")) {
+    show("error", "Open a listing page in this tab first.");
+    return;
+  }
+  chrome.tabs.create({ url: chrome.runtime.getURL(`sync.html?mode=here&tab=${tab.id}&url=${encodeURIComponent(tab.url)}`) });
+  window.close();
+});
 document.getElementById("settings").addEventListener("click", (event) => {
   event.preventDefault();
   chrome.runtime.openOptionsPage();

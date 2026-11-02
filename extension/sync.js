@@ -4,9 +4,17 @@ import { BACKFILL_LISTINGS, CHECK_LISTINGS, SITE_ORIGINS, WINDOWS, sinceDate } f
 // One click: read the listing pages, ask the dashboard which notifications are new or changed, open each of those in a background
 // tab, and send it. It publishes nothing; everything lands in the review queue. This page must stay open while it runs.
 
-const mode = new URLSearchParams(location.search).get("mode") === "backfill" ? "backfill" : "check";
-const listings = mode === "backfill" ? BACKFILL_LISTINGS : CHECK_LISTINGS;
-const window_ = WINDOWS[mode];
+// Three ways in: "here" reads the listing page you had open and follows its links; "check" and "backfill" read preset listings.
+const params = new URLSearchParams(location.search);
+const mode = ["here", "backfill"].includes(params.get("mode")) ? params.get("mode") : "check";
+const hereUrl = params.get("url") || "";
+const hereTab = Number(params.get("tab")) || 0;
+const listings = mode === "here" ? [hereUrl] : mode === "backfill" ? BACKFILL_LISTINGS : CHECK_LISTINGS;
+const defaultWindow = mode === "backfill" || mode === "here" ? "183" : "30";
+const MAX_LISTING_PAGES = 40;
+
+// A problem that will repeat on every page (the dashboard has no sync yet, or the token is wrong), so the run stops instead of listing it 47 times.
+class Fatal extends Error {}
 
 const $ = (id) => document.getElementById(id);
 const counts = { new: 0, updated: 0, joined: 0, unchanged: 0, failed: 0, skipped: 0 };
@@ -49,42 +57,63 @@ async function api(path, body, attempt = 0) {
     return api(path, body, attempt + 1);
   }
   const data = await response.json().catch(() => ({}));
+  if (response.status === 404) throw new Fatal("Your dashboard does not have one-click sync yet. Wait until its latest deploy says Live in Render, then run this again.");
+  if (response.status === 401) throw new Fatal(data.error || "The token is not valid. Make a new one in the dashboard and paste it in Settings.");
   if (!response.ok) throw new Error(data.error || `The server answered ${response.status}.`);
   return data;
 }
 
 // Opens the page in a background tab, reads it the same way Analyse does, and closes the tab.
-async function readPage(url, readMode) {
-  const tab = await chrome.tabs.create({ url, active: false });
+async function readPage(url, readMode, openTabId = 0) {
+  // A tab that is already open is read as it is and left open.
+  const tab = openTabId ? await chrome.tabs.get(openTabId).catch(() => null) : null;
+  const own = !tab;
+  const target = tab || (await chrome.tabs.create({ url, active: false }));
   try {
     for (let waited = 0; waited < 45000; waited += 500) {
-      const current = await chrome.tabs.get(tab.id);
+      const current = await chrome.tabs.get(target.id);
       if (current.status === "complete") break;
       await sleep(500);
     }
-    await sleep(1200);
-    const [injection] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: extractPage, args: [readMode] });
+    await sleep(own ? 1200 : 0);
+    const [injection] = await chrome.scripting.executeScript({ target: { tabId: target.id }, func: extractPage, args: [readMode] });
     return injection && injection.result;
   } finally {
-    chrome.tabs.remove(tab.id).catch(() => {});
+    if (own) chrome.tabs.remove(target.id).catch(() => {});
   }
 }
 
-async function planListing(url, since) {
-  status(`Reading ${url}`);
-  const page = await readPage(url, "list");
-  if (!page || !page.links.length) throw new Error("No links on this page.");
+// Reads one listing page and asks the dashboard what to do with its notifications. Long listings are followed to their next page
+// while the pages still hold notifications inside the window.
+async function planListing(url, since, openTabId = 0) {
   const todo = [];
-  for (let start = 0; start < page.links.length; start += 500) {
-    const plan = await api("/api/ingest/plan", { ...page, links: page.links.slice(start, start + 500), since });
-    counts.new += plan.created;
-    counts.joined += plan.seenOnAnotherSite;
-    counts.unchanged += plan.unchanged;
-    counts.skipped += plan.tooOld;
-    todo.push(...plan.todo);
+  let next = url;
+  for (let pageNumber = 1; next && pageNumber <= MAX_LISTING_PAGES && !stopRequested; pageNumber++) {
+    status(`Reading ${next}`);
+    const page = await readPage(next, "list", pageNumber === 1 ? openTabId : 0);
+    if (!page || !page.links.length) {
+      if (pageNumber === 1) throw new Error("No links on this page.");
+      break;
+    }
+    let spotted = 0;
+    let tooOld = 0;
+    let added = 0;
+    for (let start = 0; start < page.links.length; start += 500) {
+      const plan = await api("/api/ingest/plan", { ...page, links: page.links.slice(start, start + 500), since });
+      counts.new += plan.created;
+      counts.joined += plan.seenOnAnotherSite;
+      counts.unchanged += plan.unchanged;
+      counts.skipped += plan.tooOld;
+      spotted += plan.spotted;
+      tooOld += plan.tooOld;
+      added += plan.todo.length;
+      todo.push(...plan.todo);
+    }
+    log(`${next.replace(/^https:\/\/(www\.)?/, "")}: ${spotted} notifications, ${added} to read`);
+    showCounts();
+    // Stop following pages once everything on one is older than the window.
+    next = spotted > 0 && tooOld === spotted ? "" : page.next || "";
   }
-  log(`${url.replace(/^https:\/\/(www\.)?/, "")}: ${todo.length} to read`);
-  showCounts();
   return todo;
 }
 
@@ -104,14 +133,16 @@ async function run() {
   $("start").hidden = true;
   $("stop").hidden = false;
   $("bar").hidden = false;
-  const since = sinceDate(window_.days);
+  const chosen = WINDOWS.find((option) => option.key === $("window").value) || WINDOWS[2];
+  const since = sinceDate(chosen.days);
   try {
     const todo = new Map();
     for (const url of listings) {
       if (stopRequested) break;
       try {
-        for (const item of await planListing(url, since)) if (!todo.has(item.url)) todo.set(item.url, item);
+        for (const item of await planListing(url, since, mode === "here" ? hereTab : 0)) if (!todo.has(item.url)) todo.set(item.url, item);
       } catch (error) {
+        if (error instanceof Fatal) throw error;
         log(`${url}: ${error.message}`, "failed");
       }
     }
@@ -138,6 +169,7 @@ async function run() {
     status(stopRequested ? `Stopped. Read ${done} of ${todo.size}. Run it again to carry on; pages already read are skipped.` : `Done. Read ${done} pages.`);
   } catch (error) {
     status(error instanceof Error ? error.message : "Something went wrong.");
+    log(error instanceof Error ? error.message : "Something went wrong.", "failed");
   } finally {
     $("stop").hidden = true;
     $("start").hidden = false;
@@ -160,9 +192,10 @@ async function begin() {
     return;
   }
   // The permission has to be asked for from a click, which is why there is a Start button.
-  const granted = await chrome.permissions.request({ origins: SITE_ORIGINS });
+  const origins = mode === "here" ? [...new Set([...SITE_ORIGINS, `${new URL(hereUrl).origin}/*`])] : SITE_ORIGINS;
+  const granted = await chrome.permissions.request({ origins });
   if (!granted) {
-    status("Allow access to the two sites to read their pages.");
+    status("Allow access to the site to read its pages.");
     return;
   }
   stopRequested = false;
@@ -172,11 +205,20 @@ async function begin() {
   run();
 }
 
-$("heading").textContent = mode === "backfill" ? "Bring in the last 6 months" : "Check for new and updated notifications";
+for (const option of WINDOWS) {
+  const choice = document.createElement("option");
+  choice.value = option.key;
+  choice.textContent = option.label;
+  $("window").append(choice);
+}
+$("window").value = defaultWindow;
+$("heading").textContent = mode === "here" ? "Read every notification on this page" : mode === "backfill" ? "Bring in the archive" : "Check for new and updated notifications";
 $("intro").textContent =
-  mode === "backfill"
-    ? `One time: reads ${listings.length} listing pages on FreeJobAlert and Adda247, then opens each notification from ${window_.label} that is not in the dashboard yet. It can take an hour or more. Keep this tab open; it opens pages in the background. Nothing is published.`
-    : `Reads the latest listings on FreeJobAlert and Adda247, then opens each notification from ${window_.label} that is new or was updated, and sends it to the review queue. Nothing is published.`;
+  mode === "here"
+    ? `Reads the listing you had open (${hereUrl}), follows its next pages, and opens each notification linked from it that is new or was updated. Everything goes to the review queue; nothing is published.`
+    : mode === "backfill"
+      ? `One time: reads ${listings.length} listing pages on FreeJobAlert and Adda247, then opens each notification in the chosen period that is not in the dashboard yet. It can take an hour or more. Keep this tab open; it opens pages in the background. Nothing is published.`
+      : "Reads the latest listings on FreeJobAlert and Adda247, then opens each notification that is new or was updated, and sends it to the review queue. Nothing is published.";
 $("start").addEventListener("click", begin);
 $("stop").addEventListener("click", () => {
   stopRequested = true;

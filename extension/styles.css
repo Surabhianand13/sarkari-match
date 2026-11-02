@@ -32,3 +32,5 @@ progress { width: 100%; height: 10px; margin: 8px 0; }
 .log li.changed { color: var(--warn); font-weight: 700; }
 .log li.failed { color: var(--bad); }
 button[hidden], progress[hidden], dl[hidden] { display: none; }
+.field { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-weight: 700; }
+select { min-height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; font: inherit; color: var(--ink); background: var(--bg); }
