@@ -8,6 +8,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { createBatch, recheckQuestions, type AiMode, type RunInput } from "@/lib/question-factory/engine";
 import { providerStatus } from "@/lib/question-factory/providers";
 import { MAX_TOPICS_PER_START, parseTopics } from "@/lib/question-factory/topics";
+import { startTranslation } from "@/lib/question-factory/translate";
 
 const BASE = "/admin/factory";
 
@@ -24,7 +25,7 @@ export async function startFactoryRun(formData: FormData) {
     subject: text(formData, "subject") || "Quantitative Aptitude",
     difficulty,
     format: text(formData, "format") === "set" ? "set" : "single",
-    setKind: (["table", "bar", "line", "pie"].includes(text(formData, "set_kind")) ? text(formData, "set_kind") : "mixed") as RunInput["setKind"],
+    setKind: (["table", "bar", "line", "pie", "stacked", "histogram", "combo", "passage", "cloze"].includes(text(formData, "set_kind")) ? text(formData, "set_kind") : "mixed") as RunInput["setKind"],
     figures: formData.get("figures") === "on",
     count: Math.min(Math.max(integer(formData, "count") ?? 20, 1), MAX_BY_MODE[mode]),
     mode,
@@ -73,6 +74,31 @@ export async function startRecheck(formData: FormData) {
     });
     id = result.id;
     await writeAudit(db, { actorId: admin.id, action: "factory.recheck", entityType: "question_batch", entityId: id, after: { questions: result.count, mode } });
+  } catch (error) {
+    goTo(withMessage(BASE, "error", messageFrom(error)));
+  }
+  goTo(`${BASE}/${id!}`);
+}
+
+export async function startTranslationRun(formData: FormData) {
+  const admin = await requireAdmin();
+  const mode = text(formData, "mode") === "api" ? "api" : "queue";
+  const provider = mode === "api" ? text(formData, "provider") || providerStatus().find((item) => item.ready)?.id : undefined;
+  let id: string;
+  try {
+    const db = await adminDb();
+    const result = await startTranslation(db, {
+      exam: text(formData, "exam") || "SSC CGL",
+      tier: text(formData, "tier") || "Tier I",
+      subject: text(formData, "subject") || "Quantitative Aptitude",
+      topic: text(formData, "topic").replace(/[%_\\]/g, "") || undefined,
+      mode,
+      provider,
+      limit: Math.min(Math.max(integer(formData, "count") ?? 50, 1), MAX_BY_MODE[mode]),
+      createdBy: admin.id
+    });
+    id = result.id;
+    await writeAudit(db, { actorId: admin.id, action: "factory.translate", entityType: "question_batch", entityId: id, after: { questions: result.count, mode, lang: "hi" } });
   } catch (error) {
     goTo(withMessage(BASE, "error", messageFrom(error)));
   }

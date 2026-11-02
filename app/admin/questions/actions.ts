@@ -26,6 +26,12 @@ function draftFromForm(formData: FormData) {
   };
 }
 
+// An optional month from a form (YYYY-MM), stored as the first day of that month. Empty or not a real month means none.
+function monthField(formData: FormData, name: string): string | null {
+  const value = text(formData, name);
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(value) && value >= "2000-01" ? `${value}-01` : null;
+}
+
 export async function saveQuestion(formData: FormData) {
   const admin = await requireAdmin();
   const id = text(formData, "id");
@@ -36,6 +42,7 @@ export async function saveQuestion(formData: FormData) {
     goTo(withMessage(base, "error", `${issue.path.join(".") || "question"}: ${issue.message}`));
   }
   const draft = parsed.data!;
+  const factAsOf = monthField(formData, "fact_month");
   const hash = contentHash(draft);
   const db = await adminDb();
   let savedId = id;
@@ -51,16 +58,16 @@ export async function saveQuestion(formData: FormData) {
       }
       await db.query(
         `update questions set tier=$1, subject=$2, topic=$3, difficulty=$4, stem=$5, options=$6, correct_option=$7, explanation=$8, est_time_seconds=$9,
-           content_hash=$10, validation_status = case when $11 then 'needs_review' else validation_status end, updated_at=now() where id=$12`,
-        [draft.tier ?? null, draft.subject, draft.topic, draft.difficulty, draft.question, JSON.stringify(draft.options), draft.correct_answer, draft.explanation, draft.estimated_time_seconds, hash, reopen, id]
+           content_hash=$10, validation_status = case when $11 then 'needs_review' else validation_status end, fact_as_of=$13, updated_at=now() where id=$12`,
+        [draft.tier ?? null, draft.subject, draft.topic, draft.difficulty, draft.question, JSON.stringify(draft.options), draft.correct_answer, draft.explanation, draft.estimated_time_seconds, hash, reopen, id, factAsOf]
       );
       await writeAudit(db, { actorId: admin.id, action: "question.update", entityType: "question", entityId: id, before: before.rows[0], after: { stem: draft.question } });
     } else {
       const exam = await db.query<{ id: string }>("select id from exams where name ilike $1 or slug = $1 limit 1", [draft.exam]);
       const created = await db.query<{ id: string }>(
-        `insert into questions (exam_id, tier, subject, topic, difficulty, stem, options, correct_option, explanation, est_time_seconds, source_type, validation_status, content_hash, reviewed_by, reviewed_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'human_authored','approved',$11,$12, now()) returning id`,
-        [exam.rows[0]?.id ?? null, draft.tier ?? null, draft.subject, draft.topic, draft.difficulty, draft.question, JSON.stringify(draft.options), draft.correct_answer, draft.explanation, draft.estimated_time_seconds, hash, admin.id]
+        `insert into questions (exam_id, tier, subject, topic, difficulty, stem, options, correct_option, explanation, est_time_seconds, source_type, validation_status, content_hash, reviewed_by, reviewed_at, fact_as_of)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'human_authored','approved',$11,$12, now(), $13) returning id`,
+        [exam.rows[0]?.id ?? null, draft.tier ?? null, draft.subject, draft.topic, draft.difficulty, draft.question, JSON.stringify(draft.options), draft.correct_answer, draft.explanation, draft.estimated_time_seconds, hash, admin.id, factAsOf]
       );
       savedId = created.rows[0].id;
       await writeAudit(db, { actorId: admin.id, action: "question.create", entityType: "question", entityId: savedId, after: { stem: draft.question } });

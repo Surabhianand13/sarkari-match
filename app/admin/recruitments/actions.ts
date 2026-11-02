@@ -5,7 +5,7 @@ import { adminDb, friendlyDbError } from "@/lib/admin/db";
 import { writeAudit } from "@/lib/admin/audit";
 import { integer, optionalText, slugify, text } from "@/lib/admin/forms";
 import { goTo, withMessage } from "@/lib/admin/nav";
-import { revalidatePublicContent } from "@/lib/admin/revalidate";
+import { jobPathsForRecruitment, revalidatePublicContent } from "@/lib/admin/revalidate";
 import { requireAdmin } from "@/lib/auth/guards";
 
 const statuses = ["draft", "needs_review", "reviewed", "published", "expired", "archived"] as const;
@@ -105,6 +105,7 @@ export async function setRecruitmentStatus(formData: FormData) {
     await db.query("update recruitments set editorial_status=$2::editorial_status, status=$2::text, updated_at=now() where id=$1", [id, to]);
   }
   await writeAudit(db, { actorId: admin.id, action: `recruitment.${to}`, entityType: "recruitment", entityId: id, before: { status: current.editorial_status }, after: { status: to } });
-  revalidatePublicContent();
+  // Published, expired and archived all change what the job pages say, so each of them is worth a recrawl.
+  revalidatePublicContent(to === "published" || to === "expired" || to === "archived" ? await jobPathsForRecruitment(db, id) : []);
   goTo(withMessage(base, "notice", `Moved to ${to.replace("_", " ")}.`));
 }

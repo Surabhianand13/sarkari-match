@@ -120,3 +120,62 @@ describe("data sets", () => {
     expect(runCodeValidation(draft, "777 - 555", { set }).checks.find((c) => c.name === "uses_the_data")?.passed).toBe(false);
   });
 });
+
+describe("stacked, histogram and combined charts", () => {
+  const stacked = { type: "stacked", title: "Students by stream", unit: "students", categories: ["2019", "2020", "2021"], series: [{ name: "Arts", values: [40, 50, 60] }, { name: "Science", values: [60, 70, 80] }] };
+  const histogram = { type: "histogram", title: "Marks of 60 students", categories: ["0-10", "10-20", "20-30", "30-40"], series: [{ name: "Students", values: [5, 15, 25, 15] }] };
+  const combo = { type: "combo", title: "Sales and profit", categories: ["2019", "2020", "2021"], series: [{ name: "Sales", as: "bar", values: [120, 150, 180] }, { name: "Profit %", as: "line", values: [10, 15, 20] }] };
+
+  const chartOf = (input: unknown) => {
+    const parsed = parseChart(input);
+    if (!("chart" in parsed)) throw new Error(parsed.error);
+    return parsed.chart;
+  };
+
+  it("accepts each of them and rejects the wrong number or kind of series", () => {
+    for (const chart of [stacked, histogram, combo]) expect("chart" in parseChart(chart)).toBe(true);
+    expect(parseChart({ ...stacked, series: [stacked.series[0]] })).toMatchObject({ error: expect.stringMatching(/at least two series/) });
+    expect(parseChart({ ...histogram, series: [histogram.series[0], histogram.series[0]] })).toMatchObject({ error: expect.stringMatching(/exactly one series/) });
+    expect(parseChart({ ...combo, series: [{ ...combo.series[0], as: undefined }, combo.series[1]] })).toMatchObject({ error: expect.stringMatching(/"bar" or a "line"/) });
+    expect(parseChart({ ...combo, series: [combo.series[0], { ...combo.series[1], as: "bar" }] })).toMatchObject({ error: expect.stringMatching(/one bar series and one line series/) });
+  });
+
+  it("describes them as text, with totals for a stack and the line marked in a combination", () => {
+    const stackText = chartToText(chartOf(stacked));
+    expect(stackText).toContain("Stacked bar chart: Students by stream (students)");
+    expect(stackText).toContain("| Category | Arts | Science | Total |");
+    expect(stackText).toContain("| 2020 | 50 | 70 | 120 |");
+    expect(chartToText(chartOf(histogram))).toContain("| Class interval | Students |");
+    const comboText = chartToText(chartOf(combo));
+    expect(comboText).toContain("| Category | Sales (bar) | Profit % (line) |");
+  });
+
+  it("lists the totals of a stack among the numbers a learner can read", () => {
+    expect(chartNumbers(chartOf(stacked))).toEqual(expect.arrayContaining([100, 120, 140]));
+  });
+
+  it("draws a stacked bar with part values, totals and a legend", () => {
+    const html = renderToStaticMarkup(createElement(Chart, { chart: chartOf(stacked) }));
+    for (const text of [">40<", ">60<", ">100<", ">120<", ">140<", "Arts", "Science"]) expect(html).toContain(text);
+  });
+
+  it("draws a histogram with touching bars and no legend", () => {
+    const html = renderToStaticMarkup(createElement(Chart, { chart: chartOf(histogram) }));
+    for (const text of [">25<", ">0-10<", ">30-40<"]) expect(html).toContain(text);
+    expect(html).not.toContain("<ul");
+  });
+
+  it("draws a combination with bars, a line and a legend that says which is which", () => {
+    const html = renderToStaticMarkup(createElement(Chart, { chart: chartOf(combo) }));
+    expect(html).toContain("<polyline");
+    expect(html).toContain("<rect");
+    expect(html).toContain("Sales (bars)");
+    expect(html).toContain("Profit % (line, right axis)");
+  });
+
+  it("lets a question refer to a histogram only when the set has a chart", () => {
+    const options = { A: "1", B: "2", C: "3", D: "4" };
+    expect(figureProblem("In the histogram, how many scored above 20?", options)).toMatch(/graph or chart/);
+    expect(figureProblem("In the histogram, how many scored above 20?", options, { hasChart: true })).toBeNull();
+  });
+});

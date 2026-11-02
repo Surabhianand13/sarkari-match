@@ -5,7 +5,7 @@ import { adminDb, friendlyDbError } from "@/lib/admin/db";
 import { writeAudit } from "@/lib/admin/audit";
 import { checkbox, text } from "@/lib/admin/forms";
 import { goTo, withMessage } from "@/lib/admin/nav";
-import { revalidatePublicContent } from "@/lib/admin/revalidate";
+import { jobPathsForRecruitment, revalidatePublicContent } from "@/lib/admin/revalidate";
 import { requireAdmin } from "@/lib/auth/guards";
 import { leadFieldsFromForm } from "@/lib/ingest/fields";
 import { LeadError, approveLead, closeLead, saveLead } from "@/lib/ingest/leads";
@@ -35,7 +35,7 @@ export async function reviewLead(intent: string, formData: FormData) {
     } else if (intent === "publish" || intent === "draft") {
       if (intent === "publish" && !checkbox(formData, "verified")) throw new LeadError("Tick the box to confirm you checked these details against the official notification.");
       const { recruitmentId } = await approveLead(db, { id, actorId: admin.id, mode: intent, fields, note });
-      if (intent === "publish") revalidatePublicContent();
+      if (intent === "publish") revalidatePublicContent(await jobPathsForRecruitment(db, recruitmentId));
       destination = withMessage(`/admin/recruitments/${recruitmentId}`, "notice", intent === "publish" ? "Published. It is live on the site now." : "Draft created. Review it here, then publish it from this page.");
     } else {
       throw new LeadError("Unknown action.");

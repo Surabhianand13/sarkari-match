@@ -1,12 +1,13 @@
 import { AdminHeader, ButtonLinkSmall, Card, DataTable, Field, Flash, StatusPill, SubmitButton, Td, inputClass } from "@/components/admin/ui";
-import { startFactoryRun, startRecheck } from "@/app/admin/factory/actions";
+import { startFactoryRun, startRecheck, startTranslationRun } from "@/app/admin/factory/actions";
 import { adminDb } from "@/lib/admin/db";
 import { providerStatus } from "@/lib/question-factory/providers";
 import { templateTopics } from "@/lib/question-factory/templates";
+import { factorySubjects, subjectGuide } from "@/lib/question-factory/subjects";
 
 export const metadata = { title: "Question factory" };
 
-const subjects = ["Quantitative Aptitude", "General Intelligence and Reasoning", "English Comprehension", "General Awareness"];
+const subjects = factorySubjects;
 
 export default async function FactoryPage({ searchParams }: { searchParams: Promise<{ notice?: string; error?: string }> }) {
   const { notice, error } = await searchParams;
@@ -44,6 +45,37 @@ export default async function FactoryPage({ searchParams }: { searchParams: Prom
         </form>
       </Card>
 
+      <Card title="Suggested topics for each SSC CGL section">
+        <p className="mb-3 text-sm text-muted">Topics to start from, one per line, ready to paste into the Topics box of Start a run. They follow the usual syllabus: check them against the latest SSC notification, and upload the official syllabus under Factory sources so the factory checks against it.</p>
+        <div className="grid gap-2">
+          {subjectGuide.map((item) => (
+            <details key={item.subject} className="rounded-xl border border-border bg-white px-4 py-3">
+              <summary className="cursor-pointer text-sm font-black text-primary">{item.subject} <span className="font-semibold text-muted">({item.paper}, {item.topics.length} topics)</span></summary>
+              {item.note && <p className="mt-2 text-xs font-semibold text-muted">{item.note}</p>}
+              <textarea readOnly rows={Math.min(item.topics.length, 10)} value={item.topics.join("\n")} aria-label={`Suggested topics for ${item.subject}`} className={`${inputClass} mt-2`} />
+            </details>
+          ))}
+        </div>
+      </Card>
+
+      <Card title="Translate to Hindi">
+        <p className="mb-3 text-sm text-muted">Writes Hindi versions of published and approved questions (and the data or passage they share) for bilingual tests. Each translation keeps every number and the answer, is checked by code, and is then solved blind by a second AI from the Hindi alone. Learners see a Hindi version only after a person who reads Hindi approves it under Hindi translations. English Language questions stay in English.</p>
+        <form action={startTranslationRun} className="grid gap-4 md:grid-cols-3">
+          <Field label="Who does the AI work">
+            <select name="mode" defaultValue="queue" className={inputClass}>
+              <option value="queue">Chat queue: Claude and ChatGPT</option>
+              <option value="api" disabled={!ready.length}>AI API{ready.length ? "" : " (no key set)"}</option>
+            </select>
+          </Field>
+          <Field label="Exam"><input name="exam" defaultValue="SSC CGL" className={inputClass} /></Field>
+          <Field label="Tier"><input name="tier" defaultValue="Tier I" className={inputClass} /></Field>
+          <Field label="Subject (category)"><input name="subject" list="factory-subjects" defaultValue="Quantitative Aptitude" className={inputClass} /></Field>
+          <Field label="Topic (optional)" hint="Starts with. Leave empty for the whole subject."><input name="topic" className={inputClass} /></Field>
+          <Field label="How many" hint="The oldest first, only questions with no Hindi version yet."><input name="count" type="number" min="1" max="500" defaultValue={50} className={inputClass} /></Field>
+          <div className="flex items-end"><SubmitButton variant="secondary">Start translating</SubmitButton></div>
+        </form>
+      </Card>
+
       <Card title="Start a run">
         <form action={startFactoryRun} className="grid gap-4 md:grid-cols-3">
           <Field label="Who does the AI work" hint="The chat queue uses the Claude and ChatGPT subscriptions you already have. No API key and no per-question cost.">
@@ -73,19 +105,24 @@ export default async function FactoryPage({ searchParams }: { searchParams: Prom
               <option value="hard">Hard</option>
             </select>
           </Field>
-          <Field label="Format" hint="Data sets: a table or chart with five questions that share it (Data Interpretation). They need the chat queue or an API.">
+          <Field label="Format" hint="Sets: five questions that share a table, chart or passage (Data Interpretation, Reading Comprehension, Cloze Test). They need the chat queue or an API.">
             <select name="format" defaultValue="single" className={inputClass}>
               <option value="single">Single questions</option>
-              <option value="set">Data sets (table or chart + 5 questions)</option>
+              <option value="set">Sets (data or passage + 5 questions)</option>
             </select>
           </Field>
-          <Field label="Data shown as (data sets only)">
+          <Field label="Set content (sets only)" hint="For a passage or cloze set, choose the English subject and leave Topics empty (or write Reading Comprehension).">
             <select name="set_kind" defaultValue="mixed" className={inputClass}>
               <option value="mixed">A mix of tables and charts</option>
               <option value="table">Tables</option>
               <option value="bar">Bar charts</option>
               <option value="line">Line graphs</option>
               <option value="pie">Pie charts</option>
+              <option value="stacked">Stacked bar charts</option>
+              <option value="histogram">Histograms</option>
+              <option value="combo">Bar-and-line combined charts</option>
+              <option value="passage">Reading passage (English comprehension)</option>
+              <option value="cloze">Cloze test (passage with blanks, English)</option>
             </select>
           </Field>
           <label className="flex items-center gap-2 self-end pb-2 text-sm font-bold text-primary"><input type="checkbox" name="figures" className="size-4" /> Allow drawn figures (Venn and geometry, single questions only)</label>

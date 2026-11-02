@@ -7,7 +7,7 @@ import { optionKeys, type QuestionDraft } from "@/lib/tests/question-schema";
 export type ValidationCheck = { name: string; passed: boolean; detail?: string };
 
 // Numeric subjects must show their working as an expression that reproduces the keyed option.
-const numericSubjects = ["quantitative aptitude", "quant"];
+const numericSubjects = ["quantitative aptitude", "quant", "mathematical abilities", "mathematics", "maths"];
 
 export function isNumericSubject(subject: string) {
   return numericSubjects.includes(subject.trim().toLowerCase());

@@ -67,6 +67,8 @@ const pillStyles: Record<string, string> = {
   reviewed: "bg-cyan-soft text-teal",
   needs_review: "bg-amber-soft text-warning",
   pending: "bg-amber-soft text-warning",
+  checking: "bg-amber-soft text-warning",
+  failed: "bg-red-50 text-error",
   draft: "bg-surface text-muted",
   archived: "bg-surface text-muted",
   rejected: "bg-red-50 text-error",

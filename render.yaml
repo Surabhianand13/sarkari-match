@@ -26,6 +26,9 @@ services:
       # The Supabase "Session pooler" connection string (port 5432) of the Sarkari Match project, with your database password filled in.
       - key: DATABASE_URL
         sync: false
+      # Any 8-128 letters, numbers or dashes (for example a UUID). Served publicly at /indexnow-key.txt so Bing can confirm the site owns it.
+      - key: INDEXNOW_KEY
+        sync: false
       - key: AUTH_SECRET
         generateValue: true
       - key: ACCESS_GRANT_SECRET

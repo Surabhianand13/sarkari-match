@@ -16,10 +16,10 @@ const outcomeStyle: Record<string, string> = {
   info: "bg-surface text-muted"
 };
 const outcomeLabel: Record<string, string> = { passed: "Passed", fixed: "Fixed", rejected: "Rejected", review: "Review", error: "Error", info: "Note" };
-const stageName: Record<string, string> = { write: "Writer", solve: "Solver", review: "Review", language: "Language", syllabus: "Syllabus", dedupe: "Repeats", fix: "Fixer" };
+const stageName: Record<string, string> = { write: "Writer", solve: "Solver", review: "Review", language: "Language", syllabus: "Syllabus", dedupe: "Repeats", fix: "Fixer", translate: "Translator", verify: "Meaning check" };
 
 // Which AI is a good fit for each stage. Writing and checking by different models catches errors the writer would repeat.
-const suggestedAi: Record<string, string> = { write: "Claude", solve: "ChatGPT", review: "ChatGPT", fix: "Claude" };
+const suggestedAi: Record<string, string> = { write: "Claude", solve: "ChatGPT", review: "ChatGPT", fix: "Claude", translate: "Claude", verify: "ChatGPT" };
 
 function statusText(snapshot: Snapshot) {
   switch (snapshot.batch.status) {

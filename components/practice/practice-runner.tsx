@@ -7,16 +7,21 @@ import { LevelStepper } from "@/components/practice/level-stepper";
 import { QuestionFigure } from "@/components/question-figure";
 import { Inline, Rich } from "@/components/rich-text";
 import { SolutionText } from "@/components/solution-text";
+import { FactMonth } from "@/components/fact-month";
+import { LanguageSwitch, useQuestionLanguage } from "@/components/language-switch";
+import { localize } from "@/lib/localize";
 import type { Level, PracticeSession } from "@/lib/practice-shared";
 
-type Feedback = { correct: boolean; correctOption: string; explanation: string };
+type Feedback = { correct: boolean; correctOption: string; explanation: string; explanationHi?: string | null };
 type Finished = { score: number; total: number; percent: number; levelBefore: Level; levelAfter: Level; goodSessions: number; promoted: boolean };
 
 export function PracticeRunner({ session }: { session: PracticeSession }) {
   const firstOpen = session.questions.findIndex((question) => !question.selected);
   const [index, setIndex] = useState(firstOpen === -1 ? 0 : firstOpen);
+  const { lang, setLang } = useQuestionLanguage();
+  const anyHindi = session.questions.some((item) => item.hi);
   const [feedback, setFeedback] = useState<Record<string, Feedback>>(() =>
-    Object.fromEntries(session.questions.filter((q) => q.selected && q.correctOption).map((q) => [q.id, { correct: q.selected === q.correctOption, correctOption: q.correctOption!, explanation: q.explanation ?? "" }]))
+    Object.fromEntries(session.questions.filter((q) => q.selected && q.correctOption).map((q) => [q.id, { correct: q.selected === q.correctOption, correctOption: q.correctOption!, explanation: q.explanation ?? "", explanationHi: q.hi?.explanation ?? null }]))
   );
   const [picked, setPicked] = useState<Record<string, string>>(() => Object.fromEntries(session.questions.filter((q) => q.selected).map((q) => [q.id, q.selected!])));
   const [finished, setFinished] = useState<Finished | null>(null);
@@ -41,7 +46,7 @@ export function PracticeRunner({ session }: { session: PracticeSession }) {
       return;
     }
     setPicked((current) => ({ ...current, [question.id]: option }));
-    setFeedback((current) => ({ ...current, [question.id]: { correct: data.correct, correctOption: data.correctOption, explanation: data.explanation } }));
+    setFeedback((current) => ({ ...current, [question.id]: { correct: data.correct, correctOption: data.correctOption, explanation: data.explanation, explanationHi: data.explanationHi ?? null } }));
     if (data.finished) setFinished(data.finished);
   }
 
@@ -70,6 +75,7 @@ export function PracticeRunner({ session }: { session: PracticeSession }) {
   }
 
   const current = feedback[question.id];
+  const view = localize(question, lang);
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <div className="flex items-center justify-between text-sm font-black text-primary">
@@ -81,8 +87,12 @@ export function PracticeRunner({ session }: { session: PracticeSession }) {
       </div>
       <p className="mt-2 text-xs font-bold text-muted">Question {index + 1} of {session.total} · {correctCount} correct so far</p>
       <div className="mt-5 rounded-3xl bg-white p-6 shadow-soft">
-        <QuestionFigure figure={question.figure} image={question.image} />
-        <Rich text={question.stem} className="text-lg font-bold leading-8 text-foreground" />
+        {anyHindi && <div className="mb-3 flex justify-end"><LanguageSwitch lang={lang} onChange={setLang} /></div>}
+        {lang === "hi" && !view.translated && <p className="mb-2 text-xs font-bold text-muted">This question is available in English only.</p>}
+        <div lang={view.translated ? "hi" : undefined}>
+        <FactMonth value={question.factMonth} lang={view.translated ? "hi" : "en"} />
+        <QuestionFigure figure={view.figure} image={question.image} />
+        <Rich text={view.stem} className="text-lg font-bold leading-8 text-foreground" />
         <div className="mt-5 grid gap-3">
           {(["A", "B", "C", "D"] as const).map((key) => {
             const isPicked = picked[question.id] === key;
@@ -91,18 +101,19 @@ export function PracticeRunner({ session }: { session: PracticeSession }) {
             return (
               <button key={key} onClick={() => choose(key)} disabled={answered || busy} className={`flex items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left font-semibold transition ${tone}`}>
                 <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-surface text-xs font-black text-primary">{key}</span>
-                <span className="flex-1"><Inline text={question.options[key]} /></span>
+                <span className="flex-1"><Inline text={view.options[key]} /></span>
                 {current && isCorrect && <CheckCircle2 className="text-success" size={20} aria-hidden="true" />}
                 {current && isPicked && !isCorrect && <XCircle className="text-error" size={20} aria-hidden="true" />}
               </button>
             );
           })}
         </div>
+        </div>
         {error && <p role="alert" className="mt-3 text-sm font-bold text-error">{error}</p>}
         {current && (
           <div className="mt-5 rounded-2xl bg-surface p-4">
             <p className={`font-black ${current.correct ? "text-success" : "text-error"}`}>{current.correct ? "Correct" : `Not quite. The answer is ${current.correctOption}.`}</p>
-            <div className="mt-2 text-sm leading-6 text-muted"><SolutionText text={current.explanation} /></div>
+            <div className="mt-2 text-sm leading-6 text-muted" lang={lang === "hi" && current.explanationHi ? "hi" : undefined}><SolutionText text={lang === "hi" && current.explanationHi ? current.explanationHi : current.explanation} /></div>
           </div>
         )}
       </div>

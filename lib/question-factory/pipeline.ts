@@ -30,10 +30,10 @@ export type FactorySummary = {
   errors: string[];
 };
 
-export type Candidate = { draft: QuestionDraft; verificationExpression?: string | null; template?: { name: string; seed: number } };
+export type Candidate = { draft: QuestionDraft; verificationExpression?: string | null; template?: { name: string; seed: number }; freshness?: { factAsOf: string | null; sourceTitle: string | null } };
 
 // Subjects where a correct-looking answer still needs a person to check the facts.
-export const alwaysHumanCheck = ["general awareness", "general knowledge", "current affairs", "computer knowledge", "static gk"];
+export const alwaysHumanCheck = ["general awareness", "general knowledge", "current affairs", "computer knowledge", "static gk", "finance and economics", "finance & economics", "general studies"];
 
 const LLM_CHUNK = 5;
 

@@ -82,9 +82,11 @@ export async function getSession(userId: string, sessionId: string): Promise<Pra
   const session = (await db.query<{ id: string; subject: string; topic: string | null; level: Level; status: "in_progress" | "completed"; total: number; correct: number }>(
     "select id, subject, topic, level, status, total, correct from practice_sessions where id = $1 and user_id = $2", [sessionId, userId])).rows[0];
   if (!session) return null;
-  const rows = await db.query<{ id: string; stem: string; options: Record<string, string>; position: number; selected_option: string | null; correct_option: string; explanation: string; figure: unknown; image_id: string | null; image_alt: string | null }>(
-    `select q.id, q.stem, q.options, pa.position, pa.selected_option, q.correct_option, q.explanation, q.figure, q.image_id, qi.alt as image_alt
-       from practice_answers pa join questions q on q.id = pa.question_id left join question_images qi on qi.id = q.image_id where pa.session_id = $1 order by pa.position`, [sessionId]);
+  const rows = await db.query<{ id: string; stem: string; options: Record<string, string>; position: number; selected_option: string | null; correct_option: string; explanation: string; figure: unknown; image_id: string | null; image_alt: string | null; fact_as_of: string | null; hi_stem: string | null; hi_options: Record<string, string> | null; hi_explanation: string | null; hi_figure: unknown }>(
+    `select q.id, q.stem, q.options, pa.position, pa.selected_option, q.correct_option, q.explanation, q.figure, q.image_id, qi.alt as image_alt, q.fact_as_of::text as fact_as_of,
+            qt.stem as hi_stem, qt.options as hi_options, qt.explanation as hi_explanation, qt.figure as hi_figure
+       from practice_answers pa join questions q on q.id = pa.question_id left join question_images qi on qi.id = q.image_id
+       left join question_translations qt on qt.question_id = q.id and qt.lang = 'hi' and qt.status = 'approved' where pa.session_id = $1 order by pa.position`, [sessionId]);
   return {
     ...session,
     total: Number(session.total),
@@ -92,13 +94,16 @@ export async function getSession(userId: string, sessionId: string): Promise<Pra
     questions: rows.rows.map((row) => ({
       id: row.id, stem: row.stem, options: row.options, position: row.position, selected: row.selected_option,
       correctOption: row.selected_option ? row.correct_option : null, explanation: row.selected_option ? row.explanation : null,
-      figure: toFigure(row.figure), image: row.image_id ? { id: row.image_id, alt: row.image_alt ?? "" } : null
+      figure: toFigure(row.figure), image: row.image_id ? { id: row.image_id, alt: row.image_alt ?? "" } : null,
+      factMonth: row.fact_as_of,
+      // The Hindi solution is only sent for a question the learner has already answered.
+      hi: row.hi_stem && row.hi_options ? { stem: row.hi_stem, options: row.hi_options, explanation: row.selected_option ? row.hi_explanation : null, figure: toFigure(row.hi_figure), set: null } : null
     }))
   };
 }
 
 export type AnswerResult =
-  | { ok: true; correct: boolean; correctOption: string; explanation: string; finished: null | { score: number; total: number; percent: number; levelBefore: Level; levelAfter: Level; goodSessions: number; promoted: boolean } }
+  | { ok: true; correct: boolean; correctOption: string; explanation: string; explanationHi: string | null; finished: null | { score: number; total: number; percent: number; levelBefore: Level; levelAfter: Level; goodSessions: number; promoted: boolean } }
   | { ok: false; reason: "not_found" | "already_answered" | "completed" };
 
 export async function answerQuestion(userId: string, sessionId: string, questionId: string, selected: string): Promise<AnswerResult> {
@@ -107,8 +112,8 @@ export async function answerQuestion(userId: string, sessionId: string, question
   const session = (await db.query<{ status: string; subject: string; level: Level }>("select status, subject, level from practice_sessions where id = $1 and user_id = $2", [sessionId, userId])).rows[0];
   if (!session) return { ok: false, reason: "not_found" };
   if (session.status === "completed") return { ok: false, reason: "completed" };
-  const row = (await db.query<{ selected_option: string | null; correct_option: string; explanation: string }>(
-    "select pa.selected_option, q.correct_option, q.explanation from practice_answers pa join questions q on q.id = pa.question_id where pa.session_id = $1 and pa.question_id = $2", [sessionId, questionId])).rows[0];
+  const row = (await db.query<{ selected_option: string | null; correct_option: string; explanation: string; explanation_hi: string | null }>(
+    "select pa.selected_option, q.correct_option, q.explanation, qt.explanation as explanation_hi from practice_answers pa join questions q on q.id = pa.question_id left join question_translations qt on qt.question_id = q.id and qt.lang = 'hi' and qt.status = 'approved' where pa.session_id = $1 and pa.question_id = $2", [sessionId, questionId])).rows[0];
   if (!row) return { ok: false, reason: "not_found" };
   if (row.selected_option) return { ok: false, reason: "already_answered" };
 
@@ -125,7 +130,7 @@ export async function answerQuestion(userId: string, sessionId: string, question
     if (done.rowCount > 0) finished = { ...(await updateLevel(db, userId, session.subject, score, total)), score, total };
     else finished = null;
   }
-  return { ok: true, correct, correctOption: row.correct_option, explanation: row.explanation, finished };
+  return { ok: true, correct, correctOption: row.correct_option, explanation: row.explanation, explanationHi: row.explanation_hi, finished };
 }
 
 async function updateLevel(db: Db, userId: string, subject: string, score: number, total: number) {

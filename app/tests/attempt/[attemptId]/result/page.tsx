@@ -1,14 +1,17 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import type { Route } from "next";
 import { notFound } from "next/navigation";
 import { CheckCircle2, CircleSlash, XCircle } from "lucide-react";
 import { ButtonLink } from "@/components/design-system";
 import { Inline, Rich } from "@/components/rich-text";
+import { FactMonth } from "@/components/fact-month";
 import { QuestionFigure } from "@/components/question-figure";
 import { SetStimulus } from "@/components/set-stimulus";
 import { SolutionText } from "@/components/solution-text";
 import { StartTestButton } from "@/components/tests/start-test-button";
 import { requireUser } from "@/lib/auth/guards";
+import { localize, solutionFor, toLang } from "@/lib/localize";
 import { getResultData } from "@/lib/tests/attempts";
 
 export const metadata = { title: "Your result", robots: { index: false, follow: false } };
@@ -16,13 +19,16 @@ export const dynamic = "force-dynamic";
 
 const minutes = (seconds: number) => `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 
-export default async function ResultPage({ params }: { params: Promise<{ attemptId: string }> }) {
+export default async function ResultPage({ params, searchParams }: { params: Promise<{ attemptId: string }>; searchParams: Promise<{ lang?: string }> }) {
   const { attemptId } = await params;
+  const { lang: langParam } = await searchParams;
   if (!/^[0-9a-f-]{36}$/i.test(attemptId)) notFound();
   const user = await requireUser();
   const data = await getResultData(user.id, attemptId);
   if (!data) notFound();
   const { result } = data;
+  const lang = toLang(langParam ?? (await cookies()).get("sarkari_locale")?.value);
+  const anyHindi = data.solutions.some((solution) => solution.hi);
   const testPath = `/tests/${data.examSlug}/${data.seriesSlug}/${data.testSlug}`;
 
   return (
@@ -67,18 +73,31 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
         </div>
 
         <section className="mt-10" aria-labelledby="solutions-heading">
-          <h2 id="solutions-heading" className="text-2xl font-black tracking-tight text-primary">Solutions</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="solutions-heading" className="text-2xl font-black tracking-tight text-primary">Solutions</h2>
+            {anyHindi && (
+              <div role="group" aria-label="Solution language" className="inline-flex rounded-full border border-border bg-white p-0.5 text-xs font-black">
+                {([["en", "English"], ["hi", "हिन्दी"]] as const).map(([value, label]) => (
+                  <Link key={value} href={`?lang=${value}` as Route} lang={value} aria-current={lang === value ? "true" : undefined} className={`inline-flex min-h-8 items-center rounded-full px-3 ${lang === value ? "bg-primary text-white" : "text-primary"}`}>{label}</Link>
+                ))}
+              </div>
+            )}
+          </div>
           <ol className="mt-4 grid gap-4">
-            {data.solutions.map((solution, position) => (
-              <li key={solution.id} className="rounded-3xl bg-white p-5 shadow-soft">
+            {data.solutions.map((solution, position) => {
+              const view = localize(solution, lang);
+              return (
+              <li key={solution.id} lang={view.translated ? "hi" : undefined} className="rounded-3xl bg-white p-5 shadow-soft">
                 <p className="text-xs font-black uppercase tracking-wide text-muted">Q{position + 1} · {solution.section} · {solution.topic}</p>
-                {solution.set && (position > 0 && data.solutions[position - 1].set?.id === solution.set.id
-                  ? <p className="mt-2 rounded-xl bg-surface px-3 py-2 text-xs font-bold text-muted">Uses the data shown with the question above.</p>
-                  : <div className="mt-2"><SetStimulus set={solution.set} /></div>)}
-                <QuestionFigure figure={solution.figure} image={solution.image} />
-                <Rich text={solution.stem} className="mt-2 font-bold text-foreground" />
+                <div className="mt-2"><FactMonth value={solution.factMonth} lang={view.translated ? "hi" : "en"} /></div>
+                {view.set && (position > 0 && data.solutions[position - 1].set?.id === view.set.id
+                  ? <p className="mt-2 rounded-xl bg-surface px-3 py-2 text-xs font-bold text-muted">{view.translated ? "ऊपर के प्रश्न के साथ दिए गए आँकड़ों का उपयोग करें।" : "Uses the data shown with the question above."}</p>
+                  : <div className="mt-2"><SetStimulus set={view.set} lang={view.translated ? "hi" : "en"} /></div>)}
+                <QuestionFigure figure={view.figure} image={solution.image} />
+                <Rich text={view.stem} className="mt-2 font-bold text-foreground" />
                 <ul className="mt-3 grid gap-2 text-sm">
-                  {Object.entries(solution.options).map(([key, text]) => {
+                  {Object.keys(solution.options).map((key) => {
+                    const text = view.options[key] ?? solution.options[key];
                     const isCorrect = key === solution.correct;
                     const isChosen = key === solution.selected;
                     return (
@@ -88,9 +107,10 @@ export default async function ResultPage({ params }: { params: Promise<{ attempt
                     );
                   })}
                 </ul>
-                <div className="mt-3 rounded-xl bg-surface p-3 text-sm leading-6 text-muted"><p className="mb-1.5 text-xs font-black uppercase tracking-wide text-success">Solution</p><SolutionText text={solution.explanation} /></div>
+                <div className="mt-3 rounded-xl bg-surface p-3 text-sm leading-6 text-muted"><p className="mb-1.5 text-xs font-black uppercase tracking-wide text-success">Solution</p><SolutionText text={solutionFor(solution, lang)} /></div>
               </li>
-            ))}
+              );
+            })}
           </ol>
         </section>
         <p className="mt-8 text-center text-xs font-semibold text-muted">Found a mistake in a question? <Link href="/report-error" className="underline">Tell us</Link> and we will review it.</p>

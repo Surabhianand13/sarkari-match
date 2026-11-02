@@ -4,6 +4,7 @@ import { AdminHeader, ButtonLinkSmall, DataTable, Flash, StatusPill, SubmitButto
 import { bulkSetQuestionStatus } from "@/app/admin/questions/actions";
 import { adminDb } from "@/lib/admin/db";
 import { validationStatuses } from "@/lib/tests/question-schema";
+import { monthYearLabel } from "@/lib/freshness";
 
 export const metadata = { title: "Question review" };
 
@@ -23,8 +24,8 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
          from questions where validation_status in ('published', 'approved', 'auto_passed', 'needs_review')
         group by subject, topic order by subject, topic`
     ),
-    db.query<{ id: string; stem: string; subject: string; topic: string; difficulty: string; validation_status: string; generator_model: string | null; in_set: boolean; has_figure: boolean; has_image: boolean }>(
-      `select id, stem, subject, topic, difficulty, validation_status, generator_model, set_id is not null as in_set, figure is not null as has_figure, image_id is not null as has_image from questions
+    db.query<{ id: string; stem: string; subject: string; topic: string; difficulty: string; validation_status: string; generator_model: string | null; in_set: boolean; has_figure: boolean; has_image: boolean; fact_as_of: string | null }>(
+      `select id, stem, subject, topic, difficulty, validation_status, generator_model, set_id is not null as in_set, figure is not null as has_figure, image_id is not null as has_image, fact_as_of::text as fact_as_of from questions
        where validation_status = any($1) and ($2 = '' or subject ilike $2 || '%') and ($3 = '' or topic ilike $3 || '%')
        order by created_at desc limit ${pageSize + 1} offset ${(page - 1) * pageSize}`,
       [statusFilter, subject.replace(/[%_\\]/g, ""), topic.replace(/[%_\\]/g, "")]
@@ -76,7 +77,7 @@ export default async function QuestionsPage({ searchParams }: { searchParams: Pr
             <tr key={q.id}>
               <Td><input type="checkbox" name="question_id" value={q.id} className="size-4" aria-label="Select question" /></Td>
               <Td className="max-w-md">{q.stem.length > 140 ? `${q.stem.slice(0, 140)}...` : q.stem}</Td>
-              <Td>{q.subject} / {q.topic}{q.in_set ? " · data set" : ""}{q.has_figure ? " · figure" : ""}{q.has_image ? " · image" : ""}</Td>
+              <Td>{q.subject} / {q.topic}{q.in_set ? " · data set" : ""}{q.has_figure ? " · figure" : ""}{q.has_image ? " · image" : ""}{q.fact_as_of ? ` · ${monthYearLabel(q.fact_as_of)}` : ""}</Td>
               <Td>{q.difficulty}</Td>
               <Td className="text-xs">{q.generator_model ?? "human"}</Td>
               <Td><StatusPill status={q.validation_status} /></Td>

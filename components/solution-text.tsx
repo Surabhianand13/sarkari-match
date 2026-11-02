@@ -1,7 +1,7 @@
 import { Inline, RichTable } from "@/components/rich-text";
 import { parseRichBlocks } from "@/lib/rich-text";
 
-const label = /^(Key idea|Step \d+|Answer|Why not the others|Why|Shortcut|Remember)\s*:\s*/i;
+const label = /^(Key idea|Step \d+|Answer|Why not the others|Why|Shortcut|Remember|मुख्य विचार|चरण \d+|उत्तर|अन्य विकल्प क्यों नहीं|शॉर्टकट|याद रखें)\s*:\s*/i;
 
 // Shows a worked solution one line per part, with the label (Key idea, Step 1, Answer...) in bold. Tables and maths are drawn
 // properly. Older one-line explanations still render as a single line.

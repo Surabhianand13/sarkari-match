@@ -74,10 +74,14 @@ export function topicInSyllabus(syllabus: string, topic: string): boolean | null
   return words.every((word) => haystack.includes(word.replace(/s$/, "")));
 }
 
+export type CurrentAffairsNote = { title: string; asOf: string | null; body: string };
+
 export type Knowledge = {
   hasSyllabus: boolean;
   syllabus: string;
   currentAffairs: string;
+  // The notes behind currentAffairs, so a question can be checked against the one note it cites.
+  currentAffairsNotes: CurrentAffairsNote[];
   currentAffairsStale: boolean;
   pyqs: string[];
   pyqSamples: string[];
@@ -102,7 +106,9 @@ export async function knowledgeFor(db: Db, input: { exam: string; subject: strin
 
   const syllabus = ofKind("syllabus").map((row) => row.body).join("\n\n").slice(0, SYLLABUS_LIMIT);
   const currentAffairsRows = ofKind("current_affairs");
-  const currentAffairs = currentAffairsRows.map((row) => row.body).join("\n\n").slice(0, CURRENT_AFFAIRS_LIMIT);
+  // Each note carries its title and date, so the writer can cite it and the question can be dated.
+  const currentAffairs = currentAffairsRows.map((row) => `[Source: ${row.title}${row.as_of ? `, as of ${row.as_of.slice(0, 10)}` : ""}]\n${row.body}`).join("\n\n").slice(0, CURRENT_AFFAIRS_LIMIT);
+  const currentAffairsNotes = currentAffairsRows.map((row) => ({ title: row.title, asOf: row.as_of ? row.as_of.slice(0, 10) : null, body: row.body }));
   const newest = currentAffairsRows.find((row) => row.as_of)?.as_of;
   const currentAffairsStale = currentAffairsRows.length > 0 && (!newest || Date.now() - new Date(newest).getTime() > 365 * 24 * 3600 * 1000);
   const pyqs = ofKind("pyq").flatMap((row) => pyqStems(row.body)).slice(0, PYQ_STEM_LIMIT);
@@ -111,7 +117,7 @@ export async function knowledgeFor(db: Db, input: { exam: string; subject: strin
   const matching = keyword ? pyqs.filter((stem) => stem.toLowerCase().includes(keyword)) : [];
   const pyqSamples = (matching.length >= 3 ? matching : pyqs).slice(0, 5).map((stem) => stem.slice(0, 400));
 
-  return { hasSyllabus: syllabus.length > 0, syllabus, currentAffairs, currentAffairsStale, pyqs, pyqSamples, sourceTitles: relevant.map((row) => `${sourceKindLabels[row.kind]}: ${row.title}`) };
+  return { hasSyllabus: syllabus.length > 0, syllabus, currentAffairs, currentAffairsNotes, currentAffairsStale, pyqs, pyqSamples, sourceTitles: relevant.map((row) => `${sourceKindLabels[row.kind]}: ${row.title}`) };
 }
 
 // Text from a PDF upload. Scanned (image only) PDFs have no text layer; the caller reports that to the admin.
