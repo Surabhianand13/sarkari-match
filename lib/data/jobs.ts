@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/db";
 import { demoJobs, getJobBySlug as getDemoJobBySlug, qualificationLabels, type JobPost } from "@/lib/data/catalog";
+import { byStatus, effectiveStatus } from "@/lib/data/status";
 import type { PostRules } from "@/lib/matching/types";
 
 export type JobPostRow = {
@@ -14,6 +15,7 @@ export type JobPostRow = {
   published_at: string | null;
   eligibility_rules: Partial<PostRules> | null;
   recruitment_title: string | null;
+  application_start_date: string | null;
   application_end_date: string | null;
   official_notification_url: string | null;
   official_application_url: string | null;
@@ -43,7 +45,7 @@ export function toJobPost(row: JobPostRow): JobPost {
     vacancyShared: row.vacancy_count == null && row.vacancy_total != null,
     salaryText: row.salary_text ?? "As per official notification",
     applicationEndDate: row.application_end_date ?? "",
-    applicationStatus: row.application_status,
+    applicationStatus: effectiveStatus(row.application_status, { startDate: row.application_start_date, endDate: row.application_end_date }),
     publishedAt: row.published_at ?? "",
     verifiedAt: row.verified_at ?? row.published_at ?? "",
     officialApplicationUrl: row.official_application_url ?? "#",
@@ -58,7 +60,7 @@ const iso = (column: string) => `to_char(${column} at time zone 'UTC', 'YYYY-MM-
 const JOB_POST_SELECT = `
   select jp.id, jp.slug, jp.title, jp.description, jp.vacancy_count, jp.salary_text, jp.application_status,
          ${iso("jp.published_at")} as published_at, jp.eligibility_rules,
-         r.title as recruitment_title, r.vacancy_total, r.application_end_date::text as application_end_date,
+         r.title as recruitment_title, r.vacancy_total, r.application_start_date::text as application_start_date, r.application_end_date::text as application_end_date,
          r.official_notification_url, r.official_application_url, ${iso("r.verified_at")} as verified_at,
          o.name as organisation_name, d.name as department_name, s.name as state_name
   from job_posts jp
@@ -78,7 +80,7 @@ async function fetchRows(extraWhere = "", params: unknown[] = []): Promise<JobPo
 export async function getJobs(): Promise<JobPost[]> {
   const rows = await fetchRows();
   if (!rows) return demoJobs;
-  return rows.map(toJobPost);
+  return byStatus(rows.map(toJobPost));
 }
 
 export type MatchableJob = { job: JobPost; rules: PostRules };

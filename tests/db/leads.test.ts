@@ -103,7 +103,6 @@ describe("capturing and collating", () => {
     const fields = fieldsOf((await getLead(db, leadId))!.lead);
     await expect(approveLead(db, { id: leadId, actorId: adminId, mode: "publish", fields, note: "" })).rejects.toThrow(LeadError);
     await expect(approveLead(db, { id: leadId, actorId: adminId, mode: "publish", fields: { ...fields, officialApplicationUrl: null }, note: "Checked on rvb.gov.in" })).rejects.toThrow(/application link/);
-    await expect(approveLead(db, { id: leadId, actorId: adminId, mode: "publish", fields: { ...fields, applicationEndDate: "2020-01-01" }, note: "Checked on rvb.gov.in" })).rejects.toThrow(/already passed/);
     expect((await db.query("select 1 from recruitments where title ilike '%Rail Vikas%'")).rowCount).toBe(0);
   });
 
@@ -294,5 +293,53 @@ describe("a total with no split by post, and the pay", () => {
     expect(vacancyFigure({ vacancyCount: 0, vacancyShared: false })).toBe("As per notification");
     expect(vacancyPhrase({ vacancyCount: 0, vacancyShared: false })).toBe("Vacancies as per notification");
     expect(vacancyPlain({ vacancyCount: 102, vacancyShared: true })).toBe("102 vacancies in total");
+  });
+});
+
+describe("past notifications and the active count", () => {
+  it("publishes a notification whose last date has passed, and it shows as past without anyone updating it", async () => {
+    const { ingestPage, approveLead, getLead, fieldsOf } = await import("@/lib/ingest/leads");
+    const result = await ingestPage(
+      db,
+      page({
+        url: "https://rival-one.example/old-clerk-2024",
+        title: "Old Cooperative Bank Clerk Recruitment 2024 for 40 Posts",
+        text: ["Organization Name : Old Cooperative Bank", "Last Date to Apply Online : 15/03/2024", "Total Vacancy : 40", "Qualification : Any Graduate"].join("\n"),
+        links: [{ href: "https://oldbank.gov.in/notice/clerk-2024.pdf", text: "Download Notification" }, { href: "https://oldbank.gov.in/apply", text: "Apply Online" }],
+        tables: []
+      }),
+      noToken
+    );
+    const fields = fieldsOf((await getLead(db, result.leadId))!.lead);
+    const { recruitmentId } = await approveLead(db, { id: result.leadId, actorId: adminId, mode: "publish", fields, note: "Archive entry checked on oldbank.gov.in." });
+    expect((await db.query<{ application_status: string }>("select application_status::text from job_posts where recruitment_id = $1", [recruitmentId])).rows[0].application_status).toBe("closed");
+
+    const { getJobs } = await import("@/lib/data/jobs");
+    const jobs = await getJobs();
+    const old = jobs.find((job) => job.recruitmentTitle.includes("Old Cooperative"))!;
+    expect(old.applicationStatus).toBe("closed");
+    // Open notifications are listed before past ones.
+    const order = jobs.map((job) => job.applicationStatus);
+    expect(order.indexOf("closed")).toBeGreaterThan(order.lastIndexOf("open"));
+  });
+
+  it("counts active, upcoming and past notifications for the admin overview, and stored status does not matter", async () => {
+    const { getAdminStats } = await import("@/lib/admin/stats");
+    const before = (await getAdminStats())!;
+    // A post saved as open whose recruitment ended long ago is past; one saved as closed is not active either.
+    const org = (await db.query<{ id: string }>("select id from organisations limit 1")).rows[0].id;
+    const make = async (slug: string, start: string | null, end: string, status: string) => {
+      const r = (await db.query<{ id: string }>("insert into recruitments (organisation_id, title, slug, application_start_date, application_end_date, editorial_status, status, published_at) values ($1,$2,$3,$4,$5,'published','published', now()) returning id", [org, slug, slug, start, end])).rows[0].id;
+      await db.query("insert into job_posts (recruitment_id, title, slug, application_status, active, published_at) values ($1,$2,$2,$3::application_status,true,now())", [r, slug, status]);
+    };
+    await make("stat-active", "2020-01-01", "2099-01-01", "open");
+    await make("stat-upcoming", "2098-01-01", "2099-01-01", "open");
+    await make("stat-stale-open", "2019-01-01", "2020-01-01", "open");
+    await make("stat-manual-closed", "2020-01-01", "2099-01-01", "closed");
+    const after = (await getAdminStats())!;
+    expect(after.activeNotifications - before.activeNotifications).toBe(1);
+    expect(after.activePosts - before.activePosts).toBe(1);
+    expect(after.upcomingNotifications - before.upcomingNotifications).toBe(1);
+    expect(after.pastNotifications - before.pastNotifications).toBe(2);
   });
 });

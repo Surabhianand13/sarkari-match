@@ -16,6 +16,7 @@ import {
   type ParseContext,
   type ParsedLead
 } from "@/lib/ingest/parse";
+import { todayInIndia } from "@/lib/data/status";
 import { normalizeQualificationLevel } from "@/lib/matching/profile";
 import type { Db } from "@/lib/db";
 
@@ -97,9 +98,6 @@ function incomingFields(parsed: ParsedLead): Partial<LeadFields> {
   };
 }
 
-export function todayInIndia() {
-  return new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
 
 // ---- Capturing ----
 
@@ -392,7 +390,7 @@ export async function approveLead(db: Db, input: { id: string; actorId: string; 
     const lead = await lockPending(tx, input.id);
     const problems = formatProblems(fields);
     if (mode === "publish") {
-      problems.push(...publishProblems(fields, { today, detailCaptured: lead.detail_captured, leadType: lead.lead_type }));
+      problems.push(...publishProblems(fields, { detailCaptured: lead.detail_captured, leadType: lead.lead_type }));
       if (input.note.trim().length < 10) problems.push("Write what you checked against the official notification.");
     } else if (!fields.organisationId && !fields.organisationName) {
       problems.push("Choose the organisation.");

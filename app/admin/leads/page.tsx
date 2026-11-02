@@ -3,7 +3,8 @@ import type { Route } from "next";
 import { AdminHeader, ButtonLinkSmall, DataTable, Flash, StatusPill, Td } from "@/components/admin/ui";
 import { adminDb } from "@/lib/admin/db";
 import { missingFields } from "@/lib/ingest/fields";
-import { leadCounts, leadStatuses, listLeads, todayInIndia, type LeadStatus } from "@/lib/ingest/leads";
+import { todayInIndia } from "@/lib/data/status";
+import { leadCounts, leadStatuses, listLeads, type LeadStatus } from "@/lib/ingest/leads";
 import { leadTypeLabels } from "@/lib/ingest/parse";
 
 export const metadata = { title: "Competitor leads" };
@@ -42,7 +43,7 @@ export default async function AdminLeadsPage({ searchParams }: { searchParams: P
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   {lead.lead_type !== "recruitment" && <span className="rounded-full bg-surface px-2 py-0.5 text-[0.68rem] font-black text-muted">{leadTypeLabels[lead.lead_type]}</span>}
                   {!lead.detail_captured && <span className="rounded-full bg-amber-soft px-2 py-0.5 text-[0.68rem] font-black text-warning">Headline only</span>}
-                  {lead.application_end_date && lead.application_end_date < today && lead.status === "pending" && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[0.68rem] font-black text-error">Last date passed</span>}
+                  {lead.application_end_date && lead.application_end_date < today && lead.status === "pending" && <span className="rounded-full bg-surface px-2 py-0.5 text-[0.68rem] font-black text-muted">Past: will show as closed</span>}
                   {lead.matched_recruitment_id && <span className="rounded-full bg-cyan-soft px-2 py-0.5 text-[0.68rem] font-black text-teal">May already be live</span>}
                 </div>
               </Td>
