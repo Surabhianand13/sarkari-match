@@ -4,7 +4,10 @@ const nextConfig: NextConfig = {
   typedRoutes: true,
   serverExternalPackages: ["pg", "@electric-sql/pglite"],
   outputFileTracingRoot: process.cwd(),
-  experimental: { serverActions: { bodySizeLimit: "6mb" } },
+  // `next build` renders pages in one worker per CPU it sees, and Render reports the whole host's CPUs, not the 0.5 this service has.
+  // Each worker opens its own database connections, and Supabase's session pooler only allows ~15 in all (the live site holds some too),
+  // so an unlucky host exhausts it mid-build. Two workers keep the build well under the limit.
+  experimental: { cpus: 2, serverActions: { bodySizeLimit: "6mb" } },
   async headers() {
     return [
       {
