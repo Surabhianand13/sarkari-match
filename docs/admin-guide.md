@@ -35,6 +35,8 @@ Payments, subscriptions and test access are read-only views. Error reports from 
 
 ### One-click sync and the 6-month backfill
 
+The most direct way: open any listing page on a competitor's site (a category, a state page, a "latest" page), click the extension, and choose **Read every notification on this listing page**. Pick how far back to go (30 days to a year, or any date). It reads that page, follows its next pages, and opens each notification linked from it that is new or was updated.
+
 In the extension popup, **Check for new and updated notifications** reads FreeJobAlert's and Adda247's latest listings, opens each notification from the last 30 days that is new or was updated, and sends it to the review queue. A notification the site has updated since it was last read is read again; one that has not changed is skipped. **Bring in the last 6 months** (a link at the bottom of the popup) does the same once across the category and state pages, for the archive. It opens pages in background tabs, two at a time, so keep its tab open (it can take an hour or more). Stop it whenever you like and run it again: pages already read are skipped.
 
 Nothing is published by the sync. When a notification's own page changes (a last date extended, a vacancy count revised), the lead shows **Changed on the source** with the old and new value. A pending lead follows the change for any field you have not edited yourself. For a lead that is already published, **Apply the dates and vacancies to the recruitment** copies the new last date, start date and vacancy total onto the live recruitment after you have checked the official notification. The Overview shows how many are waiting.

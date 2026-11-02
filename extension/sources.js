@@ -19,9 +19,17 @@ const FJA_PAGES = [
 ];
 export const BACKFILL_LISTINGS = [...CHECK_LISTINGS, ...FJA_PAGES.map((page) => `${FJA}/${page}/`)];
 
-export const WINDOWS = { check: { label: "the last 30 days", days: 30 }, backfill: { label: "the last 6 months", days: 183 } };
+// How far back a run goes. A listing row older than this is skipped; a row with no date is always read.
+export const WINDOWS = [
+  { key: "30", label: "the last 30 days", days: 30 },
+  { key: "90", label: "the last 3 months", days: 90 },
+  { key: "183", label: "the last 6 months", days: 183 },
+  { key: "365", label: "the last year", days: 365 },
+  { key: "any", label: "any date", days: 0 }
+];
 
 export function sinceDate(days) {
+  if (!days) return undefined;
   const date = new Date(Date.now() + 5.5 * 3600 * 1000 - days * 86400 * 1000);
   return date.toISOString().slice(0, 10);
 }

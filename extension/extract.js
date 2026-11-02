@@ -49,8 +49,13 @@ export function extractPage(mode) {
     }
   }
 
+  // The link to the next page of a long listing, when the site has one.
+  const nextAnchor = mode === "list" ? document.querySelector("a[rel~=next], .pagination .next a, a.next, .nav-links a.next, li.next a") : null;
+  const next = nextAnchor && /^https?:/i.test(nextAnchor.href) && nextAnchor.href !== location.href ? nextAnchor.href : "";
+
   return {
     mode,
+    next,
     url: location.href,
     title: oneLine(document.title, 500),
     text: mode === "page" ? squash(scope.innerText, 120000) : "",
